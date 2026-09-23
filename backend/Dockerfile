@@ -13,6 +13,7 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev
 
 COPY app ./app
+COPY importer ./importer
 
 ENV PATH="/app/.venv/bin:$PATH"
 
