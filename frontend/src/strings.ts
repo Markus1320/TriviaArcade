@@ -30,6 +30,8 @@ export const strings = {
   saving: 'Saving...',
   save: 'SAVE',
   placed: (handle: string, rank: number) => `${handle} placed #${String(rank)}`,
+  notPersonalBest: (handle: string, rank: number) =>
+    `Not a new personal best. ${handle} stays at #${String(rank)}.`,
 
   leaderboard: 'TOP 10',
   leaderboardEmpty: 'No scores yet. Be the first!',

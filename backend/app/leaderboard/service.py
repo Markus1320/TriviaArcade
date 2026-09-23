@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Player, Run
@@ -26,7 +26,10 @@ class RunAlreadyClaimedError(GameError):
 class ClaimResult:
     handle: str
     streak: int
+    # The player's leaderboard rank, based on their best run (may be below the top 10).
     rank: int
+    # Whether this run is now the player's best run, i.e. their leaderboard entry.
+    personal_best: bool
 
 
 class LeaderboardService:
@@ -61,22 +64,31 @@ class LeaderboardService:
             run.player = player
             run.claimed_at = self._clock()
             self._session.flush()
-            return ClaimResult(handle=handle, streak=run.streak, rank=self._rank_of(run))
+
+            ranked = rank_runs(self._best_runs(_best_runs_query()), limit=None)
+            entry = next(e for e in ranked if e.handle == handle)
+            return ClaimResult(
+                handle=handle,
+                streak=run.streak,
+                rank=entry.rank,
+                personal_best=entry.run_id == run.id,
+            )
 
     def top(self, limit: int = LEADERBOARD_SIZE) -> list[LeaderboardEntry]:
+        """The best run of each player, the top `limit` players."""
         with self._session.begin():
-            rows = self._session.execute(
-                select(Run.id, Player.handle, Run.streak, Run.ended_at)
-                .join(Player, Run.player_id == Player.id)
-                .where(Run.status == RUN_OVER)
-                .order_by(Run.streak.desc(), Run.ended_at.asc(), Run.id.asc())
-                .limit(limit)
-            ).all()
-        finished = [
+            query = _best_runs_query()
+            columns = query.selected_columns
+            query = query.order_by(
+                columns.streak.desc(), columns.ended_at.asc(), columns.id.asc()
+            ).limit(limit)
+            return rank_runs(self._best_runs(query), limit)
+
+    def _best_runs(self, query: Select[tuple[uuid.UUID, str, int, datetime]]) -> list[FinishedRun]:
+        return [
             FinishedRun(run_id=run_id, handle=handle, streak=streak, finished_at=ended_at)
-            for run_id, handle, streak, ended_at in rows
+            for run_id, handle, streak, ended_at in self._session.execute(query).all()
         ]
-        return rank_runs(finished, limit)
 
     def handles(self) -> list[str]:
         """Existing handles, most recently used first."""
@@ -90,24 +102,24 @@ class LeaderboardService:
             ).scalars()
             return list(rows)
 
-    def _rank_of(self, run: Run) -> int:
-        """1 + the number of claimed runs that rank above this one."""
-        assert run.ended_at is not None
-        better = self._session.scalar(
-            select(func.count())
-            .select_from(Run)
-            .where(
-                Run.player_id.is_not(None),
-                Run.id != run.id,
-                or_(
-                    Run.streak > run.streak,
-                    and_(Run.streak == run.streak, Run.ended_at < run.ended_at),
-                    and_(
-                        Run.streak == run.streak,
-                        Run.ended_at == run.ended_at,
-                        Run.id < run.id,
-                    ),
-                ),
-            )
+
+def _best_runs_query() -> Select[tuple[uuid.UUID, str, int, datetime]]:
+    """Each player's best claimed run (highest streak, earlier finish), one row per player."""
+    position = (
+        func.row_number()
+        .over(
+            partition_by=Run.player_id,
+            order_by=(Run.streak.desc(), Run.ended_at.asc(), Run.id.asc()),
         )
-        return (better or 0) + 1
+        .label("position")
+    )
+    ranked = (
+        select(Run.id, Run.player_id, Run.streak, Run.ended_at, position)
+        .where(Run.player_id.is_not(None), Run.status == RUN_OVER)
+        .subquery()
+    )
+    return (
+        select(ranked.c.id, Player.handle, ranked.c.streak, ranked.c.ended_at)
+        .join(Player, Player.id == ranked.c.player_id)
+        .where(ranked.c.position == 1)
+    )

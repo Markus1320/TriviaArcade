@@ -334,7 +334,7 @@ def test_claim_adds_run_to_leaderboard(game: Game) -> None:
     run_id = game.play(correct_answers=2)
     response = game.claim(run_id, " ace ")
     assert response.status_code == 200
-    assert response.json() == {"handle": "ACE", "streak": 2, "rank": 1}
+    assert response.json() == {"handle": "ACE", "streak": 2, "rank": 1, "personal_best": True}
     board = game.client.get("/api/leaderboard").json()
     assert [(row["rank"], row["handle"], row["streak"]) for row in board] == [(1, "ACE", 2)]
     assert game.client.get(f"/api/runs/{run_id}").json()["claimed_by"] == "ACE"
@@ -391,10 +391,30 @@ def test_leaderboard_order_and_tie_breaking(game: Game) -> None:
 
 
 def test_claim_reports_rank_below_the_top(game: Game) -> None:
-    for _ in range(3):
-        game.claim(game.play(4), "PRO")
+    for number in range(3):
+        game.claim(game.play(4), f"PRO{number}")
     result = game.claim(game.play(1), "NEW").json()
     assert result["rank"] == 4
+
+
+def test_leaderboard_shows_each_players_best_run_once(game: Game) -> None:
+    game.claim(game.play(2), "ACE")
+    game.claim(game.play(5), "ACE")
+    game.claim(game.play(3), "BOB")
+    board = game.client.get("/api/leaderboard").json()
+    assert [(row["rank"], row["handle"], row["streak"]) for row in board] == [
+        (1, "ACE", 5),
+        (2, "BOB", 3),
+    ]
+
+
+def test_claim_below_personal_best_reports_the_players_rank(game: Game) -> None:
+    game.claim(game.play(5), "ACE")
+    game.claim(game.play(3), "BOB")
+    result = game.claim(game.play(1), "ACE").json()
+    assert result == {"handle": "ACE", "streak": 1, "rank": 1, "personal_best": False}
+    improved = game.claim(game.play(6), "BOB").json()
+    assert improved == {"handle": "BOB", "streak": 6, "rank": 1, "personal_best": True}
 
 
 def test_leaderboard_shows_ten_runs(game: Game) -> None:

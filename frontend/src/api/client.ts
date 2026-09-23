@@ -28,7 +28,10 @@ export interface AnswerResult {
 export interface ClaimResult {
   handle: string;
   streak: number;
+  // The player's leaderboard rank, based on their best run.
   rank: number;
+  // Whether this run is the player's new best, i.e. their leaderboard entry.
+  personal_best: boolean;
 }
 
 export interface LeaderboardRow {

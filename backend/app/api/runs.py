@@ -62,6 +62,7 @@ class ClaimOut(BaseModel):
     handle: str
     streak: int
     rank: int
+    personal_best: bool
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -101,4 +102,9 @@ def answer(run_id: uuid.UUID, body: AnswerIn, game: GameDep) -> AnswerOut:
 @router.post("/{run_id}/claim")
 def claim(run_id: uuid.UUID, body: ClaimIn, leaderboard: LeaderboardDep) -> ClaimOut:
     result = leaderboard.claim(run_id, body.handle)
-    return ClaimOut(handle=result.handle, streak=result.streak, rank=result.rank)
+    return ClaimOut(
+        handle=result.handle,
+        streak=result.streak,
+        rank=result.rank,
+        personal_best=result.personal_best,
+    )

@@ -1,6 +1,6 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
 
-import { api } from '../api/client';
+import { api, type ClaimResult } from '../api/client';
 import { errorMessage } from '../errors';
 import { strings } from '../strings';
 
@@ -10,7 +10,7 @@ const HANDLE_PATTERN = /^[A-Z0-9]{3,8}$/;
 interface Props {
   runId: string;
   streak: number;
-  onSaved: (handle: string, rank: number) => void;
+  onSaved: (result: ClaimResult) => void;
 }
 
 export function HandleScreen({ runId, streak, onSaved }: Props) {
@@ -39,7 +39,7 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
     api
       .claim(runId, normalized)
       .then((result) => {
-        onSaved(result.handle, result.rank);
+        onSaved(result);
       })
       .catch((err: unknown) => {
         setError(errorMessage(err));

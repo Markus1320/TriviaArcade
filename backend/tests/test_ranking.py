@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from app.leaderboard.ranking import FinishedRun, rank_runs
+from app.leaderboard.ranking import FinishedRun, best_per_player, rank_runs
 
 T0 = datetime(2026, 9, 24, 12, 0, tzinfo=UTC)
 
@@ -29,9 +29,28 @@ def test_ties_are_broken_by_earlier_finish() -> None:
     assert [e.handle for e in entries] == ["EARLY", "MID", "LATE"]
 
 
-def test_player_can_appear_several_times() -> None:
-    entries = rank_runs([run("ACE", 4, 0), run("ACE", 6, 1), run("BOB", 5, 2)])
-    assert [(e.handle, e.streak) for e in entries] == [("ACE", 6), ("BOB", 5), ("ACE", 4)]
+def test_each_player_appears_once_with_their_best_run() -> None:
+    entries = rank_runs([run("ACE", 4, 0), run("ACE", 6, 1), run("BOB", 5, 2), run("ACE", 2, 3)])
+    assert [(e.rank, e.handle, e.streak) for e in entries] == [(1, "ACE", 6), (2, "BOB", 5)]
+
+
+def test_players_best_run_prefers_the_earlier_finish_on_a_tie() -> None:
+    first, second = run("ACE", 5, 0), run("ACE", 5, 10)
+    assert best_per_player([second, first]) == [first]
+
+
+def test_top_ten_counts_players_not_runs() -> None:
+    runs = [run("ACE", streak, streak) for streak in range(20)]
+    runs += [run(f"P{i:02d}", i, 100 + i) for i in range(9)]
+    entries = rank_runs(runs)
+    assert len(entries) == 10
+    assert entries[0].handle == "ACE"
+    assert [e.handle for e in entries].count("ACE") == 1
+
+
+def test_no_limit_ranks_every_player() -> None:
+    entries = rank_runs([run(f"P{i:02d}", i, i) for i in range(15)], limit=None)
+    assert len(entries) == 15
 
 
 def test_only_top_ten() -> None:

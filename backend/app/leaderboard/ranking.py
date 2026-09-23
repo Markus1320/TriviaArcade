@@ -1,7 +1,8 @@
-"""Leaderboard order: highest streak first, ties broken by the earlier finish time.
+"""Leaderboard order: one entry per player, their best run.
 
-A player can appear several times. The run ID only makes the order total, for the
-theoretical case of two runs finishing in the same instant.
+A player's best run is their highest streak, the earlier finish winning a tie. Players are
+then ordered the same way: highest streak first, ties broken by the earlier finish time.
+The run ID only makes the order total, for two runs finishing in the same instant.
 """
 
 import uuid
@@ -33,8 +34,22 @@ def ranking_key(run: FinishedRun) -> tuple[int, datetime, str]:
     return (-run.streak, run.finished_at, str(run.run_id))
 
 
-def rank_runs(runs: Iterable[FinishedRun], limit: int = LEADERBOARD_SIZE) -> list[LeaderboardEntry]:
-    ordered = sorted(runs, key=ranking_key)[:limit]
+def best_per_player(runs: Iterable[FinishedRun]) -> list[FinishedRun]:
+    best: dict[str, FinishedRun] = {}
+    for run in runs:
+        current = best.get(run.handle)
+        if current is None or ranking_key(run) < ranking_key(current):
+            best[run.handle] = run
+    return list(best.values())
+
+
+def rank_runs(
+    runs: Iterable[FinishedRun], limit: int | None = LEADERBOARD_SIZE
+) -> list[LeaderboardEntry]:
+    """Rank each player's best run. limit=None ranks every player."""
+    ordered = sorted(best_per_player(runs), key=ranking_key)
+    if limit is not None:
+        ordered = ordered[:limit]
     return [
         LeaderboardEntry(
             rank=position,

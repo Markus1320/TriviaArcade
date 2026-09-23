@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 
-import { api, type LeaderboardRow } from '../api/client';
+import { api, type ClaimResult, type LeaderboardRow } from '../api/client';
 import { errorMessage } from '../errors';
 import { strings } from '../strings';
 
 interface Props {
-  highlight?: { handle: string; rank: number };
+  highlight?: ClaimResult;
   onBack: () => void;
 }
 
@@ -25,7 +25,13 @@ export function LeaderboardScreen({ highlight, onBack }: Props) {
   return (
     <main className="screen">
       <h1>{strings.leaderboard}</h1>
-      {highlight && <p>{strings.placed(highlight.handle, highlight.rank)}</p>}
+      {highlight && (
+        <p>
+          {highlight.personal_best
+            ? strings.placed(highlight.handle, highlight.rank)
+            : strings.notPersonalBest(highlight.handle, highlight.rank)}
+        </p>
+      )}
       {error && <p role="alert">{error}</p>}
       {rows?.length === 0 && <p>{strings.leaderboardEmpty}</p>}
       {rows && rows.length > 0 && (
@@ -40,8 +46,8 @@ export function LeaderboardScreen({ highlight, onBack }: Props) {
           <tbody>
             {rows.map((row) => (
               <tr
-                key={`${String(row.rank)}-${row.handle}`}
-                className={highlight?.rank === row.rank ? 'highlight' : undefined}
+                key={row.handle}
+                className={highlight?.handle === row.handle ? 'highlight' : undefined}
               >
                 <td>{row.rank}</td>
                 <td>{row.handle}</td>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { api } from './api/client';
+import { api, type ClaimResult } from './api/client';
 import { runStorage } from './runStorage';
 import { GameOverScreen } from './screens/GameOverScreen';
 import { HandleScreen } from './screens/HandleScreen';
@@ -13,7 +13,7 @@ export type Screen =
   | { name: 'question'; runId: string }
   | { name: 'gameOver'; runId: string; streak: number; expectedAnswer: string | null }
   | { name: 'handle'; runId: string; streak: number }
-  | { name: 'leaderboard'; highlight?: { handle: string; rank: number } };
+  | { name: 'leaderboard'; highlight?: ClaimResult };
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'title' });
@@ -86,9 +86,9 @@ export function App() {
         <HandleScreen
           runId={screen.runId}
           streak={screen.streak}
-          onSaved={(handle, rank) => {
+          onSaved={(result) => {
             runStorage.clear();
-            setScreen({ name: 'leaderboard', highlight: { handle, rank } });
+            setScreen({ name: 'leaderboard', highlight: result });
           }}
         />
       );
