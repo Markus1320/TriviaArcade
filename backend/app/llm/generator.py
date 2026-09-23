@@ -2,6 +2,7 @@
 
 import json
 import re
+import uuid
 from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -138,7 +139,7 @@ class QuestionGenerator:
         self._call_logger = call_logger
         self._max_attempts = max_attempts
 
-    def generate(self, seed: QuestionSeed) -> GeneratedQuestion:
+    def generate(self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
         request = ChatRequest(
             model=self._model,
             system=self._prompt.system,
@@ -166,6 +167,7 @@ class QuestionGenerator:
                     parsed=question.model_dump() if question else None,
                     error=error,
                     latency_ms=outcome.latency_ms,
+                    run_id=run_id,
                 )
             )
             if question is not None:

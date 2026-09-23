@@ -2,6 +2,7 @@
 
 import json
 import re
+import uuid
 from dataclasses import dataclass
 
 from app.llm.call_log import CallLogger, LLMCallRecord
@@ -73,7 +74,9 @@ class AnswerJudge:
         self._call_logger = call_logger
         self._max_attempts = max_attempts
 
-    def judge(self, item: JudgeInput, player_answer: str) -> bool:
+    def judge(
+        self, item: JudgeInput, player_answer: str, *, run_id: uuid.UUID | None = None
+    ) -> bool:
         answer = sanitize_answer(player_answer)
         if not answer:
             raise ValueError("the player answer is empty")
@@ -110,6 +113,7 @@ class AnswerJudge:
                     parsed=verdict,
                     error=error,
                     latency_ms=outcome.latency_ms,
+                    run_id=run_id,
                 )
             )
             if verdict is not None:

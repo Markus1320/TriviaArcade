@@ -1,6 +1,7 @@
 """Logging of every LLM call into PostgreSQL."""
 
 import logging
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Literal, Protocol
 
@@ -23,6 +24,7 @@ class LLMCallRecord:
     parsed: Any
     error: str | None
     latency_ms: int
+    run_id: uuid.UUID | None = None
 
 
 class CallLogger(Protocol):
