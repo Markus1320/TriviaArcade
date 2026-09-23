@@ -82,12 +82,12 @@ Key principles:
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py           # settings from environment
-│   │   ├── api/                # FastAPI routers, request and response models
-│   │   ├── game/               # run lifecycle, streak rules
+│   │   ├── api/                # routers (health, runs, leaderboard), deps.py, errors.py
+│   │   ├── game/               # rules.py (streak, game over), service.py (run lifecycle)
 │   │   ├── graph/              # Neo4j driver, repository, random walk (walk.py)
 │   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge,
 │   │   │                       # facts formatting, call logging, factory
-│   │   ├── leaderboard/        # handles, ranking
+│   │   ├── leaderboard/        # handles.py, ranking.py, service.py (claim, top 10)
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
 │   ├── importer/               # Wikidata import into Neo4j (python -m importer)
 │   │   ├── config.py           # typed model of config/import.yaml
@@ -101,6 +101,7 @@ Key principles:
     ├── package.json
     ├── Dockerfile              # builds static files into the Caddy image
     └── src/
+        ├── App.tsx             # screen switching, resumes a run after reload
         ├── screens/            # title, question, game over, handle entry, leaderboard
         ├── components/
         ├── api/                # typed API client
@@ -260,7 +261,7 @@ Current implementation (`app/graph/walk.py`): the start is chosen by picking an 
 
 Every generator and judge call is logged in PostgreSQL (inputs, raw output, parsed result, model, latency), so questionable verdicts and question quality can be reviewed later.
 
-The table is `llm_calls` (one row per attempt, so retries are visible). A failure to write the log is reported but never breaks the game. Linking calls to runs is added with the runs table in milestone 4.
+The table is `llm_calls` (one row per attempt, so retries are visible). A failure to write the log is reported but never breaks the game. Each row has an optional `run_id`, so all calls of a run can be reviewed together.
 
 ## Players and Leaderboard
 
@@ -269,6 +270,16 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - No passwords or accounts in version one. Anyone can post under any handle. This is accepted for a home network setup.
 - A run can be claimed exactly once, and only after it has ended.
 - The leaderboard shows the top 10 runs by streak. A player can appear multiple times. Ties are broken by the earlier finish time.
+
+## Game Loop (Current Implementation)
+
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, numeric range, player answer and verdict). `llm_calls.run_id` links calls to runs.
+- `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
+- Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
+- Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
+- A judge failure (`JudgeUnavailableError`) writes nothing and returns 503 `judge_unavailable`; the question stays open. A generation failure returns 503 `question_unavailable`; the run continues.
+- Only claimed runs appear on the leaderboard. Claiming returns the run's rank, which may be below 10.
+- Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
 
 ## Frontend and Styling
 
@@ -295,10 +306,12 @@ This project uses a deliberately light testing setup for version one.
   - leaderboard ranking and tie breaking
 - LLM calls are **always mocked** in tests. No test may call the real Ollama API.
 
+- The game flow is tested through the HTTP API (`tests/test_game_api.py`) on in-memory SQLite with fake walk, generator and judge. JSON columns use JSONB on PostgreSQL and JSON on SQLite; row locks are no-ops there.
+
 ### Postponed (note for later)
 
 - Frontend unit tests.
-- Database integration tests with test containers.
+- Database integration tests with test containers (PostgreSQL specifics such as row locks are not covered by the SQLite tests).
 
 ### Manual quality check
 
