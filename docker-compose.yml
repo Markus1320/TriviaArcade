@@ -30,6 +30,7 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       LLM_GENERATOR_MODEL: ${LLM_GENERATOR_MODEL:-}
       LLM_JUDGE_MODEL: ${LLM_JUDGE_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
     healthcheck:
       test:
         [
