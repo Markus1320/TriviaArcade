@@ -155,7 +155,7 @@ LLM_TIMEOUT_SECONDS=      # optional, default 120
 
 LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
 
-Model tags seen in the public Ollama cloud catalog (2026-09-23): `qwen3.5:397b` and `gemma4:31b` are the Gemma/Qwen options, suggested as generator and judge. Confirm with the account's key before relying on them.
+Model tags seen in the public Ollama cloud catalog (2026-09-23): `qwen3.5:397b` and `gemma4:31b` are the Gemma/Qwen options. The current setup uses `gemma4:31b-cloud` for both generator and judge (chosen by the project owner, verified with real sample runs).
 
 Before filling in model names, check which model tags are actually available for the configured Ollama account. Do not guess tags.
 
@@ -219,7 +219,7 @@ Current implementation (`app/graph/walk.py`): the start is chosen by picking an 
 - `app/llm/` defines an `LLMClient` protocol and an Ollama implementation.
 - Generator and judge use separately configured models.
 - Prompts live as template files in `backend/prompts/`, never as long strings inside Python code.
-- Both calls use Ollama structured output: the generator a JSON schema for the question object, the judge the schema `{"type": "boolean"}`, so the model can only emit `true` or `false`. Parsing is still strict.
+- Both calls send an Ollama structured output schema (the question object for the generator, `{"type": "boolean"}` for the judge), but the Ollama cloud API does not reliably enforce it: `gemma4:31b-cloud` wrapped its JSON in Markdown code fences. Therefore the generator prompt spells out the exact JSON shape with examples and asks for no code fences, and the generator parser also tolerates a code fence or text around the JSON object (the raw output is logged unchanged). The judge stays strict: only `true` or `false` is accepted.
 - The generator also retries once on invalid output (bad JSON, schema mismatch, answer given away in the question) and then raises `QuestionGenerationError`. The judge raises `JudgeUnavailableError` after its retry; the game must pause the run on it.
 
 ### Call One: Generate Question
