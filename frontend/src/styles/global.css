@@ -1,4 +1,4 @@
-/* Minimal placeholder styling. The arcade look arrives in milestone 5. */
+/* Plain, readable layout. The arcade look arrives in milestone 5. */
 *,
 *::before,
 *::after {
@@ -11,25 +11,87 @@ body {
   min-height: 100%;
   background: #000;
   color: #fff;
-  font-family: monospace;
+  font-family: system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.4;
 }
 
-.placeholder {
+.screen {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  max-width: 640px;
   min-height: 100vh;
-  padding: 16px;
+  margin: 0 auto;
+  padding: 24px 16px;
   text-align: center;
 }
 
-.placeholder dl {
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: 8px 16px;
+.screen h2 {
+  font-size: 1.3rem;
 }
 
-.placeholder dd {
+.screen form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.screen input {
+  width: 100%;
+  padding: 10px;
+  font: inherit;
+}
+
+.screen button {
+  min-width: 200px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.status-line {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.verdict {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.handle-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.handle-list button {
+  min-width: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 400px;
+}
+
+th,
+td {
+  padding: 4px 8px;
+}
+
+tr.highlight {
+  outline: 2px solid #fff;
+}
+
+[role='alert'] {
+  color: #ff8080;
 }
