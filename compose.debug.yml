@@ -1,0 +1,7 @@
+# Optional: expose PostgreSQL on 127.0.0.1 for local debugging.
+# Usage: docker compose -f docker-compose.yml -f compose.debug.yml up
+# Set POSTGRES_DEBUG_PORT if 5432 is already taken on the host.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_DEBUG_PORT:-5432}:5432"

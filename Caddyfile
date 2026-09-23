@@ -1,0 +1,22 @@
+# Caddy is the only service reachable from the network.
+# Plain HTTP on the home network, so automatic HTTPS is disabled.
+{
+	auto_https off
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+
+	# The backend's routes already carry the /api prefix.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Static frontend with single page app fallback.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
