@@ -37,12 +37,29 @@ Numeric questions:
   {"min": 5500, "max": 7500, "unit": "km"}. "expected_answer" states the value with its unit.
 - For all other questions, "numeric_range" is null.
 
-Reply with a JSON object with the fields question, expected_answer, accepted_answers and
-numeric_range. Nothing else.
+Output format:
+Reply with a single JSON object and nothing else: no Markdown code fences, no text before or
+after it. It has exactly these four fields:
+
+{
+  "question": "the question text",
+  "expected_answer": "the single best answer",
+  "accepted_answers": ["other correct form", "another correct form"],
+  "numeric_range": null
+}
+
+For a numeric question, numeric_range is an object instead of null:
+
+{
+  "question": "About how long is the Danube?",
+  "expected_answer": "about 2,850 km",
+  "accepted_answers": [],
+  "numeric_range": {"min": 2400, "max": 3300, "unit": "km"}
+}
 
 === USER ===
 Facts:
 
 $facts
 
-Write one trivia question from these facts.
+Write one trivia question from these facts. Reply with the JSON object only.

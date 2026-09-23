@@ -48,6 +48,28 @@ def test_parse_valid_output_cleans_accepted_answers() -> None:
     assert question.numeric_range is None
 
 
+@pytest.mark.parametrize(
+    "wrap",
+    [
+        "```json\n{}\n```",  # seen from gemma4:31b on the Ollama cloud API
+        "```\n{}\n```",
+        "  ```JSON {} ```  ",
+        "Here is your question:\n{}\nGood luck!",
+    ],
+)
+def test_parse_tolerates_code_fences_and_surrounding_text(wrap: str) -> None:
+    question = parse_generated_question(wrap.replace("{}", output()))
+    assert question.expected_answer == "Paris"
+
+
+def test_generate_accepts_fenced_output() -> None:
+    logger = ListCallLogger()
+    raw = f"```json\n{output()}\n```"
+    question = make_generator(ScriptedClient([raw]), logger).generate(SEED)
+    assert question.expected_answer == "Paris"
+    assert logger.records[0].raw_output == raw  # logged unchanged
+
+
 def test_parse_numeric_question() -> None:
     question = parse_generated_question(
         output(
@@ -65,6 +87,7 @@ def test_parse_numeric_question() -> None:
     ("raw", "message"),
     [
         ("not json", "not valid JSON"),
+        ("```json\n{broken\n```", "not valid JSON"),
         ('{"question": "Which city?"}', "does not match the schema"),
         (output(expected_answer=""), "does not match the schema"),
         (output(question="Short?"), "does not match the schema"),

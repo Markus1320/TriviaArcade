@@ -1,6 +1,7 @@
 """Call one: turn a question seed into a trivia question with expected answers."""
 
 import json
+import re
 from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -75,10 +76,30 @@ QUESTION_SCHEMA: dict[str, Any] = {
 }
 
 
+_CODE_FENCE = re.compile(r"^```[a-zA-Z]*\s*(.*?)\s*```$", re.DOTALL)
+
+
+def extract_json_object(raw: str) -> str:
+    """Return the JSON object text from generator output.
+
+    Some models ignore structured output and wrap the JSON in a Markdown code fence or
+    add a sentence around it, so both are tolerated. The raw output is logged unchanged.
+    """
+    text = raw.strip()
+    fenced = _CODE_FENCE.match(text)
+    if fenced:
+        text = fenced.group(1)
+    if not text.startswith("{"):
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            text = text[start : end + 1]
+    return text
+
+
 def parse_generated_question(raw: str) -> GeneratedQuestion:
     """Parse and validate generator output. Raises ValueError when invalid."""
     try:
-        data = json.loads(raw)
+        data = json.loads(extract_json_object(raw))
     except json.JSONDecodeError as error:
         raise ValueError(f"output is not valid JSON: {error}") from error
     try:
