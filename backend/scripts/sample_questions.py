@@ -11,9 +11,7 @@ import sys
 
 from app.config import get_settings
 from app.db.engine import get_session_factory
-from app.graph.driver import get_driver
-from app.graph.repository import Neo4jGraphRepository
-from app.graph.walk import RandomWalker
+from app.graph.factory import build_walker
 from app.llm.call_log import CallLogger, NullCallLogger, SqlCallLogger
 from app.llm.factory import LLMNotConfiguredError, build_llm_components
 from app.llm.facts import format_seed
@@ -47,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LLM is not configured: {error}", file=sys.stderr)
         return 2
 
-    walker = RandomWalker(Neo4jGraphRepository(get_driver()), random.Random(args.seed))
+    walker = build_walker(settings, random.Random(args.seed))
     used_starts: set[str] = set()
     failures = 0
     for number in range(1, args.count + 1):

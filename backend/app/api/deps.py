@@ -1,6 +1,5 @@
 """FastAPI dependencies. Tests override these to use fakes instead of Neo4j and the LLM."""
 
-import random
 from collections.abc import Iterator
 from functools import lru_cache
 from typing import Annotated
@@ -11,9 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.engine import get_session_factory
 from app.game.service import AnswerChecker, GameService, QuestionSource, SeedSource
-from app.graph.driver import get_driver
-from app.graph.repository import Neo4jGraphRepository
-from app.graph.walk import RandomWalker
+from app.graph.factory import build_walker
 from app.leaderboard.service import LeaderboardService
 from app.llm.call_log import SqlCallLogger
 from app.llm.factory import LLMComponents, LLMNotConfiguredError, build_llm_components
@@ -40,7 +37,7 @@ def _llm() -> LLMComponents:
 
 @lru_cache
 def get_seed_source() -> SeedSource:
-    return RandomWalker(Neo4jGraphRepository(get_driver()), random.Random())
+    return build_walker(get_settings())
 
 
 def get_question_source() -> QuestionSource:

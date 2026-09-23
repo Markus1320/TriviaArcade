@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     llm_judge_model: str | None = None
     llm_timeout_seconds: float = 120.0
 
+    # Random walk for question seeds, see app/graph/walk.py. top_share is the share of
+    # each entity type, most famous first, that walks may visit (1.0 = all).
+    walk_min_hops: int = 1
+    walk_max_hops: int = 2
+    walk_top_share: float = 0.5
+
     # Seconds to wait when probing a database for the health endpoint.
     health_timeout_seconds: float = 5.0
 
