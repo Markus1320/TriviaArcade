@@ -74,8 +74,9 @@ Key principles:
 │   ├── pyproject.toml
 │   ├── uv.lock
 │   ├── Dockerfile
-│   ├── alembic/                # from milestone 3
-│   ├── prompts/
+│   ├── alembic.ini
+│   ├── alembic/                # migrations; applied when the backend container starts
+│   ├── prompts/                # system prompt, "=== USER ===" line, user template ($placeholders)
 │   │   ├── generate_question.md
 │   │   └── judge_answer.md
 │   ├── app/
@@ -83,8 +84,9 @@ Key principles:
 │   │   ├── config.py           # settings from environment
 │   │   ├── api/                # FastAPI routers, request and response models
 │   │   ├── game/               # run lifecycle, streak rules
-│   │   ├── graph/              # Neo4j driver, random walk
-│   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge
+│   │   ├── graph/              # Neo4j driver, repository, random walk (walk.py)
+│   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge,
+│   │   │                       # facts formatting, call logging, factory
 │   │   ├── leaderboard/        # handles, ranking
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
 │   ├── importer/               # Wikidata import into Neo4j (python -m importer)
@@ -93,7 +95,7 @@ Key principles:
 │   │   ├── queries.py          # SPARQL query builders
 │   │   ├── build.py            # seeds -> relations -> labels -> facts
 │   │   └── loader.py           # writes the graph into Neo4j
-│   ├── scripts/                # manual tools, e.g. sample question generation
+│   ├── scripts/                # manual tools: sample_questions.py (real LLM calls)
 │   └── tests/
 └── frontend/
     ├── package.json
@@ -148,9 +150,12 @@ NEO4J_HEAP_MAX=           # optional, default 1G
 NEO4J_PAGECACHE=          # optional, default 512M
 CADDY_PORT=               # optional, default 8080
 POSTGRES_DEBUG_PORT=      # optional, only for compose.debug.yml, default 5432
+LLM_TIMEOUT_SECONDS=      # optional, default 120
 ```
 
-LLM variables are optional in the backend settings until milestone 3 needs them, so the stack starts without an API key.
+LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
+
+Model tags seen in the public Ollama cloud catalog (2026-09-23): `qwen3.5:397b` and `gemma4:31b` are the Gemma/Qwen options, suggested as generator and judge. Confirm with the account's key before relying on them.
 
 Before filling in model names, check which model tags are actually available for the configured Ollama account. Do not guess tags.
 
@@ -205,6 +210,8 @@ Current implementation:
 
 All randomness comes from code. The graph access lives behind a clear interface in `app/graph/`.
 
+Current implementation (`app/graph/walk.py`): the start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
+
 ## LLM Integration
 
 ### Abstraction
@@ -212,6 +219,8 @@ All randomness comes from code. The graph access lives behind a clear interface 
 - `app/llm/` defines an `LLMClient` protocol and an Ollama implementation.
 - Generator and judge use separately configured models.
 - Prompts live as template files in `backend/prompts/`, never as long strings inside Python code.
+- Both calls use Ollama structured output: the generator a JSON schema for the question object, the judge the schema `{"type": "boolean"}`, so the model can only emit `true` or `false`. Parsing is still strict.
+- The generator also retries once on invalid output (bad JSON, schema mismatch, answer given away in the question) and then raises `QuestionGenerationError`. The judge raises `JudgeUnavailableError` after its retry; the game must pause the run on it.
 
 ### Call One: Generate Question
 
@@ -250,6 +259,8 @@ All randomness comes from code. The graph access lives behind a clear interface 
 ### Logging
 
 Every generator and judge call is logged in PostgreSQL (inputs, raw output, parsed result, model, latency), so questionable verdicts and question quality can be reviewed later.
+
+The table is `llm_calls` (one row per attempt, so retries are visible). A failure to write the log is reported but never breaks the game. Linking calls to runs is added with the runs table in milestone 4.
 
 ## Players and Leaderboard
 
