@@ -152,6 +152,9 @@ NEO4J_PAGECACHE=          # optional, default 512M
 CADDY_PORT=               # optional, default 8080
 POSTGRES_DEBUG_PORT=      # optional, only for compose.debug.yml, default 5432
 LLM_TIMEOUT_SECONDS=      # optional, default 120
+WALK_TOP_SHARE=           # optional, default 0.5: most famous share of each type used for questions
+WALK_MIN_HOPS=            # optional, default 1
+WALK_MAX_HOPS=            # optional, default 2
 ```
 
 LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
@@ -211,7 +214,7 @@ Current implementation:
 
 All randomness comes from code. The graph access lives behind a clear interface in `app/graph/`.
 
-Current implementation (`app/graph/walk.py`): the start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
+Current implementation (`app/graph/walk.py`): only the most famous `WALK_TOP_SHARE` of each entity type takes part, for the start and for every step. Fame is compared within a type (per type percentile of sitelinks, computed in Neo4j on each walk), because sitelink counts are not comparable across types: a famous battle has fewer than a mid-sized city, so a global floor would remove history types entirely. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2). These settings are the main difficulty levers and the natural base for a later difficulty ramp. The start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
 
 ## LLM Integration
 

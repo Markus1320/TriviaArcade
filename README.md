@@ -155,6 +155,18 @@ Set these in `.env` (see `.env.example`):
 
 Restart the backend after changing `.env`: `docker compose up -d`.
 
+### Question difficulty
+
+Difficulty is mainly controlled by which facts the random walk picks, set in `.env`:
+
+- `WALK_TOP_SHARE` (default `0.5`): only the most famous share of each entity type (cities,
+  battles, rivers, ...) is used. Fame is compared within a type. Lower is easier.
+- `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
+  connect. Fewer hops give simpler questions.
+
+Try a setting with the sample script (`--seed` makes runs comparable), then restart the
+backend with `docker compose up -d` so the game uses it.
+
 ### Reviewing sample questions
 
 This script calls the real LLM and prints generated questions for a human to review. It is
