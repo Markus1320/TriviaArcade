@@ -37,12 +37,14 @@ Browser (any device on the home network)
         |
       Caddy  :8080 (published on all interfaces)
       /     \
-frontend   /api -> backend (FastAPI)
-                    |          |            |
-                  Neo4j    PostgreSQL    Ollama API
-             (knowledge   (players, runs,
-               graph)     leaderboard, logs)
+static      /api -> backend (FastAPI)
+frontend             |          |            |
+(built into        Neo4j    PostgreSQL    Ollama API
+ Caddy image)   (knowledge   (players, runs,
+                  graph)     leaderboard, logs)
 ```
+
+The frontend has no runtime container of its own. `frontend/Dockerfile` builds the static files with Node and copies them into a Caddy image; the root `Caddyfile` is mounted into it. Caddy proxies `/api/*` to the backend without stripping the prefix, so all FastAPI routes live under `/api`.
 
 Key principles:
 
@@ -59,7 +61,10 @@ Key principles:
 ├── README.md
 ├── LICENSE                     # MIT
 ├── THIRD_PARTY_NOTICES.md      # Wikidata (CC0), pixel font (OFL), others
+├── .gitattributes              # LF line endings everywhere
+├── .github/workflows/ci.yml    # lint, type check, test, compose validation
 ├── docker-compose.yml
+├── compose.debug.yml           # optional: exposes PostgreSQL on 127.0.0.1
 ├── Caddyfile
 ├── .env.example                # placeholders only, never real values
 ├── config/
@@ -67,7 +72,8 @@ Key principles:
 ├── backend/
 │   ├── pyproject.toml
 │   ├── uv.lock
-│   ├── alembic/
+│   ├── Dockerfile
+│   ├── alembic/                # from milestone 3
 │   ├── prompts/
 │   │   ├── generate_question.md
 │   │   └── judge_answer.md
@@ -76,15 +82,16 @@ Key principles:
 │   │   ├── config.py           # settings from environment
 │   │   ├── api/                # FastAPI routers, request and response models
 │   │   ├── game/               # run lifecycle, streak rules
-│   │   ├── graph/              # Neo4j access, random walk
+│   │   ├── graph/              # Neo4j driver, random walk
 │   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge
 │   │   ├── leaderboard/        # handles, ranking
-│   │   └── db/                 # SQLAlchemy models, session handling
+│   │   └── db/                 # SQLAlchemy engine, models, session handling
 │   ├── importer/               # Wikidata import into Neo4j
 │   ├── scripts/                # manual tools, e.g. sample question generation
 │   └── tests/
 └── frontend/
     ├── package.json
+    ├── Dockerfile              # builds static files into the Caddy image
     └── src/
         ├── screens/            # title, question, game over, handle entry, leaderboard
         ├── components/
@@ -100,14 +107,17 @@ Adjust the layout when there is a good reason, and update this file when you do.
 
 ### Python
 
+- Install uv on the host (e.g. `winget install astral-sh.uv`). uv provides Python 3.12 for the venv; the system Python is not used.
 - Always use the uv managed venv in `backend/`. Run Python and tools through `uv run`, e.g. `uv run pytest`.
 - Never install packages globally or with plain `pip`. Add dependencies with `uv add` so `uv.lock` stays in sync.
 
 ### Docker Compose
 
 - `docker compose up --build` starts the full stack.
-- Only Caddy publishes a port to the network (default `8080`, bound to all interfaces) so the game is reachable from other devices on the home network via the host's local IP.
+- Only Caddy publishes a port to the network (default `8080`, configurable via `CADDY_PORT`, bound to all interfaces) so the game is reachable from other devices on the home network via the host's local IP.
 - Neo4j (7474, 7687) and PostgreSQL (5432) must **never** be published on all interfaces. Either keep them internal to Compose or bind them to `127.0.0.1` for local debugging.
+- Current setup: Neo4j is bound to `127.0.0.1` (needed for the Neo4j Browser). PostgreSQL is internal; `docker compose -f docker-compose.yml -f compose.debug.yml up` exposes it on `127.0.0.1:${POSTGRES_DEBUG_PORT:-5432}`.
+- `GET /api/health` checks both databases and returns 503 if one is down. The backend's Compose healthcheck uses it.
 - Data volumes for Neo4j and PostgreSQL are named volumes so they survive restarts.
 
 ### Secrets
@@ -126,9 +136,15 @@ LLM_JUDGE_MODEL=          # a smaller, cheaper model
 POSTGRES_USER=
 POSTGRES_PASSWORD=
 POSTGRES_DB=
-NEO4J_USER=
-NEO4J_PASSWORD=
+NEO4J_USER=               # always "neo4j" for Community Edition
+NEO4J_PASSWORD=           # at least 8 characters
+NEO4J_HEAP_MAX=           # optional, default 1G
+NEO4J_PAGECACHE=          # optional, default 512M
+CADDY_PORT=               # optional, default 8080
+POSTGRES_DEBUG_PORT=      # optional, only for compose.debug.yml, default 5432
 ```
+
+LLM variables are optional in the backend settings until milestone 3 needs them, so the stack starts without an API key.
 
 Before filling in model names, check which model tags are actually available for the configured Ollama account. Do not guess tags.
 
@@ -243,7 +259,7 @@ This project uses a deliberately light testing setup for version one.
 ### Always required
 
 - Backend: `ruff` for linting and formatting, `mypy` for type checking.
-- Frontend: ESLint, Prettier, TypeScript strict mode.
+- Frontend: ESLint (flat config with `typescript-eslint` strict type checked rules), Prettier, TypeScript strict mode. The current Vite template ships oxlint; this project uses ESLint instead.
 - Backend tests with `pytest` for the critical logic:
   - parsing and validation of the generator JSON
   - strict true or false parsing of the judge, including retry and error behavior
@@ -291,8 +307,8 @@ Work through these in order. **Stop after each milestone** and report: what was 
 
 1. **Skeleton:** Docker Compose with Caddy, frontend, backend, Neo4j and PostgreSQL talking to each other; uv venv; linters; CI; MIT license; README with setup steps. Result: a placeholder page reachable from a phone on the home network, and a backend health endpoint that checks both databases.
 2. **Knowledge graph:** Wikidata importer with fame filter, relation allowlist, numeric tier, aliases and `config/import.yaml`. Result: a browsable graph in the Neo4j browser with balanced content.
-3. **LLM core:** random walk, question generator, judge, prompt files, structured output, call logging, and the sample question script. Result: printed sample questions that can be reviewed for quality.
-4. **Game loop and leaderboard:** server side runs, PostgreSQL schema with migrations, API endpoints, handle entry, top 10 leaderboard. Result: the full game playable in a plain, unstyled UI.
+3. **LLM core:** random walk, question generator, judge, prompt files, structured output, call logging, and the sample question script. Alembic is introduced here, with the LLM call log table as the first migration. Result: printed sample questions that can be reviewed for quality.
+4. **Game loop and leaderboard:** server side runs, PostgreSQL schema for players and runs (further Alembic migrations), API endpoints, handle entry, top 10 leaderboard. Result: the full game playable in a plain, unstyled UI.
 5. **Arcade look:** pixel font, neon styling, scanlines, all classic screens, Web Audio sound effects. Result: tagged as `v0.1.0`.
 
 ## Out of Scope for Version One
