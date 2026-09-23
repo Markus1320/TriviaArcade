@@ -67,6 +67,7 @@ Key principles:
 ├── compose.debug.yml           # optional: exposes PostgreSQL on 127.0.0.1
 ├── Caddyfile
 ├── .env.example                # placeholders only, never real values
+├── data/raw/                   # gitignored cache of raw Wikidata responses
 ├── config/
 │   └── import.yaml             # fame thresholds, relation allowlist, alias languages
 ├── backend/
@@ -86,7 +87,12 @@ Key principles:
 │   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge
 │   │   ├── leaderboard/        # handles, ranking
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
-│   ├── importer/               # Wikidata import into Neo4j
+│   ├── importer/               # Wikidata import into Neo4j (python -m importer)
+│   │   ├── config.py           # typed model of config/import.yaml
+│   │   ├── sparql.py           # rate limited, cached SPARQL client
+│   │   ├── queries.py          # SPARQL query builders
+│   │   ├── build.py            # seeds -> relations -> labels -> facts
+│   │   └── loader.py           # writes the graph into Neo4j
 │   ├── scripts/                # manual tools, e.g. sample question generation
 │   └── tests/
 └── frontend/
@@ -180,6 +186,16 @@ Everything in the config must be tunable without code changes.
 - Nodes carry at least: Wikidata ID, English label, aliases, sitelinks count, entity type.
 - Relationships use the Wikidata property as type or attribute.
 - Create indexes and constraints needed for fast random selection and lookups.
+
+Current implementation:
+
+- Every node has the label `Entity` plus a type label (`Country`, `HistoricalState`, ...). Properties: `wikidata_id`, `label` (English), `aliases` (other labels and alternative labels in all configured languages), `description` (English), `sitelinks`, `entity_type`, `seq`, and optional years and numeric facts named as in `config/import.yaml`.
+- `seq` is a dense number `0..n-1` with a unique constraint, so the random walk can pick a random number in code instead of `ORDER BY rand()`.
+- Relationship types are the allowlist names (`CAPITAL`, `SHARES_BORDER_WITH`, ...). Each relationship stores the Wikidata `property` and, from statement qualifiers, `start_year`, `end_year` or `year` where known. Historical values (e.g. former heads of state) are included; deprecated statements are not.
+- Years use historical numbering: negative years are BCE, there is no year 0. Only values with at least year precision are stored.
+- Seed entities come from the configured classes and fame thresholds. Relation targets outside the seeds (people, languages, currencies, obscure capitals) are added if they pass the target threshold and can be classified into a configured type. Direct queries for all famous humans time out on the public endpoint, so people only enter the graph through relations. `exclude_entities` removes ambiguous items (e.g. Afro-Eurasia); the order of `entity_types` decides the type of entities matching several types, and an entity cut by one type's `max_entities` is not picked up by a later type.
+- Each import replaces the whole graph and writes an `ImportMeta` node with the import time and counts.
+- Run it with `docker compose run --rm importer` (or `uv run python -m importer` on the host). `--dry-run` prints stats without touching Neo4j, `--refresh` ignores the cache.
 
 ### Question Seeds (Random Walk)
 
