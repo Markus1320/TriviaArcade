@@ -6,7 +6,12 @@ import pytest
 
 from app.graph.model import GraphEdge, GraphNode, Neighbor
 from app.graph.repository import FameThresholds, node_from_properties
-from app.graph.walk import NoQuestionSeedError, RandomWalker, WalkSettings
+from app.graph.walk import (
+    FAME_DEFAULT_LABEL,
+    NoQuestionSeedError,
+    RandomWalker,
+    WalkSettings,
+)
 
 ALL = WalkSettings(min_hops=1, max_hops=3, top_share=1.0)
 
@@ -30,7 +35,9 @@ class FakeRepository:
             ("O2", "Obscure Two", "city", 30),
             ("B2", "Beta Two", "city", 200),
         ]:
-            self.nodes[wikidata_id] = GraphNode(wikidata_id, label, entity_type)
+            self.nodes[wikidata_id] = GraphNode(
+                wikidata_id, label, entity_type, sitelinks=sitelinks
+            )
             self.sitelinks[wikidata_id] = sitelinks
         self.edges = [
             ("A", "CAPITAL", "B"),
@@ -129,6 +136,20 @@ def test_top_share_is_relative_per_type() -> None:
         "sea": 1,
         "island": 1,
     }
+
+
+def test_nodes_get_fame_labels_relative_to_their_type() -> None:
+    # Cities: 250 (top 10%), 200 (top 30%), 30 and 20 (below).
+    walker = RandomWalker(FakeRepository(), random.Random(2), ALL)
+    labels: dict[str, str | None] = {}
+    for _ in range(200):
+        for node in walker.walk().nodes:
+            labels[node.wikidata_id] = node.fame
+    assert labels["B"] == "world famous"
+    assert labels["B2"] == "well known"
+    assert labels["O1"] == FAME_DEFAULT_LABEL
+    # The only river is the most famous of its kind.
+    assert labels["C"] == "world famous"
 
 
 def test_default_walk_has_one_or_two_hops() -> None:

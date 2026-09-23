@@ -37,6 +37,8 @@ def format_seed(seed: QuestionSeed) -> str:
 
 def _describe_node(node: GraphNode) -> str:
     text = f"{node.label} ({node.entity_type.replace('_', ' ')}"
+    if node.fame:
+        text += f", {node.fame}"
     if node.description:
         text += f"; {node.description}"
     text += ")"

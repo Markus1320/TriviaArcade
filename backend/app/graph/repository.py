@@ -106,6 +106,7 @@ def node_from_properties(props: dict[str, Any]) -> GraphNode:
         entity_type=props["entity_type"],
         description=props.get("description"),
         aliases=tuple(props.get("aliases") or ()),
+        sitelinks=props.get("sitelinks", 0),
         facts={
             key: value
             for key, value in props.items()
