@@ -107,8 +107,8 @@ Negative years are BCE.
 Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below), press START
 and type your answers. Each correct answer adds one to your streak; the first wrong answer
 ends the run and shows the correct answer. Then save your score under a handle (3 to 8
-letters or digits) or pick one used before. The leaderboard shows the top 10 runs; ties go
-to the run that finished first.
+letters or digits) or pick one used before. The leaderboard shows the top 10 players with
+their best streak; ties go to the run that finished first.
 
 If the judge is not reachable, the run is paused instead of ended: send the answer again.
 Reloading the page resumes the current run with the same question.
@@ -123,8 +123,8 @@ All endpoints live under `/api`:
 | `GET` | `/runs/{run_id}` | run state, including the open question (for reloads) |
 | `POST` | `/runs/{run_id}/question` | next question; returns the open one if unanswered |
 | `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters), returns the verdict |
-| `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run |
-| `GET` | `/leaderboard` | top 10 runs |
+| `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
+| `GET` | `/leaderboard` | top 10 players, each with their best run |
 | `GET` | `/players` | existing handles, most recently used first |
 
 Errors return `{"code": "...", "detail": "..."}`, e.g. `judge_unavailable` (503) or

@@ -214,7 +214,9 @@ Current implementation:
 
 All randomness comes from code. The graph access lives behind a clear interface in `app/graph/`.
 
-Current implementation (`app/graph/walk.py`): only the most famous `WALK_TOP_SHARE` of each entity type takes part, for the start and for every step. Fame is compared within a type (per type percentile of sitelinks, computed in Neo4j on each walk), because sitelink counts are not comparable across types: a famous battle has fewer than a mid-sized city, so a global floor would remove history types entirely. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2). These settings are the main difficulty levers and the natural base for a later difficulty ramp. The start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
+Current implementation (`app/graph/walk.py`): only the most famous `WALK_TOP_SHARE` of each entity type takes part, for the start and for every step. Fame is compared within a type (per type percentile of sitelinks, computed in Neo4j on each walk), because sitelink counts are not comparable across types: a famous battle has fewer than a mid-sized city, so a global floor would remove history types entirely. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2). These settings are the main difficulty levers and the natural base for a later difficulty ramp. The start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Planned (not built yet): configurable weights per type, e.g. currencies less often than countries; this only changes the type pick in `RandomWalker.walk` (`random.choice` to `random.choices`).
+
+The walker also labels every node of a seed with its fame relative to its type: top 10% "world famous", top 30% "well known", otherwise "known to fans" (`FAME_LEVELS` in `walk.py`). The generator prompt requires the answer to be world famous or well known. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
 
 ## LLM Integration
 
@@ -230,7 +232,7 @@ Current implementation (`app/graph/walk.py`): only the most famous `WALK_TOP_SHA
 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
-- Target audience in the prompt: answerable by a well read trivia fan. One clear answer. No obscure numbers.
+- Target audience in the prompt: a casual quiz player. One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
 - Numeric questions must be phrased as approximations and include an accepted range.
 - Output is enforced as JSON via Ollama's structured output and validated with Pydantic:
 
@@ -272,7 +274,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - After game over the player picks an existing handle or creates a new one.
 - No passwords or accounts in version one. Anyone can post under any handle. This is accepted for a home network setup.
 - A run can be claimed exactly once, and only after it has ended.
-- The leaderboard shows the top 10 runs by streak. A player can appear multiple times. Ties are broken by the earlier finish time.
+- The leaderboard shows the top 10 players, each with their best run (highest streak; on a tie, the earlier finish). Players are ordered by that streak, ties broken by the earlier finish time. Every run can still be claimed; a run below the player's best is stored but does not change the leaderboard.
 
 ## Game Loop (Current Implementation)
 
@@ -281,7 +283,8 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
 - A judge failure (`JudgeUnavailableError`) writes nothing and returns 503 `judge_unavailable`; the question stays open. A generation failure returns 503 `question_unavailable`; the run continues.
-- Only claimed runs appear on the leaderboard. Claiming returns the run's rank, which may be below 10.
+- Only claimed runs count for the leaderboard, one entry per player (`best_per_player` in `ranking.py`, a `row_number()` window query in `service.py`). Claiming returns the player's rank (may be below 10) and `personal_best`, whether this run became the player's entry.
+- After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe. Note for a future timer: `asked_at` is set when the question is generated, not when it is shown.
 - Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
 
 ## Frontend and Styling
