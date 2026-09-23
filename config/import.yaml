@@ -1,0 +1,160 @@
+# Wikidata import configuration.
+#
+# Everything that controls the content and balance of the knowledge graph lives here.
+# Changing this file and rerunning the importer rebuilds the graph; no code changes needed.
+#
+# Fame score = number of Wikipedia sitelinks of an entity. Entities below the relevant
+# threshold are not imported at all.
+
+wikidata:
+  endpoint: https://query.wikidata.org/sparql
+  # Wikidata asks for a descriptive User-Agent with a way to contact the operator.
+  user_agent: "TriviaArcade/0.1 (https://github.com/Markus1320/TriviaArcade) knowledge graph importer"
+  min_interval_seconds: 2.0 # pause between two requests
+  timeout_seconds: 90
+  max_retries: 4
+  batch_size: 200 # entities per statement query
+  label_batch_size: 100 # entities per label query (label queries are slower)
+
+# Languages for labels and aliases. English is required: it is the main label.
+languages: [en, de]
+# Main label when there is no English one. Wikidata stores many names (e.g. "Oslo", "euro")
+# under "mul" (identical in many languages) instead of repeating them for English.
+label_fallback_languages: [mul]
+
+# Default fame threshold for the seed entity types below.
+fame_threshold: 80
+# Threshold for entities that are only reached through a relation (people, languages, ...).
+related_fame_threshold: 100
+# Numeric facts (population, area, ...) and numeric tier years are only stored for
+# entities at or above this threshold.
+numeric_fame_threshold: 250
+
+# Entities that are never imported, e.g. ambiguous groupings that would make questions unclear.
+exclude_entities:
+  - Q27527 # Afro-Eurasia
+  - Q828 # Americas
+  - Q3960 # Australian continent (Oceania is used instead)
+
+# Seed entity types. Every entity whose "instance of" (P31) is one of the classes and whose
+# fame reaches the threshold is imported. The first matching type in this list wins.
+# max_entities keeps large types from dominating: only the most famous ones are kept.
+entity_types:
+  continent:
+    classes: [Q5107] # continent
+    fame_threshold: 50
+  ocean:
+    classes: [Q9430] # ocean
+    fame_threshold: 100 # drops sub-oceans such as "North Pacific Ocean"
+  # Before country: Wikidata also tags many former states as "country" or "sovereign state".
+  # "realm" (Q1250464) is not used here: current kingdoms such as Spain carry it too.
+  historical_state:
+    classes: [Q3024240, Q48349, Q28171280] # historical country, empire, ancient civilization
+    fame_threshold: 60
+    max_entities: 200
+  country:
+    classes: [Q3624078, Q6256] # sovereign state, country
+    fame_threshold: 50
+  city:
+    classes: [Q515, Q1549591, Q5119] # city, big city, capital city
+    fame_threshold: 150
+    max_entities: 300
+  river:
+    classes: [Q4022]
+  mountain:
+    classes: [Q8502]
+  mountain_range:
+    classes: [Q46831]
+    fame_threshold: 60
+  lake:
+    classes: [Q23397]
+  island:
+    classes: [Q23442]
+    fame_threshold: 100
+  sea:
+    classes: [Q165]
+    fame_threshold: 60
+  desert:
+    classes: [Q8514]
+    fame_threshold: 50
+  war:
+    classes: [Q198, Q103495] # war, world war
+    fame_threshold: 60
+  battle:
+    classes: [Q178561, Q1261499] # battle, naval battle
+    fame_threshold: 60
+  revolution:
+    classes: [Q10931, Q124734] # revolution, rebellion
+    fame_threshold: 60
+  treaty:
+    classes: [Q131569]
+    fame_threshold: 50
+
+# Types that are never queried directly, only assigned to entities reached through a
+# relation. A reached entity whose P31 matches none of the entity or related types is dropped
+# unless the relation defines a fallback_target_type.
+related_types:
+  person:
+    classes: [Q5] # human
+  language:
+    classes: [Q34770, Q1288568, Q33742, Q45762] # language, modern, natural, dead language
+  currency:
+    classes: [Q8142]
+
+# Relation allowlist. Relations are read from seed entities; relations marked
+# from_related are also read from reached entities, but only towards entities that are
+# already in the graph. name becomes the Neo4j relationship type.
+#   target_fame_threshold: overrides related_fame_threshold for targets of this relation
+#   fallback_target_type:  type for reached targets whose P31 matches no configured type
+#   best_rank_only:        only the current value (Wikidata's best rank), no historical ones
+relations:
+  - { property: P36, name: CAPITAL, target_fame_threshold: 60, fallback_target_type: city, best_rank_only: true }
+  - { property: P47, name: SHARES_BORDER_WITH }
+  - { property: P30, name: CONTINENT, best_rank_only: true }
+  - { property: P17, name: COUNTRY, best_rank_only: true }
+  - { property: P131, name: LOCATED_IN, best_rank_only: true }
+  - { property: P206, name: NEXT_TO_BODY_OF_WATER }
+  - { property: P4552, name: MOUNTAIN_RANGE }
+  - { property: P403, name: MOUTH }
+  - { property: P37, name: OFFICIAL_LANGUAGE, target_fame_threshold: 80, fallback_target_type: language, best_rank_only: true }
+  - { property: P38, name: CURRENCY, target_fame_threshold: 40, fallback_target_type: currency, best_rank_only: true }
+  - { property: P35, name: HEAD_OF_STATE }
+  - { property: P6, name: HEAD_OF_GOVERNMENT }
+  - { property: P112, name: FOUNDED_BY }
+  - { property: P710, name: PARTICIPANT }
+  - { property: P276, name: LOCATION }
+  - { property: P361, name: PART_OF }
+  - { property: P1365, name: REPLACES }
+  - { property: P1366, name: REPLACED_BY }
+  - { property: P138, name: NAMED_AFTER }
+  - { property: P19, name: PLACE_OF_BIRTH, from_related: true }
+  - { property: P20, name: PLACE_OF_DEATH, from_related: true }
+  - { property: P607, name: PARTICIPATED_IN_CONFLICT, from_related: true }
+
+# Numeric facts, only for entities at or above numeric_fame_threshold.
+# unit refers to unit_conversions below; null means unitless (e.g. population).
+# with_year also stores the reference year (<name>_year) of the chosen value.
+numeric_properties:
+  - { property: P1082, name: population, unit: null, with_year: true }
+  - { property: P2046, name: area_km2, unit: km2 }
+  - { property: P2043, name: length_km, unit: km }
+  - { property: P2044, name: elevation_m, unit: m }
+
+# Wikidata unit item -> factor that converts a value into the target unit.
+unit_conversions:
+  km2: { Q712226: 1.0, Q25343: 0.000001, Q35852: 0.01, Q232291: 2.589988 }
+  km: { Q828224: 1.0, Q11573: 0.001, Q253276: 1.609344 }
+  m: { Q11573: 1.0, Q3710: 0.3048, Q828224: 1000.0 }
+
+# Years stored as node properties. Only values with at least year precision are used.
+# Negative years are BCE (44 BC = -44).
+#   tier base:    stored for every imported entity (dates of major events)
+#   tier numeric: only for entities at or above numeric_fame_threshold
+date_properties:
+  - { property: P585, name: year, tier: base } # point in time
+  - { property: P580, name: start_year, tier: base }
+  - { property: P582, name: end_year, tier: base }
+  - { property: P571, name: inception_year, tier: numeric }
+  - { property: P576, name: dissolved_year, tier: numeric }
+  - { property: P569, name: birth_year, tier: numeric }
+  - { property: P570, name: death_year, tier: numeric }

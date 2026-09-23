@@ -7,10 +7,12 @@ license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.141.1",
+    "httpx2>=2.13.1",
     "neo4j>=6.3.1",
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0.3",
     "sqlalchemy>=2.0.54",
     "uvicorn[standard]>=0.53.0",
 ]
@@ -30,7 +32,7 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "."
-packages = ["app", "tests"]
+packages = ["app", "importer", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -38,8 +40,8 @@ pythonpath = ["."]
 
 [dependency-groups]
 dev = [
-    "httpx2>=2.13.1",
     "mypy>=2.3.1",
     "pytest>=9.1.1",
     "ruff>=0.16.8",
+    "types-pyyaml>=6.0.12.20260906",
 ]
