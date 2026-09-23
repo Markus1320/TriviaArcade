@@ -6,6 +6,7 @@ readme = "../README.md"
 license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi>=0.141.1",
     "httpx2>=2.13.1",
     "neo4j>=6.3.1",
@@ -32,7 +33,7 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "."
-packages = ["app", "importer", "tests"]
+packages = ["app", "importer", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

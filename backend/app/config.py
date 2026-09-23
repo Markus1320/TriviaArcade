@@ -19,11 +19,12 @@ class Settings(BaseSettings):
     neo4j_user: str = "neo4j"
     neo4j_password: SecretStr
 
-    # LLM settings are optional until the LLM core (milestone 3) needs them.
+    # Optional so the stack starts without an API key; the LLM factory checks them when used.
     ollama_api_key: SecretStr | None = None
     ollama_base_url: str | None = None
     llm_generator_model: str | None = None
     llm_judge_model: str | None = None
+    llm_timeout_seconds: float = 120.0
 
     # Seconds to wait when probing a database for the health endpoint.
     health_timeout_seconds: float = 5.0
