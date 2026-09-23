@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react';
 
 import { api, type Question } from '../api/client';
 import { errorMessage } from '../errors';
@@ -18,30 +18,61 @@ type Phase =
   | { kind: 'judging'; question: Question }
   | { kind: 'correct'; question: Question; streak: number };
 
+// The next question, requested while the player still sees the "correct" verdict.
+interface Prefetch {
+  promise: Promise<Question>;
+  ready: Question | null;
+}
+
 export function QuestionScreen({ runId, onGameOver }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [answer, setAnswer] = useState('');
+  const prefetch = useRef<Prefetch | null>(null);
+
+  const showQuestion = useCallback((question: Question) => {
+    setAnswer('');
+    setPhase({ kind: 'asking', question, error: null });
+  }, []);
 
   // Only updates state once the request settles, so it can run inside an effect.
-  const fetchQuestion = useCallback(() => {
-    api
-      .nextQuestion(runId)
-      .then((question) => {
-        setAnswer('');
-        setPhase({ kind: 'asking', question, error: null });
-      })
-      .catch((err: unknown) => {
+  const awaitQuestion = useCallback(
+    (request: Promise<Question>) => {
+      request.then(showQuestion).catch((err: unknown) => {
         setPhase({ kind: 'loadFailed', message: errorMessage(err) });
       });
-  }, [runId]);
+    },
+    [showQuestion],
+  );
 
   useEffect(() => {
-    fetchQuestion();
-  }, [fetchQuestion]);
+    awaitQuestion(api.nextQuestion(runId));
+  }, [awaitQuestion, runId]);
+
+  // Starts generating the next question right after a correct answer. The server keeps it
+  // as the open question, so this is safe even if the player reloads before seeing it.
+  const startPrefetch = () => {
+    const entry: Prefetch = { promise: api.nextQuestion(runId), ready: null };
+    entry.promise.then(
+      (question) => {
+        entry.ready = question;
+      },
+      () => {
+        // Reported when the player asks for the question; see loadQuestion.
+      },
+    );
+    prefetch.current = entry;
+  };
 
   const loadQuestion = () => {
+    const entry = prefetch.current;
+    prefetch.current = null;
+    if (entry?.ready) {
+      showQuestion(entry.ready);
+      return;
+    }
     setPhase({ kind: 'loading' });
-    fetchQuestion();
+    // A failed prefetch rejects here too; the retry button then sends a fresh request.
+    awaitQuestion(entry?.promise ?? api.nextQuestion(runId));
   };
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -56,6 +87,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           onGameOver(result.streak, result.expected_answer);
         } else {
           setPhase({ kind: 'correct', question, streak: result.streak });
+          startPrefetch();
         }
       })
       .catch((err: unknown) => {
