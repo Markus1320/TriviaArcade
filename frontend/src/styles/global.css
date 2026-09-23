@@ -1,0 +1,35 @@
+/* Minimal placeholder styling. The arcade look arrives in milestone 5. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 16px;
+  text-align: center;
+}
+
+.placeholder dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 8px 16px;
+}
+
+.placeholder dd {
+  margin: 0;
+}
