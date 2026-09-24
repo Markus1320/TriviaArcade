@@ -258,6 +258,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
   - Vague answers are rejected (e.g. "in Europe" for a country).
   - Years must be exact unless the question asks for a decade or century.
   - Numeric answers are accepted within the given range.
+  - If a question allows several correct answers, any answer that is certainly correct for the question as asked is accepted, even if not listed. Ambiguous questions are therefore acceptable.
 - **Prompt injection defense:** the player answer is wrapped in clear delimiters and the prompt states that it is untrusted data, never instructions.
 - **Strict parsing:** any output other than `true` or `false` triggers one retry. If the retry fails too, the run is paused with an error, not ended.
 - Limit player answer length (e.g. 200 characters) before it reaches the LLM.
