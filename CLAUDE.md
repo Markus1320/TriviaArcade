@@ -297,6 +297,13 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - UI language is English. All UI texts live in `src/strings.ts` so a translation can be added later.
 - The layout must work on phones, since the game is played across the home network.
 
+Current implementation:
+
+- The font comes from the npm package `@fontsource/press-start-2p` (OFL, Latin and Latin Extended subsets imported in `main.tsx`); Vite bundles the woff2 files.
+- `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom.
+- Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong and game over with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
+- `components/SoundToggle.tsx` is the fixed toggle shown on every screen.
+
 ## Code Quality and Testing
 
 This project uses a deliberately light testing setup for version one.
