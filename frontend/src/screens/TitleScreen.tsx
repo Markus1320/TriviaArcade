@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { api } from '../api/client';
+import { useSound } from '../audio/soundState';
 import { errorMessage } from '../errors';
 import { strings } from '../strings';
 
@@ -10,10 +11,12 @@ interface Props {
 }
 
 export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
+  const { play } = useSound();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const start = () => {
+    play('start');
     setStarting(true);
     setError(null);
     api
@@ -28,16 +31,25 @@ export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
   };
 
   return (
-    <main className="screen">
-      <h1>{strings.title}</h1>
-      <p>{strings.subtitle}</p>
-      <button type="button" onClick={start} disabled={starting} autoFocus>
-        {strings.start}
+    <main className="screen screen--title">
+      <h1 className="logo">
+        <span className="logo__top">{strings.titleTop}</span>
+        <span className="logo__bottom">{strings.titleBottom}</span>
+      </h1>
+      <p className="tagline">{strings.subtitle}</p>
+      <button type="button" className="press-start" onClick={start} disabled={starting} autoFocus>
+        <span className={starting ? undefined : 'blink'}>{strings.start}</span>
       </button>
-      <button type="button" onClick={onShowLeaderboard}>
+      <p className="hint">{strings.rules}</p>
+      <button type="button" className="button button--secondary" onClick={onShowLeaderboard}>
         {strings.showLeaderboard}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p className="message message--error" role="alert">
+          {error}
+        </p>
+      )}
+      <p className="footer">{strings.footer}</p>
     </main>
   );
 }

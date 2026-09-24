@@ -23,41 +23,53 @@ export function LeaderboardScreen({ highlight, onBack }: Props) {
   }, []);
 
   return (
-    <main className="screen">
-      <h1>{strings.leaderboard}</h1>
+    <main className="screen screen--leaderboard">
+      <h1 className="screen-title">{strings.leaderboard}</h1>
       {highlight && (
-        <p>
+        <p className="message message--success" role="status">
           {highlight.personal_best
             ? strings.placed(highlight.handle, highlight.rank)
             : strings.notPersonalBest(highlight.handle, highlight.rank)}
         </p>
       )}
-      {error && <p role="alert">{error}</p>}
-      {rows?.length === 0 && <p>{strings.leaderboardEmpty}</p>}
+      {error && (
+        <p className="message message--error" role="alert">
+          {error}
+        </p>
+      )}
+      {rows === null && !error && (
+        <p className="loading">
+          <span className="blink">...</span>
+        </p>
+      )}
+      {rows?.length === 0 && <p className="message">{strings.leaderboardEmpty}</p>}
       {rows && rows.length > 0 && (
-        <table>
+        <table className="scores">
           <thead>
             <tr>
-              <th>{strings.rank}</th>
-              <th>{strings.handle}</th>
-              <th>{strings.score}</th>
+              <th scope="col">{strings.rank}</th>
+              <th scope="col">{strings.handle}</th>
+              <th scope="col" className="scores__streak">
+                {strings.score}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.handle}
-                className={highlight?.handle === row.handle ? 'highlight' : undefined}
-              >
-                <td>{row.rank}</td>
-                <td>{row.handle}</td>
-                <td>{row.streak}</td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const classes = [`scores__row scores__row--rank-${String(Math.min(row.rank, 4))}`];
+              if (highlight?.handle === row.handle) classes.push('scores__row--highlight');
+              return (
+                <tr key={row.handle} className={classes.join(' ')}>
+                  <td>{strings.rankLabel(row.rank)}</td>
+                  <td>{row.handle}</td>
+                  <td className="scores__streak">{strings.streakValue(row.streak)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
-      <button type="button" onClick={onBack} autoFocus>
+      <button type="button" className="button button--primary" onClick={onBack} autoFocus>
         {highlight ? strings.playAgain : strings.backToTitle}
       </button>
     </main>

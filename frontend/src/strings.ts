@@ -1,43 +1,66 @@
 // All UI texts live here so a translation can be added later.
-export const strings = {
-  title: 'TRIVIA ARCADE',
-  subtitle: 'Geography and history. One wrong answer ends the run.',
-  start: 'START',
-  showLeaderboard: 'LEADERBOARD',
-  backToTitle: 'BACK TO TITLE',
-  playAgain: 'PLAY AGAIN',
 
-  loadingQuestion: 'Preparing your question...',
-  questionNumber: (number: number) => `QUESTION ${String(number)}`,
-  streak: (streak: number) => `STREAK ${String(streak)}`,
-  answerLabel: 'Your answer',
-  submit: 'SUBMIT',
-  judging: 'Judging...',
+function pad(value: number, digits: number): string {
+  return String(value).padStart(digits, '0');
+}
+
+function ordinal(rank: number): string {
+  const tens = rank % 100;
+  if (tens >= 11 && tens <= 13) return `${String(rank)}TH`;
+  const suffixes: Record<number, string> = { 1: 'ST', 2: 'ND', 3: 'RD' };
+  return `${String(rank)}${suffixes[rank % 10] ?? 'TH'}`;
+}
+
+export const strings = {
+  titleTop: 'TRIVIA',
+  titleBottom: 'ARCADE',
+  subtitle: 'GEOGRAPHY & HISTORY',
+  rules: 'ONE WRONG ANSWER ENDS THE RUN',
+  start: 'PRESS START',
+  showLeaderboard: 'HIGH SCORES',
+  backToTitle: 'BACK',
+  playAgain: 'PLAY AGAIN',
+  footer: 'FACTS FROM WIKIDATA',
+
+  soundOn: '♪ ON',
+  soundOff: '♪ OFF',
+  soundOnLabel: 'Sound is on. Turn sound off.',
+  soundOffLabel: 'Sound is off. Turn sound on.',
+
+  loadingQuestion: 'LOADING QUESTION',
+  questionNumber: (number: number) => `QUESTION ${pad(number, 2)}`,
+  streakLabel: 'STREAK',
+  streakValue: (streak: number) => pad(streak, 3),
+  answerLabel: 'YOUR ANSWER',
+  answerPlaceholder: 'TYPE HERE',
+  submit: 'ENTER',
+  judging: 'JUDGING',
   correct: 'CORRECT!',
   nextQuestion: 'NEXT QUESTION',
   retry: 'TRY AGAIN',
 
   gameOver: 'GAME OVER',
-  finalStreak: (streak: number) => `Final streak: ${String(streak)}`,
-  correctAnswerWas: 'The correct answer was',
+  finalStreak: 'FINAL STREAK',
+  correctAnswerWas: 'THE ANSWER WAS',
   saveScore: 'SAVE SCORE',
   skip: 'SKIP',
 
-  enterHandle: 'ENTER YOUR HANDLE',
-  handleHint: '3 to 8 characters, letters A-Z and digits 0-9',
-  handleInvalid: 'Use 3 to 8 letters (A-Z) or digits.',
-  pickHandle: 'Or pick an existing handle:',
-  saving: 'Saving...',
+  enterHandle: 'ENTER YOUR NAME',
+  handleHint: '3-8 LETTERS OR DIGITS',
+  handleInvalid: 'USE 3 TO 8 LETTERS (A-Z) OR DIGITS',
+  pickHandle: 'OR PICK YOUR NAME',
+  saving: 'SAVING',
   save: 'SAVE',
-  placed: (handle: string, rank: number) => `${handle} placed #${String(rank)}`,
+  placed: (handle: string, rank: number) => `${handle} RANKS ${ordinal(rank)}!`,
   notPersonalBest: (handle: string, rank: number) =>
-    `Not a new personal best. ${handle} stays at #${String(rank)}.`,
+    `NO NEW BEST. ${handle} STAYS ${ordinal(rank)}.`,
 
-  leaderboard: 'TOP 10',
-  leaderboardEmpty: 'No scores yet. Be the first!',
+  leaderboard: 'HIGH SCORES',
+  leaderboardEmpty: 'NO SCORES YET. BE THE FIRST!',
   rank: 'RANK',
-  handle: 'HANDLE',
+  handle: 'NAME',
   score: 'STREAK',
+  rankLabel: ordinal,
 
-  genericError: 'Something went wrong. Please try again.',
+  genericError: 'SOMETHING WENT WRONG. PLEASE TRY AGAIN.',
 } as const;

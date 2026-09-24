@@ -53,35 +53,48 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
   };
 
   return (
-    <main className="screen">
-      <h1>{strings.enterHandle}</h1>
-      <p>{strings.finalStreak(streak)}</p>
-      <form onSubmit={submit}>
-        <label htmlFor="handle">{strings.handleHint}</label>
+    <main className="screen screen--handle">
+      <h1 className="screen-title">{strings.enterHandle}</h1>
+      <p className="score">
+        <span className="score__label">{strings.finalStreak}</span>
+        <span className="score__value">{strings.streakValue(streak)}</span>
+      </p>
+      <form className="handle-form" onSubmit={submit}>
+        <label className="field-label" htmlFor="handle">
+          {strings.handleHint}
+        </label>
         <input
           id="handle"
+          className="text-input text-input--handle"
           value={handle}
           onChange={(event) => {
-            setHandle(event.target.value.toUpperCase());
+            // Only letters and digits can be typed; the server validates again.
+            setHandle(event.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase());
           }}
           maxLength={8}
           autoCapitalize="characters"
           autoComplete="off"
+          spellCheck={false}
           autoFocus
           disabled={saving}
         />
-        <button type="submit" disabled={saving || handle.trim() === ''}>
-          {saving ? strings.saving : strings.save}
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={saving || handle.trim() === ''}
+        >
+          {saving ? <span className="blink">{strings.saving}</span> : strings.save}
         </button>
       </form>
       {existing.length > 0 && (
-        <>
-          <p>{strings.pickHandle}</p>
+        <section className="handle-picker">
+          <p className="field-label">{strings.pickHandle}</p>
           <ul className="handle-list">
             {existing.map((name) => (
               <li key={name}>
                 <button
                   type="button"
+                  className="chip"
                   disabled={saving}
                   onClick={() => {
                     save(name);
@@ -92,9 +105,13 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
               </li>
             ))}
           </ul>
-        </>
+        </section>
       )}
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p className="message message--error" role="alert">
+          {error}
+        </p>
+      )}
     </main>
   );
 }

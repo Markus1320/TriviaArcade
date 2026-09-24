@@ -9,18 +9,22 @@ interface Props {
 
 export function GameOverScreen({ streak, expectedAnswer, onSave, onSkip }: Props) {
   return (
-    <main className="screen">
-      <h1>{strings.gameOver}</h1>
-      <p>{strings.finalStreak(streak)}</p>
+    <main className="screen screen--game-over">
+      <h1 className="game-over">{strings.gameOver}</h1>
+      <p className="score">
+        <span className="score__label">{strings.finalStreak}</span>
+        <span className="score__value">{strings.streakValue(streak)}</span>
+      </p>
       {expectedAnswer && (
-        <p>
-          {strings.correctAnswerWas}: <strong>{expectedAnswer}</strong>
-        </p>
+        <section className="answer-reveal">
+          <p className="answer-reveal__label">{strings.correctAnswerWas}</p>
+          <p className="answer-reveal__value">{expectedAnswer}</p>
+        </section>
       )}
-      <button type="button" onClick={onSave} autoFocus>
+      <button type="button" className="button button--primary" onClick={onSave} autoFocus>
         {strings.saveScore}
       </button>
-      <button type="button" onClick={onSkip}>
+      <button type="button" className="button button--secondary" onClick={onSkip}>
         {strings.skip}
       </button>
     </main>

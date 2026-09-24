@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react';
 
 import { api, type Question } from '../api/client';
+import { useSound } from '../audio/soundState';
 import { errorMessage } from '../errors';
 import { strings } from '../strings';
 
@@ -25,6 +26,7 @@ interface Prefetch {
 }
 
 export function QuestionScreen({ runId, onGameOver }: Props) {
+  const { play } = useSound();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [answer, setAnswer] = useState('');
   const prefetch = useRef<Prefetch | null>(null);
@@ -84,8 +86,11 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       .answer(runId, answer)
       .then((result) => {
         if (result.game_over) {
+          play('wrong');
+          play('gameOver');
           onGameOver(result.streak, result.expected_answer);
         } else {
+          play('correct');
           setPhase({ kind: 'correct', question, streak: result.streak });
           startPrefetch();
         }
@@ -98,16 +103,20 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
 
   if (phase.kind === 'loading') {
     return (
-      <main className="screen">
-        <p>{strings.loadingQuestion}</p>
+      <main className="screen screen--question">
+        <p className="loading">
+          <span className="blink">{strings.loadingQuestion}</span>
+        </p>
       </main>
     );
   }
   if (phase.kind === 'loadFailed') {
     return (
-      <main className="screen">
-        <p role="alert">{phase.message}</p>
-        <button type="button" onClick={loadQuestion}>
+      <main className="screen screen--question">
+        <p className="message message--error" role="alert">
+          {phase.message}
+        </p>
+        <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
           {strings.retry}
         </button>
       </main>
@@ -115,39 +124,71 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
   }
 
   const { question } = phase;
-  const streak = phase.kind === 'correct' ? phase.streak : question.streak;
+  const correct = phase.kind === 'correct';
+  const streak = correct ? phase.streak : question.streak;
   return (
-    <main className="screen">
-      <p className="status-line">
-        <span>{strings.questionNumber(question.number)}</span>
-        <span>{strings.streak(streak)}</span>
-      </p>
-      <h2>{question.text}</h2>
-      {phase.kind === 'correct' ? (
+    <main className="screen screen--question">
+      <header className="hud">
+        <p className="hud__item">{strings.questionNumber(question.number)}</p>
+        <p className="hud__item hud__item--streak">
+          {strings.streakLabel}{' '}
+          {/* The key restarts the pop animation whenever the streak changes. */}
+          <strong
+            key={streak}
+            className={correct ? 'streak-value streak-value--up' : 'streak-value'}
+          >
+            {strings.streakValue(streak)}
+          </strong>
+        </p>
+      </header>
+      <section className={correct ? 'question-box question-box--correct' : 'question-box'}>
+        <h2 className="question-text">{question.text}</h2>
+      </section>
+      {correct ? (
         <>
-          <p className="verdict">{strings.correct}</p>
-          <button type="button" onClick={loadQuestion} autoFocus>
+          <p className="verdict verdict--correct" role="status">
+            {strings.correct}
+          </p>
+          <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
             {strings.nextQuestion}
           </button>
         </>
       ) : (
-        <form onSubmit={submit}>
-          <label htmlFor="answer">{strings.answerLabel}</label>
+        <form className="answer-form" onSubmit={submit}>
+          <label className="field-label" htmlFor="answer">
+            {strings.answerLabel}
+          </label>
           <input
             id="answer"
+            className="text-input"
             value={answer}
             onChange={(event) => {
               setAnswer(event.target.value);
             }}
+            placeholder={strings.answerPlaceholder}
             maxLength={MAX_ANSWER_LENGTH}
             autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
             autoFocus
             disabled={phase.kind === 'judging'}
           />
-          <button type="submit" disabled={phase.kind === 'judging' || answer.trim() === ''}>
-            {phase.kind === 'judging' ? strings.judging : strings.submit}
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={phase.kind === 'judging' || answer.trim() === ''}
+          >
+            {phase.kind === 'judging' ? (
+              <span className="blink">{strings.judging}</span>
+            ) : (
+              strings.submit
+            )}
           </button>
-          {phase.kind === 'asking' && phase.error && <p role="alert">{phase.error}</p>}
+          {phase.kind === 'asking' && phase.error && (
+            <p className="message message--error" role="alert">
+              {phase.error}
+            </p>
+          )}
         </form>
       )}
     </main>
