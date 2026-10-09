@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="build the graph and print stats, skip Neo4j"
     )
+    parser.add_argument(
+        "--names",
+        action="store_true",
+        help="also list the entities of every type, most famous first",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx2").setLevel(logging.WARNING)
@@ -46,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
         "Wikidata requests: %d sent, %d from cache", client.requests_sent, client.cache_hits
     )
     _log_summary(graph)
+    if args.names:
+        _log_names(graph)
 
     if args.dry_run:
         return 0
@@ -69,6 +76,19 @@ def _log_summary(graph: ImportedGraph) -> None:
         logger.info("  %-26s %6d", name, count)
     with_facts = sum(1 for node in graph.nodes if node.facts)
     logger.info("Nodes with years or numeric facts: %d", with_facts)
+
+
+def _log_names(graph: ImportedGraph) -> None:
+    by_type: dict[str, list[tuple[int, str, str]]] = {}
+    for node in graph.nodes:
+        by_type.setdefault(node.entity_type, []).append(
+            (node.sitelinks, node.label, node.wikidata_id)
+        )
+    for name in sorted(by_type):
+        entries = sorted(by_type[name], key=lambda entry: (-entry[0], entry[2]))
+        logger.info("%s (%d):", name, len(entries))
+        for sitelinks, label, qid in entries:
+            logger.info("  %4d  %s (%s)", sitelinks, label, qid)
 
 
 if __name__ == "__main__":

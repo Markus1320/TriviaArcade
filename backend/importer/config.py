@@ -35,8 +35,17 @@ class WikidataConfig(_Strict):
 
 class EntityTypeConfig(_Strict):
     classes: list[Qid] = Field(min_length=1)
+    # Property that links an entity to one of the classes. P31 (instance of) fits things;
+    # people are all "human", so kinds of people are selected by P39 (position held) or
+    # P106 (occupation) instead.
+    select_by: Pid = "P31"
+    # Also accept entities of subclasses, e.g. "inner planet" for planet. Slower to query.
+    include_subclasses: bool = False
     fame_threshold: int | None = Field(default=None, ge=0)
     max_entities: int | None = Field(default=None, gt=0)
+    # Entities that match the selection but do not belong here, e.g. a politician who is
+    # also listed as a painter. They stay available for later types.
+    exclude: frozenset[Qid] = frozenset()
 
 
 class RelatedTypeConfig(_Strict):
@@ -129,10 +138,15 @@ class ImportConfig(_Strict):
         return self.related_fame_threshold if threshold is None else threshold
 
     def class_to_type(self) -> dict[str, str]:
-        """Map each class to its type; the first configured type wins."""
+        """Map each "instance of" class to its type; the first configured type wins.
+
+        Used to classify entities reached through relations. Types selected by another
+        property (occupation, position) are left out: their classes are not what an entity
+        is an instance of.
+        """
         mapping: dict[str, str] = {}
         all_types: list[tuple[str, list[str]]] = [
-            (name, t.classes) for name, t in self.entity_types.items()
+            (name, t.classes) for name, t in self.entity_types.items() if t.select_by == "P31"
         ]
         all_types += [(name, t.classes) for name, t in self.related_types.items()]
         for name, classes in all_types:

@@ -92,9 +92,12 @@ class GraphBuilder:
             threshold = self._config.type_fame_threshold(type_name)
             candidates: dict[str, int] = {}
             for class_qid in type_config.classes:
-                for row in self._select(queries.entities_of_class(class_qid, threshold)):
+                query = queries.entities_of_class(
+                    class_qid, threshold, type_config.select_by, type_config.include_subclasses
+                )
+                for row in self._select(query):
                     qid = entity_id(row["item"])
-                    if qid not in claimed:
+                    if qid not in claimed and qid not in type_config.exclude:
                         candidates[qid] = int(row["sitelinks"])
             claimed.update(candidates)
 

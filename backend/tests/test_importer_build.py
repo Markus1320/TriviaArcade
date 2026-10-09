@@ -257,3 +257,35 @@ def test_mul_label_is_used_when_english_is_missing(
     assert smallcap.aliases == []
     label_queries = [q for q in fake.queries if query_kind(q) == "labels"]
     assert all('"mul"' in q for q in label_queries)
+
+
+def test_type_exclude_leaves_the_entity_to_a_later_type() -> None:
+    fake = FakeWikidata()
+    config = make_config(
+        entity_types={
+            "country": {"classes": ["Q6256"]},
+            "city": {"classes": ["Q515"], "fame_threshold": 100, "exclude": ["Q11"]},
+            "town": {"classes": ["Q515"], "fame_threshold": 100},
+        }
+    )
+    types = {n.wikidata_id: n.entity_type for n in GraphBuilder(config, fake.select).build().nodes}
+    assert types["Q10"] == "city"
+    assert types["Q11"] == "town"
+
+
+def test_types_can_be_selected_by_another_property_and_with_subclasses() -> None:
+    fake = FakeWikidata()
+    config = make_config(
+        entity_types={
+            "country": {"classes": ["Q6256"], "include_subclasses": True},
+            "city": {"classes": ["Q515"], "fame_threshold": 100},
+            "mayor": {"classes": ["Q30185"], "select_by": "P39", "fame_threshold": 100},
+        }
+    )
+    GraphBuilder(config, fake.select).build()
+    entity_queries = [q for q in fake.queries if query_kind(q) == "entities"]
+    assert "?item wdt:P31/wdt:P279* wd:Q6256" in entity_queries[0]
+    assert "SELECT DISTINCT" in entity_queries[0]
+    assert "?item wdt:P39 wd:Q30185" in entity_queries[2]
+    # Classes of types selected by another property do not classify reached entities.
+    assert config.class_to_type() == {"Q6256": "country", "Q515": "city", "Q5": "person"}

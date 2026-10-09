@@ -23,11 +23,21 @@ def _values(ids: Iterable[str]) -> str:
     return " ".join(f"wd:{qid}" for qid in ids)
 
 
-def entities_of_class(class_qid: str, min_sitelinks: int, property_pid: str = "P31") -> str:
-    """Entities whose property (default: instance of) has the given value."""
+def entities_of_class(
+    class_qid: str,
+    min_sitelinks: int,
+    property_pid: str = "P31",
+    include_subclasses: bool = False,
+) -> str:
+    """Entities whose property (default: instance of) has the given value.
+
+    With include_subclasses, values that are a subclass (P279, any depth) of it count too.
+    """
+    path = f"wdt:{property_pid}/wdt:P279*" if include_subclasses else f"wdt:{property_pid}"
+    distinct = "DISTINCT " if include_subclasses else ""
     return f"""# kind: entities
-SELECT ?item ?sitelinks WHERE {{
-  ?item wdt:{property_pid} wd:{class_qid} ; wikibase:sitelinks ?sitelinks .
+SELECT {distinct}?item ?sitelinks WHERE {{
+  ?item {path} wd:{class_qid} ; wikibase:sitelinks ?sitelinks .
   FILTER(?sitelinks >= {min_sitelinks})
 }}"""
 

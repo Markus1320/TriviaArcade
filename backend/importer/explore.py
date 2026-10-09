@@ -65,12 +65,13 @@ def explore_class(
     qid: str,
     *,
     selected_by: str = "P31",
+    include_subclasses: bool = False,
     thresholds: tuple[int, ...] = DEFAULT_THRESHOLDS,
     top: int = 20,
     sample: int = 50,
 ) -> ClassReport:
     ordered = sorted(thresholds)
-    rows = select(queries.entities_of_class(qid, ordered[0], selected_by))
+    rows = select(queries.entities_of_class(qid, ordered[0], selected_by, include_subclasses))
     fame = {entity_id(row["item"]): int(row["sitelinks"]) for row in rows}
     ranked = sorted(fame, key=lambda item: (-fame[item], item))
     counts = [(t, sum(1 for value in fame.values() if value >= t)) for t in ordered]
@@ -171,6 +172,11 @@ def main(argv: list[str] | None = None) -> int:
         help="property that links entities to the class: P31 instance of (default), "
         "P106 occupation, P39 position held",
     )
+    parser.add_argument(
+        "--subclasses",
+        action="store_true",
+        help="also count entities of subclasses, e.g. inner planets for planet (slower)",
+    )
     parser.add_argument("--thresholds", nargs="+", type=int, default=list(DEFAULT_THRESHOLDS))
     parser.add_argument("--top", type=int, default=20, help="number of names to list")
     parser.add_argument("--sample", type=int, default=50, help="entities checked for properties")
@@ -193,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
                     config,
                     qid,
                     selected_by=args.by,
+                    include_subclasses=args.subclasses,
                     thresholds=tuple(args.thresholds),
                     top=args.top,
                     sample=args.sample,
