@@ -459,7 +459,7 @@ input {
 .answer-reveal__explanation {
   font-size: clamp(11px, 3.2vw, 13px);
   line-height: 1.9;
-  text-align: left;
+  text-align: center;
 }
 
 .handle-picker {
