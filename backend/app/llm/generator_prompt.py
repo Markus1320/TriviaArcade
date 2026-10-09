@@ -33,13 +33,18 @@ Question formats (vary them, do not always pick the first one):
   plausible wrong one (another capital, river, century or person), so it sounds right.
 - Comparison: "Which happened first, A or B?", "Which is larger, A or B?", "Which lies
   closer to X, A or B?". Use any angle the facts support: time, size, population, length,
-  height, distance, location. Only pick pairs with a clear answer, never close calls.
+  height, distance, location. Rules for the pair:
+  - Both options are the same kind of thing: two countries, two cities, two rivers, two
+    mountains, two events, two people. Never a city against a country or a continent.
+  - Neither option is part of the other ("Europe or Berlin", "France or Paris").
+  - The answer is clear, but not absurdly obvious: a player should need to know
+    something. "Which is larger, Russia or Monaco?" is too easy, close calls are too hard.
 - Rough time: ask for the century or decade instead of an exact year.
 
 Grounding:
 - Base the question on the given facts. You may add widely known context, and the second
-  option of a comparison may be any well known entity, as long as everything you state is
-  certainly true.
+  option of a comparison may be any well known entity of the same kind, as long as
+  everything you state is certainly true.
 - Relations with a period ("from 1815", "until 1918") were only true during that time.
   Never present a past fact as a current one. Avoid "current" office holders.
 
@@ -63,6 +68,9 @@ Bad questions (never write questions like these):
 - "Which country, represented at the Potsdam Conference, was later ruled by Elizabeth II?"
   (the conference is an unnecessary detail)
 - "How many people live in Lagos?" (a number as the answer)
+- "Which is bigger, Europe or Berlin?" (a continent against a city, and Berlin lies in
+  Europe)
+- "Which is larger, China or Luxembourg?" (absurdly obvious)
 
 Answers:
 - expected_answer is the single best answer, as a player would type it.
@@ -118,9 +126,22 @@ EXAMPLES: list[str] = [
  "expected_answer": "True",
  "accepted_answers": ["Yes"]}""",
     # Comparison: time
-    """{"question": "Which happened first: the fall of the Berlin Wall or the breakup of the Soviet Union?",
- "expected_answer": "The fall of the Berlin Wall",
- "accepted_answers": ["Fall of the Berlin Wall", "Berlin Wall"]}""",  # noqa: E501
+    """{"question": "Which came first: the Declaration of Independence or the French Revolution?",
+ "expected_answer": "The Declaration of Independence",
+ "accepted_answers": ["Declaration of Independence", "US Declaration of Independence",
+  "American Declaration of Independence", "American independence"]}""",
+    # Comparison: area, same kind of entity, answer not obvious from population
+    """{"question": "Which country is larger by area: Australia or India?",
+ "expected_answer": "Australia",
+ "accepted_answers": []}""",
+    # Comparison: length, two rivers
+    """{"question": "Which river is longer: the Danube or the Rhine?",
+ "expected_answer": "Danube",
+ "accepted_answers": ["Donau", "The Danube"]}""",
+    # Several hops combined into one clue
+    """{"question": "Which river flows through Vienna, Budapest and Belgrade?",
+ "expected_answer": "Danube",
+ "accepted_answers": ["Donau", "Duna", "Dunav"]}""",
     # Rough time
     """{"question": "In which century did Christopher Columbus first reach the Americas?",
  "expected_answer": "15th century",

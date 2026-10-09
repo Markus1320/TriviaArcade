@@ -238,6 +238,8 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - The generator varies question formats: direct questions, open questions where any one
   of several answers counts ("Name a country that borders Germany"), name several, true
   or false, comparisons (time, size, population, distance) and rough time (century).
+  Comparisons pair two entities of the same kind (never a city against a continent), neither
+  part of the other, with a clear but not absurdly obvious answer.
 - A few hand written examples from `EXAMPLES` are picked at random per request and placed
   in the user message, to show style without fixing topics.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
