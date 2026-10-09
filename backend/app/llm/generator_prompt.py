@@ -114,7 +114,7 @@ EXAMPLES: list[str] = [
     # Comparison: time
     """{"question": "Which happened first: the fall of the Berlin Wall or the breakup of the Soviet Union?",
  "expected_answer": "The fall of the Berlin Wall",
- "accepted_answers": ["Fall of the Berlin Wall", "Berlin Wall"]}""",
+ "accepted_answers": ["Fall of the Berlin Wall", "Berlin Wall"]}""",  # noqa: E501
     # Rough time
     """{"question": "In which century did Christopher Columbus first reach the Americas?",
  "expected_answer": "15th century",

@@ -11,8 +11,8 @@ from app.graph.model import QuestionSeed
 from app.llm.call_log import CallLogger, LLMCallRecord
 from app.llm.client import ChatRequest, LLMClient, timed_call
 from app.llm.facts import format_seed
-from app.llm.prompts import PromptTemplate
 from app.llm.generator_prompt import pick_examples
+from app.llm.prompts import PromptTemplate
 
 GENERATOR_TEMPERATURE = 0.8
 

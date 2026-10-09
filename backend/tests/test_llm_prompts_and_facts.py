@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed

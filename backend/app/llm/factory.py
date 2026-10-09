@@ -43,6 +43,8 @@ def build_llm_components(settings: Settings, call_logger: CallLogger) -> LLMComp
         api_key=settings.ollama_api_key.get_secret_value(),
         timeout_seconds=settings.llm_timeout_seconds,
     )
-    generator = QuestionGenerator(client, settings.llm_generator_model, generator_prompt, call_logger)
+    generator = QuestionGenerator(
+        client, settings.llm_generator_model, generator_prompt, call_logger
+    )
     judge = AnswerJudge(client, settings.llm_judge_model, judge_prompt, call_logger)
     return LLMComponents(client=client, generator=generator, judge=judge)
