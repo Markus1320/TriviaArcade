@@ -15,6 +15,5 @@ def build_walker(settings: Settings, rng: random.Random | None = None) -> Random
         WalkSettings(
             min_hops=settings.walk_min_hops,
             max_hops=settings.walk_max_hops,
-            top_share=settings.walk_top_share,
         ),
     )

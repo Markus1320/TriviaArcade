@@ -4,7 +4,9 @@
 # Changing this file and rerunning the importer rebuilds the graph; no code changes needed.
 #
 # Fame score = number of Wikipedia sitelinks of an entity. Entities below the relevant
-# threshold are not imported at all.
+# threshold are not imported at all. These thresholds are the only fame filter: every
+# imported entity can appear in questions, and every entity type gets the same share of
+# question starts. To make a type less obscure, raise its threshold here.
 
 wikidata:
   endpoint: https://query.wikidata.org/sparql
@@ -35,6 +37,8 @@ exclude_entities:
   - Q27527 # Afro-Eurasia
   - Q828 # Americas
   - Q3960 # Australian continent (Oceania is used instead)
+  - Q897 # gold (reached as a "currency")
+  - Q41207 # coin (reached as a "currency")
 
 # Seed entity types. Every entity whose "instance of" (P31) is one of the classes and whose
 # fame reaches the threshold is imported. The first matching type in this list wins.
@@ -50,7 +54,7 @@ entity_types:
   # "realm" (Q1250464) is not used here: current kingdoms such as Spain carry it too.
   historical_state:
     classes: [Q3024240, Q48349, Q28171280] # historical country, empire, ancient civilization
-    fame_threshold: 60
+    fame_threshold: 80
     max_entities: 200
   country:
     classes: [Q3624078, Q6256] # sovereign state, country
@@ -108,7 +112,7 @@ related_types:
 #   fallback_target_type:  type for reached targets whose P31 matches no configured type
 #   best_rank_only:        only the current value (Wikidata's best rank), no historical ones
 relations:
-  - { property: P36, name: CAPITAL, target_fame_threshold: 60, fallback_target_type: city, best_rank_only: true }
+  - { property: P36, name: CAPITAL, target_fame_threshold: 120, fallback_target_type: city, best_rank_only: true }
   - { property: P47, name: SHARES_BORDER_WITH }
   - { property: P30, name: CONTINENT, best_rank_only: true }
   - { property: P17, name: COUNTRY, best_rank_only: true }
@@ -117,7 +121,7 @@ relations:
   - { property: P4552, name: MOUNTAIN_RANGE }
   - { property: P403, name: MOUTH }
   - { property: P37, name: OFFICIAL_LANGUAGE, target_fame_threshold: 80, fallback_target_type: language, best_rank_only: true }
-  - { property: P38, name: CURRENCY, target_fame_threshold: 40, fallback_target_type: currency, best_rank_only: true }
+  - { property: P38, name: CURRENCY, target_fame_threshold: 80, fallback_target_type: currency, best_rank_only: true }
   - { property: P35, name: HEAD_OF_STATE }
   - { property: P6, name: HEAD_OF_GOVERNMENT }
   - { property: P112, name: FOUNDED_BY }

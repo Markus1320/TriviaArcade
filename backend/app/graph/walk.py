@@ -1,12 +1,13 @@
 """Random walk that picks the facts for one question.
 
-1. Only the most famous share of each entity type takes part (WalkSettings.top_share).
-   Fame is compared within a type, because sitelink counts differ a lot between types:
-   a famous battle has fewer sitelinks than a mid-sized city.
-2. Pick an entity type uniformly at random, then a random entity of that type. Picking the
-   type first keeps large types (cities, people) from dominating the questions.
-3. Skip starting nodes already used in the current run.
-4. Walk min_hops to max_hops random hops to entities not visited yet.
+1. Pick an entity type uniformly at random, then a random entity of that type. Every type
+   is one equal slice of the question starts, however many entities it has, and within a
+   type every entity is equally likely.
+2. Skip starting nodes already used in the current run.
+3. Walk min_hops to max_hops random hops to entities not visited yet.
+
+Every entity in the graph can take part. What is too obscure is kept out at import time by
+the fame thresholds in config/import.yaml; there is no second filter here.
 
 All randomness comes from the injected random.Random, so walks are reproducible in tests.
 """
@@ -16,10 +17,12 @@ from collections.abc import Collection
 from dataclasses import dataclass, replace
 
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
-from app.graph.repository import FameThresholds, GraphRepository
+from app.graph.repository import GraphRepository
 
 # Fame labels for the generator, from the most famous share of each type downwards.
-# Entities below the last share get FAME_DEFAULT_LABEL.
+# Entities below the last share get FAME_DEFAULT_LABEL. Fame is compared within a type,
+# because sitelink counts differ a lot between types: a famous battle has fewer sitelinks
+# than a mid-sized city.
 FAME_LEVELS: tuple[tuple[float, str], ...] = ((0.1, "world famous"), (0.3, "well known"))
 FAME_DEFAULT_LABEL = "known to fans"
 
@@ -32,18 +35,12 @@ class NoQuestionSeedError(RuntimeError):
 class WalkSettings:
     min_hops: int = 1
     max_hops: int = 2
-    # Share of each entity type, most famous first, that walks may visit. 1.0 = all.
-    # The cutoff is the type's (1 - top_share) percentile of sitelinks, boundary included,
-    # so slightly more than this share can pass when several entities share a value.
-    top_share: float = 0.5
     # Attempts to find an unused starting node that has at least one neighbor.
     max_start_attempts: int = 50
 
     def __post_init__(self) -> None:
         if not 1 <= self.min_hops <= self.max_hops:
             raise ValueError("hops must satisfy 1 <= min_hops <= max_hops")
-        if not 0.0 < self.top_share <= 1.0:
-            raise ValueError("top_share must be greater than 0 and at most 1")
 
 
 class RandomWalker:
@@ -58,22 +55,19 @@ class RandomWalker:
         self._settings = settings or WalkSettings()
 
     def walk(self, exclude_start_ids: Collection[str] = ()) -> QuestionSeed:
-        # Computed on every walk: cheap, and always matches the current import.
-        thresholds = self._repository.fame_thresholds(self._settings.top_share)
-        counts = {
-            t: n for t, n in sorted(self._repository.type_counts(thresholds).items()) if n > 0
-        }
+        # Read on every walk: cheap, and always matches the current import.
+        counts = {t: n for t, n in sorted(self._repository.type_counts().items()) if n > 0}
         if not counts:
             raise NoQuestionSeedError("the knowledge graph is empty")
 
         for _ in range(self._settings.max_start_attempts):
             entity_type = self._rng.choice(list(counts))
             start = self._repository.node_of_type(
-                entity_type, self._rng.randrange(counts[entity_type]), thresholds
+                entity_type, self._rng.randrange(counts[entity_type])
             )
             if start is None or start.wikidata_id in exclude_start_ids:
                 continue
-            seed = self._walk_from(start, thresholds)
+            seed = self._walk_from(start)
             if seed.edges:
                 return self._with_fame_labels(seed)
         raise NoQuestionSeedError(
@@ -93,7 +87,7 @@ class RandomWalker:
         nodes = tuple(labeled(node) for node in seed.nodes)
         return QuestionSeed(start=nodes[0], nodes=nodes, edges=seed.edges)
 
-    def _walk_from(self, start: GraphNode, thresholds: FameThresholds) -> QuestionSeed:
+    def _walk_from(self, start: GraphNode) -> QuestionSeed:
         hops = self._rng.randint(self._settings.min_hops, self._settings.max_hops)
         nodes = [start]
         edges: list[GraphEdge] = []
@@ -102,7 +96,7 @@ class RandomWalker:
         for _ in range(hops):
             candidates = [
                 n
-                for n in self._repository.neighbors(current.wikidata_id, thresholds)
+                for n in self._repository.neighbors(current.wikidata_id)
                 if n.node.wikidata_id not in visited
             ]
             if not candidates:

@@ -160,10 +160,13 @@ Restart the backend after changing `.env`: `docker compose up -d`.
 
 ### Question difficulty
 
-Difficulty is mainly controlled by which facts the random walk picks, set in `.env`:
+Difficulty is mainly controlled by which entities are in the graph and which facts the
+random walk picks:
 
-- `WALK_TOP_SHARE` (default `0.5`): only the most famous share of each entity type (cities,
-  battles, rivers, ...) is used. Fame is compared within a type. Lower is easier.
+- Fame thresholds in `config/import.yaml`: only entities above their type's threshold are
+  imported, and every imported entity can appear in questions. Raise a threshold to make a
+  type less obscure, then rerun the importer. Every entity type gets the same share of
+  question starts.
 - `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
   connect. Fewer hops give simpler questions.
 - `ANSWER_TIME_SECONDS` (default `30`): seconds per question, counted from when it is

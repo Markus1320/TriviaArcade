@@ -1,6 +1,5 @@
 """Read access to the knowledge graph in Neo4j."""
 
-from collections.abc import Mapping
 from typing import Any, Protocol
 
 from neo4j import Driver
@@ -13,27 +12,21 @@ _NON_FACT_PROPERTIES = frozenset(
 )
 
 
-# Minimum sitelinks per entity type; types missing from the mapping have no minimum.
-FameThresholds = Mapping[str, int]
-
-
 class GraphRepository(Protocol):
     def fame_thresholds(self, top_share: float) -> dict[str, int]:
         """Per entity type, the sitelinks count that the most famous top_share reach."""
         ...
 
-    def type_counts(self, thresholds: FameThresholds) -> dict[str, int]:
-        """Number of entities per type that reach their type's threshold."""
+    def type_counts(self) -> dict[str, int]:
+        """Number of entities per type."""
         ...
 
-    def node_of_type(
-        self, entity_type: str, index: int, thresholds: FameThresholds
-    ) -> GraphNode | None:
-        """The index-th entity of a type that reaches the threshold, in a stable order."""
+    def node_of_type(self, entity_type: str, index: int) -> GraphNode | None:
+        """The index-th entity of a type, in a stable order."""
         ...
 
-    def neighbors(self, wikidata_id: str, thresholds: FameThresholds) -> list[Neighbor]:
-        """Connected entities (either direction) that reach their type's threshold."""
+    def neighbors(self, wikidata_id: str) -> list[Neighbor]:
+        """Connected entities, in either direction."""
         ...
 
 
@@ -49,34 +42,26 @@ class Neo4jGraphRepository:
         )
         return {record["type"]: record["threshold"] for record in records}
 
-    def type_counts(self, thresholds: FameThresholds) -> dict[str, int]:
+    def type_counts(self) -> dict[str, int]:
         records, _, _ = self._driver.execute_query(
-            "MATCH (n:Entity) WHERE n.sitelinks >= coalesce($thresholds[n.entity_type], 0) "
-            "RETURN n.entity_type AS type, count(*) AS count",
-            thresholds=dict(thresholds),
+            "MATCH (n:Entity) RETURN n.entity_type AS type, count(*) AS count"
         )
         return {record["type"]: record["count"] for record in records}
 
-    def node_of_type(
-        self, entity_type: str, index: int, thresholds: FameThresholds
-    ) -> GraphNode | None:
+    def node_of_type(self, entity_type: str, index: int) -> GraphNode | None:
         records, _, _ = self._driver.execute_query(
-            "MATCH (n:Entity {entity_type: $type}) WHERE n.sitelinks >= $min_sitelinks "
-            "RETURN n ORDER BY n.seq SKIP $index LIMIT 1",
+            "MATCH (n:Entity {entity_type: $type}) RETURN n ORDER BY n.seq SKIP $index LIMIT 1",
             type=entity_type,
             index=index,
-            min_sitelinks=thresholds.get(entity_type, 0),
         )
         return node_from_properties(dict(records[0]["n"])) if records else None
 
-    def neighbors(self, wikidata_id: str, thresholds: FameThresholds) -> list[Neighbor]:
+    def neighbors(self, wikidata_id: str) -> list[Neighbor]:
         records, _, _ = self._driver.execute_query(
             "MATCH (a:Entity {wikidata_id: $id})-[r]-(b:Entity) "
-            "WHERE b.sitelinks >= coalesce($thresholds[b.entity_type], 0) "
             "RETURN type(r) AS relation, startNode(r) = a AS outgoing, "
             "properties(r) AS props, b",
             id=wikidata_id,
-            thresholds=dict(thresholds),
         )
         neighbors = []
         for record in records:

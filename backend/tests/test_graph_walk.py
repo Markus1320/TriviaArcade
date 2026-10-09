@@ -5,7 +5,7 @@ from itertools import pairwise
 import pytest
 
 from app.graph.model import GraphEdge, GraphNode, Neighbor
-from app.graph.repository import FameThresholds, node_from_properties
+from app.graph.repository import node_from_properties
 from app.graph.walk import (
     FAME_DEFAULT_LABEL,
     NoQuestionSeedError,
@@ -13,7 +13,7 @@ from app.graph.walk import (
     WalkSettings,
 )
 
-ALL = WalkSettings(min_hops=1, max_hops=3, top_share=1.0)
+LONG = WalkSettings(min_hops=1, max_hops=3)
 
 
 class FakeRepository:
@@ -48,10 +48,6 @@ class FakeRepository:
             ("B2", "COUNTRY", "A"),
         ]
 
-    def _passes(self, wikidata_id: str, thresholds: FameThresholds) -> bool:
-        entity_type = self.nodes[wikidata_id].entity_type
-        return self.sitelinks[wikidata_id] >= thresholds.get(entity_type, 0)
-
     def fame_thresholds(self, top_share: float) -> dict[str, int]:
         # Same meaning as Neo4j's percentileDisc(sitelinks, 1 - top_share).
         by_type: dict[str, list[int]] = {}
@@ -65,38 +61,30 @@ class FakeRepository:
             result[entity_type] = values[index]
         return result
 
-    def type_counts(self, thresholds: FameThresholds) -> dict[str, int]:
+    def type_counts(self) -> dict[str, int]:
         counts: dict[str, int] = {}
-        for wikidata_id, node in self.nodes.items():
-            if self._passes(wikidata_id, thresholds):
-                counts[node.entity_type] = counts.get(node.entity_type, 0) + 1
+        for node in self.nodes.values():
+            counts[node.entity_type] = counts.get(node.entity_type, 0) + 1
         return counts
 
-    def node_of_type(
-        self, entity_type: str, index: int, thresholds: FameThresholds
-    ) -> GraphNode | None:
+    def node_of_type(self, entity_type: str, index: int) -> GraphNode | None:
         matching = sorted(
-            (
-                node
-                for wikidata_id, node in self.nodes.items()
-                if node.entity_type == entity_type and self._passes(wikidata_id, thresholds)
-            ),
+            (node for node in self.nodes.values() if node.entity_type == entity_type),
             key=lambda n: n.wikidata_id,
         )
         return matching[index] if index < len(matching) else None
 
-    def neighbors(self, wikidata_id: str, thresholds: FameThresholds) -> list[Neighbor]:
+    def neighbors(self, wikidata_id: str) -> list[Neighbor]:
         result = []
         for source, relation, target in self.edges:
             if wikidata_id in (source, target):
                 other = target if source == wikidata_id else source
-                if self._passes(other, thresholds):
-                    result.append(Neighbor(GraphEdge(source, relation, target), self.nodes[other]))
+                result.append(Neighbor(GraphEdge(source, relation, target), self.nodes[other]))
         return result
 
 
 def test_walk_returns_connected_path_without_repeats() -> None:
-    walker = RandomWalker(FakeRepository(), random.Random(1), ALL)
+    walker = RandomWalker(FakeRepository(), random.Random(1), LONG)
     for _ in range(50):
         seed = walker.walk()
         ids = [node.wikidata_id for node in seed.nodes]
@@ -109,38 +97,29 @@ def test_walk_returns_connected_path_without_repeats() -> None:
 
 
 def test_isolated_nodes_are_never_used() -> None:
-    walker = RandomWalker(FakeRepository(), random.Random(7), ALL)
+    walker = RandomWalker(FakeRepository(), random.Random(7), LONG)
     starts = {walker.walk().start.wikidata_id for _ in range(200)}
     assert "X" not in starts
     assert starts == {"A", "B", "B2", "C", "D", "O1", "O2"}
 
 
-def test_top_share_keeps_obscure_entities_out_of_every_walk() -> None:
-    # Cities have 250, 200, 30, 20 sitelinks. top_share 0.4 -> 60th percentile = 200,
-    # so only B and B2 remain. (percentileDisc includes the boundary value.)
-    walker = RandomWalker(FakeRepository(), random.Random(3), WalkSettings(top_share=0.4))
-    for _ in range(200):
-        ids = {node.wikidata_id for node in walker.walk().nodes}
-        assert not ids & {"O1", "O2"}
-
-
-def test_top_share_is_relative_per_type() -> None:
-    # The only river (120 sitelinks) and sea (90) stay, although cities with more
-    # sitelinks are excluded: fame is compared within a type.
-    repository = FakeRepository()
-    thresholds = repository.fame_thresholds(0.4)
-    assert repository.type_counts(thresholds) == {
-        "country": 1,
-        "city": 2,
-        "river": 1,
-        "sea": 1,
-        "island": 1,
-    }
+def test_every_type_is_an_equal_slice_of_the_starts() -> None:
+    # Four types have usable starts (the island is isolated and retried): the single
+    # country starts about as many walks as the four cities together.
+    walker = RandomWalker(FakeRepository(), random.Random(5), LONG)
+    starts = [walker.walk().start for _ in range(4000)]
+    by_type = {t: sum(1 for s in starts if s.entity_type == t) for t in ("country", "city")}
+    assert 0.2 < by_type["country"] / len(starts) < 0.3
+    assert 0.2 < by_type["city"] / len(starts) < 0.3
+    # Within a type every entity is equally likely, whatever its fame.
+    cities = [s.wikidata_id for s in starts if s.entity_type == "city"]
+    for wikidata_id in ("B", "B2", "O1", "O2"):
+        assert 0.2 < cities.count(wikidata_id) / len(cities) < 0.3
 
 
 def test_nodes_get_fame_labels_relative_to_their_type() -> None:
     # Cities: 250 (top 10%), 200 (top 30%), 30 and 20 (below).
-    walker = RandomWalker(FakeRepository(), random.Random(2), ALL)
+    walker = RandomWalker(FakeRepository(), random.Random(2), LONG)
     labels: dict[str, str | None] = {}
     for _ in range(200):
         for node in walker.walk().nodes:
@@ -159,14 +138,14 @@ def test_default_walk_has_one_or_two_hops() -> None:
 
 
 def test_excluded_starts_are_skipped() -> None:
-    walker = RandomWalker(FakeRepository(), random.Random(3), ALL)
+    walker = RandomWalker(FakeRepository(), random.Random(3), LONG)
     for _ in range(30):
         start = walker.walk(exclude_start_ids={"A", "B", "B2", "C", "O1", "O2"}).start
         assert start.wikidata_id == "D"
 
 
 def test_raises_when_no_start_is_left() -> None:
-    settings = WalkSettings(top_share=1.0, max_start_attempts=20)
+    settings = WalkSettings(max_start_attempts=20)
     walker = RandomWalker(FakeRepository(), random.Random(3), settings)
     with pytest.raises(NoQuestionSeedError):
         walker.walk(exclude_start_ids={"A", "B", "B2", "C", "D", "O1", "O2"})
@@ -179,18 +158,18 @@ def test_same_seed_gives_same_walk() -> None:
 
 
 def test_hop_count_respects_settings() -> None:
-    settings = WalkSettings(min_hops=1, max_hops=1, top_share=1.0)
+    settings = WalkSettings(min_hops=1, max_hops=1)
     walker = RandomWalker(FakeRepository(), random.Random(5), settings)
     assert all(len(walker.walk().edges) == 1 for _ in range(20))
 
 
 @pytest.mark.parametrize(
-    ("min_hops", "max_hops", "top_share"),
-    [(0, 2, 0.5), (3, 2, 0.5), (1, 2, 0.0), (1, 2, 1.5)],
+    ("min_hops", "max_hops"),
+    [(0, 2), (3, 2)],
 )
-def test_invalid_settings_are_rejected(min_hops: int, max_hops: int, top_share: float) -> None:
+def test_invalid_settings_are_rejected(min_hops: int, max_hops: int) -> None:
     with pytest.raises(ValueError):
-        WalkSettings(min_hops=min_hops, max_hops=max_hops, top_share=top_share)
+        WalkSettings(min_hops=min_hops, max_hops=max_hops)
 
 
 def test_node_from_properties_separates_facts() -> None:

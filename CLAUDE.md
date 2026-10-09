@@ -152,7 +152,6 @@ NEO4J_PAGECACHE=          # optional, default 512M
 CADDY_PORT=               # optional, default 8080
 POSTGRES_DEBUG_PORT=      # optional, only for compose.debug.yml, default 5432
 LLM_TIMEOUT_SECONDS=      # optional, default 120
-WALK_TOP_SHARE=           # optional, default 0.5: most famous share of each type used for questions
 WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
 ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
@@ -186,7 +185,7 @@ Data comes from **Wikidata** (CC0). The importer queries the Wikidata SPARQL end
 
 Balance is controlled at import time through `config/import.yaml`:
 
-- **Fame filter:** each entity's Wikidata sitelinks count is its fame score. Only entities above `fame_threshold` are imported. Obscure entities must simply not exist in the graph.
+- **Fame filter:** each entity's Wikidata sitelinks count is its fame score. Only entities above `fame_threshold` are imported. Obscure entities must simply not exist in the graph. This is the only fame filter: the random walk uses every imported entity.
 - **Relation allowlist:** only trivia shaped relations are imported, e.g. capital, shares border with, continent, located in, flows through, official language, currency, head of state or ruler, participant in, founded by, point in time for major events.
 - **Numeric facts** (population, share of world population, area, well known years) are allowed only for entities above the much higher `numeric_fame_threshold` (continents, the largest countries, the longest rivers). Store the reference year with time dependent values.
 - **Aliases:** import labels and alternative labels in several languages (at least English and German, configurable) so answers in any language can be recognized.
@@ -217,7 +216,7 @@ Current implementation:
 
 All randomness comes from code. The graph access lives behind a clear interface in `app/graph/`.
 
-Current implementation (`app/graph/walk.py`): only the most famous `WALK_TOP_SHARE` of each entity type takes part, for the start and for every step. Fame is compared within a type (per type percentile of sitelinks, computed in Neo4j on each walk), because sitelink counts are not comparable across types: a famous battle has fewer than a mid-sized city, so a global floor would remove history types entirely. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2). These settings are the main difficulty levers and the natural base for a later difficulty ramp. The start is chosen by picking an entity type uniformly, then a random entity of that type, so large types do not dominate. Planned (not built yet): configurable weights per type, e.g. currencies less often than countries; this only changes the type pick in `RandomWalker.walk` (`random.choice` to `random.choices`).
+Current implementation (`app/graph/walk.py`): the start is chosen by picking an entity type uniformly, then a random entity of that type. Every type is one equal slice of the question starts, however many entities it has; within a type every entity is equally likely. There are no weights per type: how the types are cut in `config/import.yaml` decides the mix. Every imported entity can take part, for the start and for every step. The import thresholds in `config/import.yaml` are the only fame filter (an earlier second filter, `WALK_TOP_SHARE`, was removed); to make a type less obscure, raise its threshold and re-import. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2), the natural base for a later difficulty ramp.
 
 The walker also labels every node of a seed with its fame relative to its type: top 10% "world famous", top 30% "well known", otherwise "known to fans" (`FAME_LEVELS` in `walk.py`). The generator prompt requires the answer to be world famous or well known. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
 

@@ -26,11 +26,10 @@ class Settings(BaseSettings):
     llm_judge_model: str | None = None
     llm_timeout_seconds: float = 120.0
 
-    # Random walk for question seeds, see app/graph/walk.py. top_share is the share of
+    # Random walk for question seeds, see app/graph/walk.py.
     # each entity type, most famous first, that walks may visit (1.0 = all).
     walk_min_hops: int = 1
     walk_max_hops: int = 2
-    walk_top_share: float = 0.5
 
     # Time limit per question in seconds, counted from when the question is shown. 0 = off.
     answer_time_seconds: int = Field(default=30, ge=0)
