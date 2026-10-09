@@ -11,7 +11,7 @@ from app.graph.model import QuestionSeed
 from app.llm.call_log import CallLogger, LLMCallRecord
 from app.llm.client import ChatRequest, LLMClient, timed_call
 from app.llm.facts import format_seed
-from app.llm.generator_prompt import pick_examples
+from app.llm.generator_prompt import pick_examples, pick_true_false_hint
 from app.llm.prompts import PromptTemplate
 
 GENERATOR_TEMPERATURE = 0.8
@@ -108,7 +108,11 @@ class QuestionGenerator:
         request = ChatRequest(
             model=self._model,
             system=self._prompt.system,
-            user=self._prompt.render_user(facts=format_seed(seed), examples=pick_examples()),
+            user=self._prompt.render_user(
+                facts=format_seed(seed),
+                examples=pick_examples(),
+                true_false_hint=pick_true_false_hint(),
+            ),
             json_schema=QUESTION_SCHEMA,
             temperature=GENERATOR_TEMPERATURE,
         )

@@ -104,6 +104,7 @@ def test_generate_sends_facts_and_schema_and_logs_call() -> None:
     assert request.json_schema == QUESTION_SCHEMA
     assert "France -- capital --> Paris" in request.user
     assert "$facts" not in request.user
+    assert "If you write a true or false question, the claim must be" in request.user
     assert [(r.purpose, r.attempt, r.error) for r in logger.records] == [("generate", 1, None)]
     assert logger.records[0].parsed["expected_answer"] == "Paris"
     assert logger.records[0].request["user"] == request.user

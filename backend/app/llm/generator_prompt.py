@@ -28,8 +28,9 @@ Question formats (vary them, do not always pick the first one):
   correct answers exist than are asked for. expected_answer holds one valid set,
   accepted_answers lists every valid single item.
 - True or false: good for facts that would be too obscure as an open question. State a
-  claim, either true or false, and ask "True or false: ...". expected_answer is "True" or
-  "False".
+  claim and ask "True or false: ...". expected_answer is "True" or "False". The request
+  says whether the claim must be true or false. A false claim swaps one detail for a
+  plausible wrong one (another capital, river, century or person), so it sounds right.
 - Comparison: "Which happened first, A or B?", "Which is larger, A or B?", "Which lies
   closer to X, A or B?". Use any angle the facts support: time, size, population, length,
   height, distance, location. Only pick pairs with a clear answer, never close calls.
@@ -85,6 +86,7 @@ or after it. It has exactly these three fields:
 USER_TEMPLATE = Template(
     "Examples of good questions (style only, do not copy their topics):\n\n$examples\n\n"
     "Facts:\n\n$facts\n\n"
+    "$true_false_hint\n\n"
     "Write one easy trivia question for a casual quiz player. Reply with the JSON object only."
 )
 
@@ -105,6 +107,10 @@ EXAMPLES: list[str] = [
   "Romania", "Bulgaria", "Moldova", "Ukraine"]}""",
     # True or false (false claim)
     """{"question": "True or false: Istanbul is the capital of Turkey.",
+ "expected_answer": "False",
+ "accepted_answers": ["No"]}""",
+    # True or false (false claim, swapped detail)
+    """{"question": "True or false: The Nile flows into the Red Sea.",
  "expected_answer": "False",
  "accepted_answers": ["No"]}""",
     # True or false (true claim)
@@ -134,6 +140,18 @@ EXAMPLES: list[str] = [
 ]
 
 EXAMPLES_PER_QUESTION = 2
+
+
+# Models write far more true claims than false ones when left to choose, so the code
+# picks the side per request.
+FALSE_CLAIM_SHARE = 0.7
+FALSE_CLAIM_HINT = "If you write a true or false question, the claim must be false."
+TRUE_CLAIM_HINT = "If you write a true or false question, the claim must be true."
+
+
+def pick_true_false_hint(rng: random.Random | None = None) -> str:
+    draw = (rng or random).random()
+    return FALSE_CLAIM_HINT if draw < FALSE_CLAIM_SHARE else TRUE_CLAIM_HINT
 
 
 def pick_examples() -> str:

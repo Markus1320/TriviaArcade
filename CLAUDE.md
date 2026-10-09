@@ -240,6 +240,9 @@ The walker also labels every node of a seed with its fame relative to its type: 
   or false, comparisons (time, size, population, distance) and rough time (century).
 - A few hand written examples from `EXAMPLES` are picked at random per request and placed
   in the user message, to show style without fixing topics.
+- Left alone, the model writes mostly true claims for true or false questions. So the code
+  decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
+  default 0.7) or true, and adds that hint to the user message.
 - Output is enforced as JSON via Ollama's structured output and validated with Pydantic:
 
 ```json
