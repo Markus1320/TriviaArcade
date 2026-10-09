@@ -240,11 +240,14 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Target audience in the prompt: a casual quiz player. One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
 - The generator varies question formats: direct questions, open questions where any one
   of several answers counts ("Name a country that borders Germany"), name several, true
-  or false, comparisons (time, size, population, distance) and rough time (century).
+  or false, comparisons (time, size, population, distance), rough time (century), sorting
+  ("oldest first"), odd one out and analogies ("Ottawa is to Canada as Canberra is to ...?").
   Comparisons pair two entities of the same kind (never a city against a continent), neither
   part of the other, with a clear but not absurdly obvious answer.
 - A few hand written examples from `EXAMPLES` are picked at random per request and placed
-  in the user message, to show style without fixing topics.
+  in the user message. They inspire format and style only; the prompt says the topic must
+  come from the facts. Example lines may exceed the line length (E501 is ignored for
+  `generator_prompt.py`), because a line break would change the JSON text.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
@@ -271,6 +274,7 @@ The expected answer and accepted answers are stored server side with the run. Th
   - Vague answers are rejected (e.g. "in Europe" for a country).
   - Years must be exact unless the question asks for a decade or century.
   - "Name three" questions need at least that many distinct, correct items.
+  - Sorting questions need all items in the correct order.
   - If a question allows several correct answers, any answer that is certainly correct for the question as asked is accepted, even if not listed. Ambiguous questions are therefore acceptable.
 - **Prompt injection defense:** the player answer is wrapped in clear delimiters and the prompt states that it is untrusted data, never instructions.
 - **Strict parsing:** any output other than `true` or `false` triggers one retry. If the retry fails too, the run is paused with an error, not ended.

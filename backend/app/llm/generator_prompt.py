@@ -27,9 +27,9 @@ Question formats (vary them, do not always pick the first one):
 - Name several: "Name three countries the Danube flows through." Only if clearly more
   correct answers exist than are asked for. expected_answer holds one valid set,
   accepted_answers lists every valid single item.
-- True or false: good for facts that would be too obscure as an open question. State a
-  claim and ask "True or false: ...". expected_answer is "True" or "False". The request
-  says whether the claim must be true or false. A false claim swaps one detail for a
+- True or false: use it only for facts that are too hard to answer as an open question.
+  State a claim and ask "True or false: ...". expected_answer is "True" or "False". The
+  request says whether the claim must be true or false. A false claim swaps one detail for a
   plausible wrong one (another capital, river, century or person), so it sounds right.
 - Comparison: "Which happened first, A or B?", "Which is larger, A or B?", "Which lies
   closer to X, A or B?". Use any angle the facts support: time, size, population, length,
@@ -38,8 +38,21 @@ Question formats (vary them, do not always pick the first one):
     mountains, two events, two people. Never a city against a country or a continent.
   - Neither option is part of the other ("Europe or Berlin", "France or Paris").
   - The answer is clear, but not absurdly obvious: a player should need to know
-    something. "Which is larger, Russia or Monaco?" is too easy, close calls are too hard.
+    something. "Which is larger, Russia or Monaco?" is too easy, close calls are interesting.
 - Rough time: ask for the century or decade instead of an exact year.
+- Sorting: "Sort these by founding year, oldest first: A, B, C." Three items of the same
+  kind, with clear gaps between them. Say which end comes first. expected_answer lists the
+  items in the correct order, separated by commas.
+- Odd one out: "Odd one out: A, B, C, D, E." All items but one clearly share a property
+  that a casual player can spot (same continent, same river, same era). expected_answer is
+  the item that does not fit.
+- Analogy: "Ottawa is to Canada as Canberra is to ...?" Both pairs share the same relation,
+  taken from the facts. expected_answer is the missing item.
+
+Examples:
+- The request shows a few example questions. Let them inspire the format and style of your
+  question. Never copy their topics or entities: the content of your question comes from
+  the facts only.
 
 Grounding:
 - Base the question on the given facts. You may add widely known context, and the second
@@ -52,9 +65,7 @@ Avoid:
 - Numbers as answers: no populations, areas, lengths or exact years. Famous years like
   1789 for the French Revolution are the only exception. Numbers in the facts are useful
   as material for comparisons.
-- Several correct answers, unless the question uses one of the open formats above.
-- Obscure answers. If an answer would be obscure, turn it into a true or false or a
-  comparison question instead.
+- Obscure answers. If an answer would be obscure, turn it into an easier question format.
 - Giving the answer away. Never mention the answer or an obvious form of it, except as
   one of the two options of a comparison. "Where did the French Revolution take place?"
   gives away France.
@@ -92,7 +103,8 @@ or after it. It has exactly these three fields:
 }"""
 
 USER_TEMPLATE = Template(
-    "Examples of good questions (style only, do not copy their topics):\n\n$examples\n\n"
+    "Examples of good questions. Let their format and style inspire you, but do not copy "
+    "their topics; your question is about the facts below:\n\n$examples\n\n"
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
     "Write one easy trivia question for a casual quiz player. Reply with the JSON object only."
@@ -103,6 +115,28 @@ EXAMPLES: list[str] = [
     """{"question": "What is the capital of New Zealand?",
  "expected_answer": "Wellington",
  "accepted_answers": ["Te Whanganui-a-Tara"]}""",
+    """{"question": "Which country spans the most time zones, counting its overseas territories?",
+ "expected_answer": "France",
+ "accepted_answers": []}""",
+    """{"question": "What is the highest mountain in Germany?",
+ "expected_answer": "Zugspitze",
+ "accepted_answers": ["The Zugspitze"]}""",
+    """{"question": "What is the deepest known point in Earth's oceans?",
+ "expected_answer": "Challenger Deep",
+ "accepted_answers": ["Mariana Trench", "The Mariana Trench", "Marianas Trench"]}""",
+    # Direct, one answer - Minima and Maxima
+    """{"question": "Which planet is, on average, closest to Earth?",
+ "expected_answer": "Mercury",
+ "accepted_answers": []}""",
+    """{"question": "Which is the hottest planet in our solar system?",
+ "expected_answer": "Venus",
+ "accepted_answers": []}""",
+    """{"question": "What is the smallest country in the world by area?",
+ "expected_answer": "Vatican City",
+ "accepted_answers": ["Vatican", "Holy See", "Vatican City State"]}""",
+    """{"question": "Which is the smallest of the world's five oceans?",
+ "expected_answer": "Arctic Ocean",
+ "accepted_answers": ["Arctic"]}""",
     # Open: any one of several answers counts
     """{"question": "Name a country that borders Germany.",
  "expected_answer": "France",
@@ -113,6 +147,9 @@ EXAMPLES: list[str] = [
  "expected_answer": "Germany, Austria, Hungary",
  "accepted_answers": ["Germany", "Austria", "Slovakia", "Hungary", "Croatia", "Serbia",
   "Romania", "Bulgaria", "Moldova", "Ukraine"]}""",
+    """{"question": "Name the three primary colors of the RGB color model.",
+ "expected_answer": "Red, Green, Blue",
+ "accepted_answers": ["Red Green Blue", "RGB"]}""",
     # True or false (false claim)
     """{"question": "True or false: Istanbul is the capital of Turkey.",
  "expected_answer": "False",
@@ -134,6 +171,10 @@ EXAMPLES: list[str] = [
     """{"question": "Which country is larger by area: Australia or India?",
  "expected_answer": "Australia",
  "accepted_answers": []}""",
+    # Comparison: Height
+    """{"question": "Which is taller: the Eiffel Tower or the Statue of Liberty (including its pedestal)?",
+ "expected_answer": "Eiffel Tower",
+ "accepted_answers": ["The Eiffel Tower", "Eiffel"]}""",
     # Comparison: length, two rivers
     """{"question": "Which river is longer: the Danube or the Rhine?",
  "expected_answer": "Danube",
@@ -146,18 +187,36 @@ EXAMPLES: list[str] = [
     """{"question": "In which century did Christopher Columbus first reach the Americas?",
  "expected_answer": "15th century",
  "accepted_answers": ["15th", "fifteenth century", "1400s"]}""",
+    """{"question": "Which came first: the invention of the telephone or the first ascent of Mount Everest?",
+ "expected_answer": "Invention of the telephone",
+ "accepted_answers": ["Telephone", "The telephone"]}""",
     # Comparison: distance
     """{"question": "Which capital lies closer to the equator: Nairobi or Cairo?",
  "expected_answer": "Nairobi",
  "accepted_answers": []}""",
-    # Comparison: population
+    # Comparison: count
     """{"question": "Which country has more people: Nigeria or Russia?",
  "expected_answer": "Nigeria",
  "accepted_answers": []}""",
+    """{"question": "Who has more bones: a newborn baby or an adult human?",
+ "expected_answer": "A newborn baby",
+ "accepted_answers": ["Newborn", "Baby", "Newborn baby"]}""",
     # Relation: founder
     """{"question": "Which empire was founded by Genghis Khan?",
  "expected_answer": "Mongol Empire",
  "accepted_answers": ["Mongolian Empire", "Mongols", "The Mongols"]}""",
+    # Sorting
+    """{"question": "Sort these companies by founding year, oldest first: Google, Apple, Microsoft.",
+ "expected_answer": "Microsoft, Apple, Google",
+ "accepted_answers": ["Microsoft Apple Google"]}""",
+    # Odd one Out
+    """{"question": "Odd one out: Mercury, Venus, Ganymede, Mars, Earth.",
+ "expected_answer": "Ganymede",
+ "accepted_answers": []}""",
+    # Riddle
+    """{"question": "Ottawa is to Canada as Canberra is to ...?",
+ "expected_answer": "Australia",
+ "accepted_answers": []}""",
 ]
 
 EXAMPLES_PER_QUESTION = 2
