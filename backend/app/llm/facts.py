@@ -16,6 +16,7 @@ _YEAR_LABELS = {
     "start_year": "start",
     "end_year": "end",
     "inception_year": "founded",
+    "publication_year": "released",
     "dissolved_year": "dissolved",
     "birth_year": "born",
     "death_year": "died",

@@ -14,7 +14,7 @@ function ordinal(rank: number): string {
 export const strings = {
   titleTop: 'TRIVIA',
   titleBottom: 'ARCADE',
-  subtitle: 'GEOGRAPHY & HISTORY',
+  subtitle: 'GENERAL KNOWLEDGE',
   rules: 'ONE WRONG ANSWER ENDS THE RUN',
   start: 'PRESS START',
   showLeaderboard: 'HIGH SCORES',

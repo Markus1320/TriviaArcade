@@ -15,7 +15,7 @@ wikidata:
   min_interval_seconds: 2.0 # pause between two requests
   timeout_seconds: 90
   max_retries: 4
-  batch_size: 200 # entities per statement query
+  batch_size: 100 # entities per statement query
   label_batch_size: 100 # entities per label query (label queries are slower)
 
 # Languages for labels and aliases. English is required: it is the main label.
@@ -39,6 +39,22 @@ exclude_entities:
   - Q3960 # Australian continent (Oceania is used instead)
   - Q897 # gold (reached as a "currency")
   - Q41207 # coin (reached as a "currency")
+  # Too generic as a game "platform"
+  - Q17517 # mobile phone
+  - Q466 # World Wide Web
+  - Q6368 # web browser
+  - Q22645 # smartphone
+  - Q16338 # personal computer
+  - Q483639 # cloud computing
+  - Q8076 # video game console (the class itself)
+  - Q165194 # application programming interface
+  # Too generic as a "position held"
+  - Q121594 # professor
+  - Q161944 # deacon
+  - Q486839 # member of parliament
+  - Q484876 # chief executive officer
+  - Q121998 # ambassador
+  - Q190353 # Sovereign Military Order of Malta (reached as an "award")
 
 # Seed entity types. Every entity whose "instance of" (P31) is one of the classes and whose
 # fame reaches the threshold is imported. The first matching type in this list wins.
@@ -94,6 +110,399 @@ entity_types:
     classes: [Q131569]
     fame_threshold: 50
 
+  # --- Geography, beyond the basics ---
+  us_state:
+    classes: [Q35657]
+    fame_threshold: 100
+  german_state:
+    classes: [Q1221156]
+    fame_threshold: 100
+  strait:
+    classes: [Q37901]
+    fame_threshold: 80
+  peninsula:
+    classes: [Q34763]
+    fame_threshold: 80
+  bay:
+    classes: [Q39594] # bay; gulfs are filed here too
+    fame_threshold: 80
+  archipelago:
+    classes: [Q33837]
+    fame_threshold: 100
+  natural_landmark:
+    classes: [Q34038, Q8072] # waterfall, volcano
+    fame_threshold: 80
+  national_park:
+    classes: [Q46169]
+    fame_threshold: 70
+
+  # --- History, beyond the basics ---
+  archaeological_site:
+    classes: [Q839954]
+    fame_threshold: 80
+  ancient_city:
+    classes: [Q15661340]
+    fame_threshold: 80
+  dynasty:
+    classes: [Q164950]
+    fame_threshold: 70
+  historic_event:
+    classes: [Q188055, Q45382, Q3882219, Q12184] # siege, coup d'état, assassination, pandemic
+    fame_threshold: 50
+
+  # --- People. All people are "human" on Wikidata, so kinds of people are selected by
+  # position held (P39, exact lists) or occupation (P106, loose: every occupation a person
+  # ever had counts). The first matching type wins, so positions come first, and `exclude`
+  # removes people whose listed occupation is not what they are known for.
+  us_president:
+    classes: [Q11696]
+    select_by: P39
+    fame_threshold: 150
+  uk_prime_minister:
+    classes: [Q14211]
+    select_by: P39
+    fame_threshold: 100
+  german_chancellor:
+    classes: [Q4970706]
+    select_by: P39
+    fame_threshold: 100
+  roman_emperor:
+    classes: [Q842606]
+    select_by: P39
+    fame_threshold: 100
+  pharaoh:
+    classes: [Q37110]
+    select_by: P39
+    fame_threshold: 80
+    exclude: [Q8409, Q44387, Q129165] # Alexander the Great, Darius I, Xerxes I
+  pope:
+    classes: [Q19546]
+    select_by: P39
+    fame_threshold: 120
+  monarch:
+    classes: [Q116]
+    select_by: P106
+    fame_threshold: 130
+    max_entities: 30
+  explorer:
+    classes: [Q11900058]
+    select_by: P106
+    fame_threshold: 120
+    max_entities: 20
+    exclude: [Q1035, Q7327, Q47087] # Darwin, Gagarin (astronaut), Arthur C. Clarke
+  astronaut:
+    classes: [Q11631]
+    select_by: P106
+    fame_threshold: 80
+    exclude: [Q338430, Q53662] # Wonder Woman, Laika
+  painter:
+    classes: [Q1028181]
+    select_by: P106
+    fame_threshold: 150
+    max_entities: 20
+    # Goethe, Tagore, Bashō, Le Corbusier, Sarah Bernhardt, Bob Dylan, Kurosawa, Freddie Mercury,
+    # Walt Disney, Copernicus, Hermann Hesse, William Blake, Kahlil Gibran
+    exclude: [Q41532, Q5879, Q7241, Q5676, Q4724, Q4605, Q392, Q8006, Q15869, Q8704, Q619, Q25973,
+              Q41513, Q47737]
+  physicist:
+    classes: [Q169470]
+    select_by: P106
+    fame_threshold: 150
+    max_entities: 20
+    # Goethe, Kant, Avicenna, Omar Khayyám; Edison, Berners-Lee, Bell, Watt (inventors);
+    # Descartes, Leibniz, Gauss, Pascal, Euler, Hilbert (mathematicians); Mendeleev (chemist)
+    exclude: [Q5879, Q9312, Q8011, Q35900, Q8743, Q80, Q34286, Q9041, Q9191, Q9047, Q6722,
+              Q1290, Q7604, Q41585, Q9106]
+  mathematician:
+    classes: [Q170790]
+    select_by: P106
+    fame_threshold: 150
+    max_entities: 15
+    # Goethe, Kant, Dürer, Keynes, Russell, Wittgenstein, Hobbes, Lewis Carroll, Democritus,
+    # Giordano Bruno, Edison, Avicenna, Omar Khayyám
+    exclude: [Q9041, Q5879, Q9312, Q5580, Q9317, Q33760, Q9391, Q37621, Q38082, Q41980, Q36330, Q8743,
+              Q8011, Q35900]
+  chemist:
+    classes: [Q593644]
+    select_by: P106
+    fame_threshold: 130
+    max_entities: 10
+    exclude: [Q5879, Q8011] # Goethe, Avicenna
+  inventor:
+    classes: [Q205375]
+    select_by: P106
+    fame_threshold: 150
+    max_entities: 15
+    exclude: [Q2908, Q5879] # Saint-Exupéry, Goethe
+  composer:
+    classes: [Q36834]
+    select_by: P106
+    fame_threshold: 150
+    max_entities: 20
+    # Goethe, Michael Jackson, Chaplin, Luther, Nietzsche, Shakira, Rousseau, Basshunter,
+    # John Lennon, Pelé, Taylor Swift, Beyoncé, Tagore, Bob Dylan, Freddie Mercury, Heine,
+    # Bob Marley, Céline Dion, Woody Allen
+    exclude: [Q44301, Q5879, Q2831, Q882, Q9554, Q9358, Q34424, Q6527, Q383541, Q1203, Q12897, Q26876,
+              Q36153, Q7241, Q392, Q15869, Q44403, Q409, Q5105, Q25089]
+  architect:
+    classes: [Q42973]
+    select_by: P106
+    fame_threshold: 100
+    max_entities: 10
+    # Ingres, Ruskin, El Greco, Elie Wiesel, Hooke, Wittgenstein
+    exclude: [Q23380, Q179126, Q301, Q18391, Q46830, Q9391]
+  philosopher:
+    classes: [Q4964182]
+    select_by: P106
+    fame_threshold: 200
+    max_entities: 15
+    # Goethe, Gandhi, The Buddha, Mao, Martin Luther King, Atatürk, Julius Caesar, Darwin;
+    # Tolstoy, Dostoyevsky, Dante (writers); Martin Luther
+    exclude: [Q7241, Q7235, Q5879, Q1001, Q9441, Q5816, Q8027, Q5152, Q1048, Q1035, Q7243, Q991, Q1067, Q9554]
+  writer:
+    classes: [Q36180]
+    select_by: P106
+    fame_threshold: 200
+    max_entities: 30
+    # Gandhi, The Buddha, Mao, Martin Luther King, Atatürk, Julius Caesar, Darwin, Chaplin,
+    # Bismarck, Benjamin Franklin, Stephen Hawking
+    exclude: [Q1001, Q9441, Q5816, Q8027, Q5152, Q1048, Q1035, Q882, Q8442, Q34969, Q17714]
+  singer:
+    classes: [Q177220]
+    select_by: P106
+    fame_threshold: 130
+    max_entities: 30
+    # Tagore, Corbin Bleu, Basshunter, Rafael Orozco, Hebe Camargo, Anna Netrebko, Anggun,
+    # Agnez Mo; Marilyn Monroe, Marlene Dietrich, Scarlett Johansson, Judy Garland,
+    # Brigitte Bardot, Audrey Hepburn (actors)
+    exclude: [Q19526, Q106529, Q47478, Q7241, Q4617, Q383541, Q7282241, Q6105, Q78516, Q221310, Q1362169, Q4616, Q4612,
+              Q34436, Q11637, Q36268, Q42786]
+  actor:
+    classes: [Q33999]
+    select_by: P106
+    fame_threshold: 130
+    max_entities: 40
+    # Tagore, Corbin Bleu, Anna Netrebko, Anggun, Agnez Mo, Brecht, Stephen King, Trudeau,
+    # Richard Dawkins; Maradona, Pelé, Beckham (footballers); Hitchcock, Spielberg, Bergman,
+    # Eisenstein (directors)
+    exclude: [Q55800, Q6107, Q38222, Q41594, Q7241, Q4617, Q78516, Q221310, Q1362169, Q38757, Q39829, Q3099714, Q44461, Q17515,
+              Q12897, Q10520, Q7374, Q8877, Q7546, Q8003]
+  film_director:
+    classes: [Q2526255]
+    select_by: P106
+    fame_threshold: 130
+    max_entities: 20
+    # Brecht, Paul McCartney, Stephen King, Maya Angelou, Václav Havel, Samuel Beckett, Tagore,
+    # Mario Vargas Llosa
+    exclude: [Q38757, Q2599, Q39829, Q19526, Q36233, Q37327, Q7241, Q39803]
+  footballer:
+    classes: [Q937857]
+    select_by: P106
+    fame_threshold: 110
+    max_entities: 20
+    exclude: [Q57641] # Viktor Orbán
+  tennis_player:
+    classes: [Q10833314]
+    select_by: P106
+    fame_threshold: 90
+    exclude: [Q280856] # George VI
+  formula_one_driver:
+    classes: [Q10841764]
+    select_by: P106
+    fame_threshold: 90
+  basketball_player:
+    classes: [Q3665646]
+    select_by: P106
+    fame_threshold: 80
+    exclude: [Q483148, Q172140, Q316901] # Michael Clarke Duncan, Michael Crichton, Edi Rama
+  chess_player:
+    classes: [Q10873124]
+    select_by: P106
+    fame_threshold: 90
+    exclude: [Q36591, Q5912] # Nabokov, Marcel Duchamp
+
+  # --- Politics ---
+  international_organization:
+    classes: [Q484652, Q245065] # international, intergovernmental organization
+    fame_threshold: 100
+    exclude: [Q359] # WikiLeaks
+  political_ideology:
+    classes: [Q12909644]
+    fame_threshold: 100
+  form_of_government:
+    classes: [Q1307214]
+    fame_threshold: 100
+  political_party:
+    classes: [Q7278]
+    fame_threshold: 80
+    exclude: [Q19683] # Puerto Rican Independence Party
+
+  # --- Science and space ---
+  planet:
+    classes: [Q634]
+    include_subclasses: true # the planets are filed as "inner planet", "gas giant", ...
+    fame_threshold: 100
+  moon:
+    classes: [Q2537] # natural satellite
+    include_subclasses: true
+    fame_threshold: 100
+  dwarf_planet:
+    classes: [Q2199]
+    fame_threshold: 100
+  constellation:
+    classes: [Q8928]
+    fame_threshold: 100
+  chemical_element:
+    classes: [Q11344]
+    fame_threshold: 150
+    max_entities: 40
+  dog_breed:
+    classes: [Q39367]
+    fame_threshold: 60
+
+  # --- Technology and business ---
+  programming_language:
+    classes: [Q9143]
+    fame_threshold: 100
+  operating_system:
+    classes: [Q9135]
+    fame_threshold: 80
+  website:
+    classes: [Q35127, Q3220391] # website, social networking service
+    fame_threshold: 100
+    exclude: [Q964] # Wikinews
+  car_maker:
+    classes: [Q786820]
+    fame_threshold: 90
+    exclude: [Q27571] # Donkervoort
+  airline:
+    classes: [Q46970]
+    fame_threshold: 75
+    exclude: [Q853878] # VietJet Air
+  company:
+    classes: [Q891723] # public company
+    fame_threshold: 100
+    # Juventus and Ajax (football clubs), McDonald's (fast food chain), Grupo Televisa
+    exclude: [Q1422, Q81888, Q38076, Q47099]
+  brand:
+    classes: [Q431289]
+    fame_threshold: 80
+    exclude: [Q524757] # KFC (fast food chain)
+
+  # --- Art and buildings ---
+  art_movement:
+    classes: [Q968159]
+    fame_threshold: 100
+    exclude: [Q35874, Q128758, Q37484, Q6010] # humor, satire, epic poem, rapping
+  painting:
+    classes: [Q3305213]
+    include_subclasses: true
+    fame_threshold: 60
+  sculpture:
+    classes: [Q860861, Q179700] # sculpture, statue
+    fame_threshold: 60
+  museum:
+    classes: [Q33506, Q207694] # museum, art museum
+    fame_threshold: 80
+  landmark_building:
+    classes: [Q16560, Q23413, Q11303, Q483110] # palace, castle, skyscraper, stadium
+    fame_threshold: 75
+    exclude: [Q1143049, Q1030463] # Château de Montsoreau, Mode Gakuen Cocoon Tower
+
+  # --- Film and television ---
+  film:
+    classes: [Q11424]
+    fame_threshold: 80
+  animated_film:
+    classes: [Q202866]
+    fame_threshold: 90
+    exclude: [Q11252497] # Bad Cat
+  tv_series:
+    classes: [Q5398426]
+    fame_threshold: 80
+    exclude: [Q8172269] # Liv and Maddie
+  fictional_character:
+    # film character, comics character, fictional human, video game character
+    classes: [Q15773347, Q1114461, Q15632617, Q1569167]
+    fame_threshold: 80
+    exclude: [Q165170] # Europa (mythology)
+
+  # --- Games ---
+  video_game:
+    classes: [Q7889]
+    fame_threshold: 60
+  video_game_series:
+    classes: [Q7058673]
+    fame_threshold: 45
+  board_game:
+    classes: [Q131436]
+    fame_threshold: 40
+  game_developer:
+    classes: [Q210167]
+    fame_threshold: 50
+
+  # --- Music ---
+  band:
+    classes: [Q215380, Q5741069] # musical group, rock band
+    fame_threshold: 90
+    max_entities: 30
+    exclude: [Q23471] # Lordi
+  music_genre:
+    classes: [Q188451]
+    fame_threshold: 100
+  album:
+    classes: [Q482994]
+    fame_threshold: 55
+
+  # --- Literature, myth and religion ---
+  literary_work:
+    classes: [Q7725634]
+    fame_threshold: 110
+    max_entities: 40
+    # Single books of the Bible would fill half of this type; Genesis and the Old Testament stay.
+    exclude: [Q107388, Q9190, Q39939, Q42040, Q40309, Q41490, Q48203, Q80355, Q81240, Q128620,
+              Q80038, Q128608, Q408673, Q4579, Q123808, Q131489, Q51613, Q131104, Q131180]
+  greek_deity:
+    classes: [Q22989102]
+    fame_threshold: 80
+  roman_deity:
+    classes: [Q11688446]
+    fame_threshold: 80
+    exclude: [Q93172, Q185498] # Gaia, Lucifer
+  religion:
+    classes: [Q9174]
+    fame_threshold: 100
+  holiday:
+    classes: [Q1445650]
+    fame_threshold: 90
+    exclude: [Q2882] # September 29
+
+  # --- Sports ---
+  sport:
+    classes: [Q31629] # type of sport
+    fame_threshold: 100
+    max_entities: 20
+  football_club:
+    classes: [Q476028]
+    fame_threshold: 100
+    max_entities: 20
+    exclude: [Q478317, Q2674] # Coritiba, Palermo
+
+  # --- Food ---
+  dish:
+    classes: [Q746549, Q2095] # dish, food
+    fame_threshold: 60
+  fast_food_chain:
+    classes: [Q18509232]
+    fame_threshold: 55
+    exclude: [Q1538507, Q1043486] # Jack in the Box, Carl's Jr.
+
+  # Last, so that cities, lakes or parks with this status keep their own type.
+  world_heritage_site:
+    classes: [Q9259]
+    select_by: P1435 # heritage designation
+    fame_threshold: 130
+
 # Types that are never queried directly, only assigned to entities reached through a
 # relation. A reached entity whose P31 matches none of the entity or related types is dropped
 # unless the relation defines a fallback_target_type.
@@ -104,6 +513,16 @@ related_types:
     classes: [Q34770, Q1288568, Q33742, Q45762] # language, modern, natural, dead language
   currency:
     classes: [Q8142]
+  # Positions, awards and platforms mostly come from a relation's fallback_target_type:
+  # whatever a person's award or a game's platform points to is taken as an award or platform.
+  position:
+    classes: [Q4164871]
+  award:
+    classes: [Q618779]
+  genre:
+    classes: [Q483394, Q201658, Q223393] # genre, film genre, literary genre
+  platform:
+    classes: [Q8076] # video game console
 
 # Relation allowlist. Relations are read from seed entities; relations marked
 # from_related are also read from reached entities, but only towards entities that are
@@ -134,6 +553,41 @@ relations:
   - { property: P19, name: PLACE_OF_BIRTH, from_related: true }
   - { property: P20, name: PLACE_OF_DEATH, from_related: true }
   - { property: P607, name: PARTICIPATED_IN_CONFLICT, from_related: true }
+  # People
+  - { property: P27, name: COUNTRY_OF_CITIZENSHIP, from_related: true }
+  - { property: P39, name: POSITION_HELD, target_fame_threshold: 60, fallback_target_type: position, from_related: true }
+  - { property: P166, name: AWARD_RECEIVED, target_fame_threshold: 80, fallback_target_type: award, from_related: true }
+  - { property: P800, name: NOTABLE_WORK, from_related: true }
+  - { property: P135, name: MOVEMENT }
+  - { property: P102, name: MEMBER_OF_POLITICAL_PARTY, from_related: true }
+  - { property: P26, name: SPOUSE }
+  - { property: P22, name: FATHER }
+  - { property: P54, name: MEMBER_OF_SPORTS_TEAM, from_related: true }
+  # Works: films, series, games, books, music, art
+  - { property: P57, name: DIRECTOR }
+  - { property: P161, name: CAST_MEMBER }
+  - { property: P50, name: AUTHOR }
+  - { property: P170, name: CREATOR }
+  - { property: P175, name: PERFORMER }
+  - { property: P86, name: COMPOSER }
+  - { property: P178, name: DEVELOPER }
+  - { property: P123, name: PUBLISHER }
+  - { property: P400, name: PLATFORM, target_fame_threshold: 60, fallback_target_type: platform }
+  # No fallback type: "genre" statements point at too many unrelated things.
+  - { property: P136, name: GENRE, target_fame_threshold: 80 }
+  - { property: P495, name: COUNTRY_OF_ORIGIN }
+  - { property: P840, name: NARRATIVE_LOCATION }
+  - { property: P1441, name: PRESENT_IN_WORK }
+  - { property: P179, name: PART_OF_THE_SERIES }
+  # Organisations, buildings, science, sport
+  - { property: P159, name: HEADQUARTERS_LOCATION, best_rank_only: true }
+  - { property: P127, name: OWNED_BY, best_rank_only: true }
+  - { property: P176, name: MANUFACTURER }
+  - { property: P84, name: ARCHITECT }
+  - { property: P740, name: LOCATION_OF_FORMATION }
+  - { property: P61, name: DISCOVERER_OR_INVENTOR }
+  - { property: P397, name: PARENT_ASTRONOMICAL_BODY }
+  - { property: P641, name: SPORT, target_fame_threshold: 80, fallback_target_type: sport }
 
 # Numeric facts, only for entities at or above numeric_fame_threshold.
 # unit refers to unit_conversions below; null means unitless (e.g. population).
@@ -158,6 +612,7 @@ date_properties:
   - { property: P585, name: year, tier: base } # point in time
   - { property: P580, name: start_year, tier: base }
   - { property: P582, name: end_year, tier: base }
+  - { property: P577, name: publication_year, tier: base } # films, games, books, albums
   - { property: P571, name: inception_year, tier: numeric }
   - { property: P576, name: dissolved_year, tier: numeric }
   - { property: P569, name: birth_year, tier: numeric }

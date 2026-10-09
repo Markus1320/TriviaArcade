@@ -4,7 +4,7 @@ This file guides Claude Code when working in this repository. Read it fully befo
 
 ## Project Overview
 
-**TriviaArcade** is an open source trivia web game in the style of classic arcade cabinets. Topics are geography and history.
+**TriviaArcade** is an open source trivia web game in the style of classic arcade cabinets. Topics are general knowledge: geography and history (the original scope) plus science, technology, politics, art, film and television, games, music, literature and myth, sports and food.
 
 Core loop (version one):
 
@@ -206,9 +206,13 @@ Current implementation:
 - Relationship types are the allowlist names (`CAPITAL`, `SHARES_BORDER_WITH`, ...). Each relationship stores the Wikidata `property` and, from statement qualifiers, `start_year`, `end_year` or `year` where known. Historical values (e.g. former heads of state) are included; deprecated statements are not.
 - Years use historical numbering: negative years are BCE, there is no year 0. Only values with at least year precision are stored.
 - Seed entities come from the configured classes and fame thresholds. Relation targets outside the seeds (people, languages, currencies, obscure capitals) are added if they pass the target threshold and can be classified into a configured type. Direct queries for all famous humans time out on the public endpoint, so people only enter the graph through relations. `exclude_entities` removes ambiguous items (e.g. Afro-Eurasia); the order of `entity_types` decides the type of entities matching several types, and an entity cut by one type's `max_entities` is not picked up by a later type.
+- Kinds of people cannot be selected by class, because every person is just "human" on Wikidata. A type can therefore set `select_by: P39` (position held: exact lists such as US presidents) or `select_by: P106` (occupation: loose, every occupation a person ever had counts). The first matching type wins, so positions come before occupations, and a per-type `exclude` list removes people whose listed occupation is not what they are known for (they stay available for later types). People not claimed by any type still enter as `person` when a relation reaches them.
+- `include_subclasses: true` also accepts entities of subclasses (the planets are filed as "inner planet" etc.). It is slower and can pull in junk, so check the result with `--names`.
+- Small or obscure types are kept tight with a high `fame_threshold` and `max_entities`; since every type is an equal slice of the question starts, a type should only contain entities a casual player may know.
+- Targets of some relations get their type from `fallback_target_type` (positions, awards, game platforms, sports); overly generic targets ("professor", "mobile phone") are in `exclude_entities`.
 - Each import replaces the whole graph and writes an `ImportMeta` node with the import time and counts.
-- Run it with `docker compose run --rm importer` (or `uv run python -m importer` on the host). `--dry-run` prints stats without touching Neo4j, `--refresh` ignores the cache.
-- `uv run python -m importer.explore QID...` previews candidate types before they go into `config/import.yaml`: entity counts per fame threshold, the most famous names and the properties those entities carry. `--by P106` or `--by P39` selects people by occupation or position held instead of "instance of". It only reads from Wikidata (cached like the importer).
+- Run it with `docker compose run --rm importer` (or `uv run python -m importer` on the host). `--dry-run` prints stats without touching Neo4j, `--names` also lists the entities of every type (use it to review a config change before importing), `--refresh` ignores the cache.
+- `uv run python -m importer.explore QID...` previews candidate types before they go into `config/import.yaml`: entity counts per fame threshold, the most famous names and the properties those entities carry. `--by P106` or `--by P39` selects people by occupation or position held instead of "instance of", `--subclasses` includes subclasses. It only reads from Wikidata (cached like the importer).
 
 ### Question Seeds (Random Walk)
 

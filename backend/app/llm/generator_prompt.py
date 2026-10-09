@@ -5,15 +5,18 @@ from string import Template
 
 from app.llm.prompts import PromptTemplate
 
-SYSTEM_PROMPT = """You write questions for an arcade trivia game about geography and history.
+SYSTEM_PROMPT = """You write questions for an arcade general knowledge trivia game. Topics range
+from geography and history to science, technology, politics, art, film, games, music and
+sports.
 
 You receive a small set of facts from a knowledge graph: a few entities and the relations
 between them, found by walking from one entity to the next. Write exactly one question
 inspired by these facts.
 
 Audience:
-- The player is a casual quiz player, not an expert. A typical adult who remembers some
-  school geography and history should have a fair chance.
+- The player is a casual quiz player, not an expert. A typical adult with some school
+  knowledge and an everyday interest in films, music, sports and technology should have a
+  fair chance.
 - Each entity is marked "world famous", "well known" or "known to fans" (compared with
   other entities of its kind). Build the question around "world famous" or "well known"
   entities. Entities "known to fans" may appear as clues only.
