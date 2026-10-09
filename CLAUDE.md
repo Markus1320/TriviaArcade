@@ -66,6 +66,7 @@ Key principles:
 ├── docker-compose.yml
 ├── compose.debug.yml           # optional: exposes PostgreSQL on 127.0.0.1
 ├── Caddyfile
+├── scripts/deploy.sh           # deploy main to the home server (see Deployment)
 ├── .env.example                # placeholders only, never real values
 ├── data/raw/                   # gitignored cache of raw Wikidata responses
 ├── config/
@@ -348,6 +349,33 @@ GitHub Actions runs linters, type checks and tests on every push.
 - Never force push and never rewrite history.
 - Never commit `.env`, keys, raw data caches or database volumes.
 - Tag playable milestones (e.g. `v0.1.0`).
+
+## Deployment
+
+The game runs on a home server: a Debian laptop, reachable as `ssh markus@arcade.local`
+(key auth from the development PC). The repository is cloned at `/home/markus/TriviaArcade`
+and tracks `origin/main`.
+
+"Deploy" always means this procedure, implemented in `scripts/deploy.sh` (run it from the
+repository root, e.g. `bash scripts/deploy.sh` in Git Bash):
+
+1. Push `main` to GitHub and wait for the CI run of that commit. **Never deploy while CI is
+   red**; the script aborts unless the run concluded with success.
+2. On the server: `git pull --ff-only`, then `docker compose up -d --build --wait`.
+   Migrations run when the backend container starts.
+3. If `config/import.yaml` changed since the last successful deploy, run the importer:
+   `docker compose run --rm --build importer`. The last successful deploy is recorded in
+   `.git/last-deployed-commit` on the server; without it, the commit before the pull is used.
+4. Check `GET /api/health` through Caddy on the published port (`docker compose port caddy 80`).
+   Only then the commit is recorded as deployed.
+
+Rules for the server:
+
+- The server's `.env` is managed by the owner. Never read, copy, print or modify it
+  (no `cat .env`, no `docker compose config`, which prints resolved values).
+- `data/` on the server is owned by uid 999 for the importer container. Never change its
+  ownership or permissions.
+- No manual edits in the server checkout; changes go through GitHub and a deploy.
 
 ## Definition of Done
 

@@ -255,6 +255,12 @@ verifies that models and migrations match.
 GitHub Actions runs linters, type checks and tests for backend and frontend and
 validates the Compose files on every push.
 
+## Deployment
+
+`bash scripts/deploy.sh` pushes `main`, waits for green CI, then pulls and rebuilds the stack
+on the home server, runs the importer if `config/import.yaml` changed and checks
+`/api/health`. Server and path are set with `DEPLOY_SERVER` and `DEPLOY_DIR`.
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Third party data and assets are listed in
