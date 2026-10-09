@@ -94,6 +94,7 @@ Key principles:
 │   │   ├── sparql.py           # rate limited, cached SPARQL client
 │   │   ├── queries.py          # SPARQL query builders
 │   │   ├── build.py            # seeds -> relations -> labels -> facts
+│   │   ├── explore.py          # python -m importer.explore: preview candidate types
 │   │   └── loader.py           # writes the graph into Neo4j
 │   ├── scripts/                # manual tools: sample_questions.py (real LLM calls)
 │   └── tests/
@@ -207,6 +208,7 @@ Current implementation:
 - Seed entities come from the configured classes and fame thresholds. Relation targets outside the seeds (people, languages, currencies, obscure capitals) are added if they pass the target threshold and can be classified into a configured type. Direct queries for all famous humans time out on the public endpoint, so people only enter the graph through relations. `exclude_entities` removes ambiguous items (e.g. Afro-Eurasia); the order of `entity_types` decides the type of entities matching several types, and an entity cut by one type's `max_entities` is not picked up by a later type.
 - Each import replaces the whole graph and writes an `ImportMeta` node with the import time and counts.
 - Run it with `docker compose run --rm importer` (or `uv run python -m importer` on the host). `--dry-run` prints stats without touching Neo4j, `--refresh` ignores the cache.
+- `uv run python -m importer.explore QID...` previews candidate types before they go into `config/import.yaml`: entity counts per fame threshold, the most famous names and the properties those entities carry. `--by P106` or `--by P39` selects people by occupation or position held instead of "instance of". It only reads from Wikidata (cached like the importer).
 
 ### Question Seeds (Random Walk)
 

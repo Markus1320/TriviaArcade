@@ -23,12 +23,35 @@ def _values(ids: Iterable[str]) -> str:
     return " ".join(f"wd:{qid}" for qid in ids)
 
 
-def entities_of_class(class_qid: str, min_sitelinks: int) -> str:
+def entities_of_class(class_qid: str, min_sitelinks: int, property_pid: str = "P31") -> str:
+    """Entities whose property (default: instance of) has the given value."""
     return f"""# kind: entities
 SELECT ?item ?sitelinks WHERE {{
-  ?item wdt:P31 wd:{class_qid} ; wikibase:sitelinks ?sitelinks .
+  ?item wdt:{property_pid} wd:{class_qid} ; wikibase:sitelinks ?sitelinks .
   FILTER(?sitelinks >= {min_sitelinks})
 }}"""
+
+
+def names(ids: list[str]) -> str:
+    """English (or language independent) labels of entities or properties."""
+    return f"""# kind: names
+SELECT ?s ?lang ?text WHERE {{
+  VALUES ?s {{ {_values(ids)} }}
+  ?s rdfs:label ?text .
+  BIND(LANG(?text) AS ?lang)
+  FILTER(?lang IN ("en", "mul"))
+}}"""
+
+
+def property_usage(ids: list[str]) -> str:
+    """How many of the entities carry each item, time or quantity valued property."""
+    return f"""# kind: property-usage
+SELECT ?prop ?type (COUNT(DISTINCT ?s) AS ?n) WHERE {{
+  VALUES ?s {{ {_values(ids)} }}
+  ?s ?claim ?o .
+  ?prop wikibase:directClaim ?claim ; wikibase:propertyType ?type .
+  FILTER(?type IN (wikibase:WikibaseItem, wikibase:Time, wikibase:Quantity))
+}} GROUP BY ?prop ?type"""
 
 
 def statements(subject_ids: list[str], relations: list[RelationConfig]) -> str:

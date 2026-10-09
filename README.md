@@ -101,6 +101,24 @@ where available. Relationship types come from the allowlist (`CAPITAL`, `SHARES_
 ...) and carry the Wikidata `property` and, where known, `start_year`, `end_year` or `year`.
 Negative years are BCE.
 
+### Exploring new entity types
+
+Before adding a type to `config/import.yaml`, look at what Wikidata offers for it. The
+explore command prints, for each class, how many entities reach several fame thresholds, the
+most famous names and the properties those entities carry (candidates for relations and
+facts). It writes nothing to Neo4j.
+
+```bash
+cd backend
+uv run python -m importer.explore Q11424 Q7889          # film, video game ("instance of")
+uv run python -m importer.explore --by P106 Q11900058   # people by occupation: explorer
+uv run python -m importer.explore --by P39 Q842606      # people by position held: Roman emperor
+```
+
+Find a class by opening the Wikidata page of a typical example and reading its
+"instance of" value. `--top`, `--sample` and `--thresholds` change the size of the lists.
+Very large classes can time out on the public endpoint.
+
 ## Playing
 
 Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below), press START
