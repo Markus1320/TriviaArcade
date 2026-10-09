@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Player, Run
@@ -52,7 +52,9 @@ class LeaderboardService:
                 raise RunNotFoundError(f"run {run_id} not found")
             if run.status != RUN_OVER:
                 raise RunNotOverError("only finished runs can be added to the leaderboard")
-            if run.player_id is not None:
+            # claimed_at, not player_id: a leaderboard reset detaches runs from their
+            # players, and those old runs must not be claimable a second time.
+            if run.claimed_at is not None:
                 raise RunAlreadyClaimedError("this run is already on the leaderboard")
 
             player = self._session.scalars(
@@ -73,6 +75,18 @@ class LeaderboardService:
                 rank=entry.rank,
                 personal_best=entry.run_id == run.id,
             )
+
+    def reset(self) -> int:
+        """Empty the leaderboard and return how many runs were on it.
+
+        Runs are detached from their players but kept, with their questions, for review.
+        Handles stay available. Detached runs keep claimed_at and cannot be claimed again.
+        """
+        with self._session.begin():
+            on_board = Run.player_id.is_not(None)
+            count = self._session.scalar(select(func.count()).select_from(Run).where(on_board))
+            self._session.execute(update(Run).where(on_board).values(player_id=None))
+            return count or 0
 
     def top(self, limit: int = LEADERBOARD_SIZE) -> list[LeaderboardEntry]:
         """The best run of each player, the top `limit` players."""

@@ -530,3 +530,20 @@ def test_leaderboard_shows_ten_runs(game: Game) -> None:
     assert len(board) == 10
     assert board[0]["streak"] == 11
     assert board[-1]["streak"] == 2
+
+
+def test_reset_empties_the_leaderboard_and_keeps_handles_and_runs(game: Game) -> None:
+    old_run = game.play(3)
+    game.claim(old_run, "ALICE")
+    game.claim(game.play(1), "BOB")
+
+    with game.sessions() as session:
+        assert LeaderboardService(session, game.clock).reset() == 2
+
+    assert game.client.get("/api/leaderboard").json() == []
+    assert set(game.client.get("/api/players").json()) == {"ALICE", "BOB"}
+    # The old run still exists but cannot be put back on the board.
+    assert game.client.get(f"/api/runs/{old_run}").json()["over"] is True
+    assert game.claim(old_run, "ALICE").json()["code"] == "run_already_claimed"
+    # New runs count from zero.
+    assert game.claim(game.play(1), "ALICE").json()["rank"] == 1
