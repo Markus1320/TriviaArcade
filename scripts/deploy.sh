@@ -59,7 +59,8 @@ docker compose up -d --build --wait --wait-timeout 300
 
 if ! git diff --quiet "$previous" HEAD -- config/import.yaml; then
   echo "deploy: config/import.yaml changed since $previous, running the importer"
-  docker compose run --rm --build importer
+  # </dev/null: otherwise the container reads the rest of this script from stdin.
+  docker compose run --rm --build -T importer </dev/null
 else
   echo "deploy: config/import.yaml unchanged, no import"
 fi
