@@ -19,6 +19,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -82,9 +83,13 @@ class Question(Base):
     text: Mapped[str] = mapped_column(String(300))
     expected_answer: Mapped[str] = mapped_column(String(200))
     accepted_answers: Mapped[list[str]] = mapped_column(JSONType)
+    # asked_at: when the question was generated (possibly prefetched). shown_at: when the
+    # player first saw it, which starts the time limit.
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    shown_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     player_answer: Mapped[str | None] = mapped_column(String(200))
     correct: Mapped[bool | None] = mapped_column(Boolean)
+    timed_out: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     run: Mapped[Run] = relationship(back_populates="questions")

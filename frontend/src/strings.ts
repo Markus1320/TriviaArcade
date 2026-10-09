@@ -38,8 +38,10 @@ export const strings = {
   correct: 'CORRECT!',
   nextQuestion: 'NEXT QUESTION',
   retry: 'TRY AGAIN',
+  timeLeftLabel: 'TIME LEFT',
 
   gameOver: 'GAME OVER',
+  timeUp: 'TIME UP!',
   finalStreak: 'FINAL STREAK',
   correctAnswerWas: 'THE ANSWER WAS',
   saveScore: 'SAVE SCORE',

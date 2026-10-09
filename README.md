@@ -121,7 +121,9 @@ All endpoints live under `/api`:
 | `POST` | `/runs` | start a run, returns `run_id` |
 | `GET` | `/runs/{run_id}` | run state, including the open question (for reloads) |
 | `POST` | `/runs/{run_id}/question` | next question; returns the open one if unanswered |
-| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters), returns the verdict |
+| `POST` | `/runs/{run_id}/question/start` | starts the time limit of the open question when it is shown; returns `seconds_left` |
+| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters), returns the verdict (`timed_out` if too late) |
+| `POST` | `/runs/{run_id}/timeout` | ends the run when the time ran out with no answer |
 | `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
 | `GET` | `/leaderboard` | top 10 players, each with their best run |
 | `GET` | `/players` | existing handles, most recently used first |
@@ -164,6 +166,8 @@ Difficulty is mainly controlled by which facts the random walk picks, set in `.e
   battles, rivers, ...) is used. Fame is compared within a type. Lower is easier.
 - `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
   connect. Fewer hops give simpler questions.
+- `ANSWER_TIME_SECONDS` (default `45`): seconds per question, counted from when it is
+  shown. `0` turns the timer off.
 
 Try a setting with the sample script (`--seed` makes runs comparable), then restart the
 backend with `docker compose up -d` so the game uses it.

@@ -155,6 +155,7 @@ LLM_TIMEOUT_SECONDS=      # optional, default 120
 WALK_TOP_SHARE=           # optional, default 0.5: most famous share of each type used for questions
 WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
+ANSWER_TIME_SECONDS=      # optional, default 45, 0 = no timer
 ```
 
 LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
@@ -166,7 +167,9 @@ Before filling in model names, check which model tags are actually available for
 ## Game Rules (Version One)
 
 - Constant difficulty. No difficulty ramp.
-- No timer.
+- 45 seconds per question (`ANSWER_TIME_SECONDS`), enforced server side and counted from
+  when the question is shown. When the time is up, whatever the player typed is judged;
+  with nothing typed the run ends. A late answer ends the run like a wrong one.
 - One wrong answer ends the run. No lives, no skips.
 - The streak is the score.
 - Within a run, the same starting node is never used twice.
@@ -289,13 +292,14 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 ## Game Loop (Current Implementation)
 
-- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, player answer and verdict). `llm_calls.run_id` links calls to runs.
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
-- A judge failure (`JudgeUnavailableError`) writes nothing and returns 503 `judge_unavailable`; the question stays open. A generation failure returns 503 `question_unavailable`; the run continues.
+- A judge failure (`JudgeUnavailableError`) writes no verdict and returns 503 `judge_unavailable`; the question stays open and gets a fresh time limit. A generation failure returns 503 `question_unavailable`; the run continues.
 - Only claimed runs count for the leaderboard, one entry per player (`best_per_player` in `ranking.py`, a `row_number()` window query in `service.py`). Claiming returns the player's rank (may be below 10) and `personal_best`, whether this run became the player's entry.
-- After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe. Note for a future timer: `asked_at` is set when the question is generated, not when it is shown.
+- After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe.
+- Time limit: generating (or prefetching) a question does not start the clock. When the browser shows a question it calls `POST /runs/{id}/question/start`, which sets `shown_at` once; calling it again (after a reload) returns the seconds left without restarting the clock. `POST /answer` checks the deadline when the answer arrives, before judging, with `ANSWER_GRACE_SECONDS` (3) for the auto-submit's network delay (`rules.py`); a late answer is stored with `timed_out` and the judge is not called. When the countdown ends with nothing typed, the browser calls `POST /runs/{id}/timeout`, which ends the run (it only ever ends the caller's own run, so no deadline check).
 - Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
 
 ## Frontend and Styling
@@ -311,8 +315,9 @@ Current implementation:
 
 - The font comes from the npm package `@fontsource/press-start-2p` (OFL, Latin and Latin Extended subsets imported in `main.tsx`); Vite bundles the woff2 files.
 - `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom. The answer input is never focused automatically, because the phone keyboard would cover the question.
-- Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong and game over with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
+- Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong, game over and the countdown tick with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
 - `components/SoundToggle.tsx` is the fixed toggle shown on every screen.
+- `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
 
 ## Code Quality and Testing
 
@@ -407,7 +412,6 @@ Work through these in order. **Stop after each milestone** and report: what was 
 These are planned for later. Keep the design open for them, but do not build them yet:
 
 - Difficulty ramp based on streak (via fame score and hop count)
-- Timer per question, enforced server side
 - Lives or skips
 - Player accounts and handle protection
 - Deterministic or fuzzy answer matching before the LLM judge

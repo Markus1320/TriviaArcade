@@ -94,6 +94,7 @@ class Game:
         self.generator = FakeGenerator()
         self.judge = FakeJudge()
         self.clock = Clock()
+        self.answer_time_seconds = 45
 
     def start(self) -> str:
         response = self.client.post("/api/runs")
@@ -103,6 +104,15 @@ class Game:
 
     def question(self, run_id: str) -> Any:
         return self.client.post(f"/api/runs/{run_id}/question")
+
+    def start_question(self, run_id: str) -> Any:
+        return self.client.post(f"/api/runs/{run_id}/question/start")
+
+    def time_out(self, run_id: str) -> Any:
+        return self.client.post(f"/api/runs/{run_id}/timeout")
+
+    def wait(self, seconds: float) -> None:
+        self.clock.now += timedelta(seconds=seconds)
 
     def answer(self, run_id: str, answer: str) -> Any:
         return self.client.post(f"/api/runs/{run_id}/answer", json={"answer": answer})
@@ -134,7 +144,14 @@ def game() -> Iterator[Game]:
 
         def game_service() -> Iterator[GameService]:
             with sessions() as session:
-                yield GameService(session, game.seeds, game.generator, game.judge, game.clock)
+                yield GameService(
+                    session,
+                    game.seeds,
+                    game.generator,
+                    game.judge,
+                    game.clock,
+                    answer_time_seconds=game.answer_time_seconds,
+                )
 
         def leaderboard_service() -> Iterator[LeaderboardService]:
             with sessions() as session:
@@ -159,6 +176,8 @@ def test_question_does_not_reveal_the_answer(game: Game) -> None:
         "number": 1,
         "text": "In which country is Place 1?",
         "streak": 0,
+        "time_limit_seconds": 45,
+        "seconds_left": None,
     }
     assert "Secretland" not in response.text
     assert "Secretland" not in game.client.get(f"/api/runs/{run_id}").text
@@ -174,6 +193,7 @@ def test_correct_answers_build_the_streak(game: Game) -> None:
             "correct": True,
             "streak": expected_streak,
             "game_over": False,
+            "timed_out": False,
             "expected_answer": None,
         }
 
@@ -188,6 +208,7 @@ def test_first_wrong_answer_ends_the_run_and_shows_the_answer(game: Game) -> Non
         "correct": False,
         "streak": 1,
         "game_over": True,
+        "timed_out": False,
         "expected_answer": "Secretland",
     }
     state = game.client.get(f"/api/runs/{run_id}").json()
@@ -262,7 +283,7 @@ def test_judge_failure_pauses_the_run(game: Game) -> None:
     assert response.json()["code"] == "judge_unavailable"
     state = game.client.get(f"/api/runs/{run_id}").json()
     assert state["over"] is False
-    assert state["open_question"] == question
+    assert state["open_question"]["question_id"] == question["question_id"]
 
     game.judge.fail = False
     assert game.answer(run_id, "Secretland").json()["streak"] == 1
@@ -290,6 +311,109 @@ def test_question_failure_keeps_the_run_going(game: Game, failing: str) -> None:
     assert response.json()["code"] == "question_unavailable"
     getattr(game, failing).fail = False
     assert game.question(run_id).json()["number"] == 1
+
+
+# Time limit
+
+
+def test_start_question_starts_the_clock_once(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    first = game.start_question(run_id).json()
+    assert first["time_limit_seconds"] == 45
+    assert 44 <= first["seconds_left"] <= 45
+    game.wait(20)
+    # Starting again (e.g. after a reload) keeps the running clock.
+    again = game.start_question(run_id).json()
+    assert 20 < again["seconds_left"] < 25
+    assert game.client.get(f"/api/runs/{run_id}").json()["open_question"]["seconds_left"] < 25
+
+
+def test_prefetch_does_not_start_the_clock(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    game.wait(120)
+    assert game.question(run_id).json()["seconds_left"] is None
+    assert 44 <= game.start_question(run_id).json()["seconds_left"] <= 45
+
+
+def test_start_question_needs_an_open_question(game: Game) -> None:
+    run_id = game.start()
+    assert game.start_question(run_id).json()["code"] == "no_open_question"
+    over = game.play(0)
+    assert game.start_question(over).json()["code"] == "run_over"
+
+
+def test_answer_within_grace_is_judged(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    game.start_question(run_id)
+    game.wait(45)
+    assert game.answer(run_id, "Secretland").json()["correct"] is True
+
+
+def test_late_answer_times_out_without_the_judge(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    game.start_question(run_id)
+    game.wait(60)
+    result = game.answer(run_id, "Secretland").json()
+    assert result == {
+        "correct": False,
+        "streak": 0,
+        "game_over": True,
+        "timed_out": True,
+        "expected_answer": "Secretland",
+    }
+    assert game.judge.calls == []
+    with game.sessions() as session:
+        question = session.scalars(select(Question)).one()
+        assert question.timed_out is True
+        assert question.player_answer == "Secretland"
+
+
+def test_time_out_ends_the_run(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    game.answer(run_id, "Secretland")
+    game.question(run_id)
+    game.start_question(run_id)
+    result = game.time_out(run_id).json()
+    assert result["game_over"] is True
+    assert result["timed_out"] is True
+    assert result["streak"] == 1
+    assert result["expected_answer"] == "Secretland"
+    assert game.time_out(run_id).json()["code"] == "run_over"
+    assert game.claim(run_id, "TIMER").status_code == 200
+
+
+def test_time_out_needs_an_open_question(game: Game) -> None:
+    run_id = game.start()
+    assert game.time_out(run_id).json()["code"] == "no_open_question"
+
+
+def test_judge_failure_gives_a_fresh_time_limit(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    game.start_question(run_id)
+    game.wait(40)
+    game.judge.fail = True
+    assert game.answer(run_id, "Secretland").status_code == 503
+    assert game.start_question(run_id).json()["seconds_left"] > 40
+    game.judge.fail = False
+    game.wait(30)
+    assert game.answer(run_id, "Secretland").json()["correct"] is True
+
+
+def test_time_limit_can_be_turned_off(game: Game) -> None:
+    game.answer_time_seconds = 0
+    run_id = game.start()
+    game.question(run_id)
+    started = game.start_question(run_id).json()
+    assert started["time_limit_seconds"] is None
+    assert started["seconds_left"] is None
+    game.wait(3600)
+    assert game.answer(run_id, "Secretland").json()["correct"] is True
 
 
 # Stored data

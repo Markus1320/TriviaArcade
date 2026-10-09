@@ -4,7 +4,7 @@
 // typical chiptune character. The AudioContext is created lazily on the first sound after
 // the player unmutes, because browsers only allow audio after a user gesture.
 
-export type SoundName = 'start' | 'correct' | 'wrong' | 'gameOver';
+export type SoundName = 'start' | 'correct' | 'wrong' | 'gameOver' | 'tick';
 
 interface Note {
   frequency: number; // Hz
@@ -45,6 +45,8 @@ const SOUNDS: Record<SoundName, Note[]> = {
   ],
   // Low falling buzz.
   wrong: [{ frequency: 220, start: 0, duration: 0.35, type: 'sawtooth', slideTo: 90 }],
+  // Short high blip, once per second near the end of the time limit.
+  tick: [{ frequency: C6, start: 0, duration: 0.03 }],
   // Slow descending phrase that lands on a low note.
   gameOver: [
     { frequency: G4, start: 0.45, duration: 0.18 },

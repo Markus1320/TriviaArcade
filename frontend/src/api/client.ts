@@ -6,6 +6,10 @@ export interface Question {
   number: number;
   text: string;
   streak: number;
+  // null when the server runs without a time limit.
+  time_limit_seconds: number | null;
+  // null until the question has been started (shown), see api.startQuestion.
+  seconds_left: number | null;
 }
 
 export interface RunState {
@@ -21,6 +25,8 @@ export interface AnswerResult {
   correct: boolean;
   streak: number;
   game_over: boolean;
+  // The answer came too late, or the time ran out without one.
+  timed_out: boolean;
   // Only set when the run is over.
   expected_answer: string | null;
 }
@@ -104,8 +110,12 @@ export const api = {
   startRun: () => request<{ run_id: string }>('POST', '/runs'),
   getRun: (runId: string) => request<RunState>('GET', `/runs/${runId}`),
   nextQuestion: (runId: string) => request<Question>('POST', `/runs/${runId}/question`),
+  // Starts the time limit when the question is shown. Safe to call again: the clock keeps running.
+  startQuestion: (runId: string) => request<Question>('POST', `/runs/${runId}/question/start`),
   answer: (runId: string, answer: string) =>
     request<AnswerResult>('POST', `/runs/${runId}/answer`, { answer }),
+  // Ends the run when the countdown ran out with nothing typed.
+  timeOut: (runId: string) => request<AnswerResult>('POST', `/runs/${runId}/timeout`),
   claim: (runId: string, handle: string) =>
     request<ClaimResult>('POST', `/runs/${runId}/claim`, { handle }),
   leaderboard: () => request<LeaderboardRow[]>('GET', '/leaderboard'),

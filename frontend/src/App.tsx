@@ -11,7 +11,13 @@ import { TitleScreen } from './screens/TitleScreen';
 export type Screen =
   | { name: 'title' }
   | { name: 'question'; runId: string }
-  | { name: 'gameOver'; runId: string; streak: number; expectedAnswer: string | null }
+  | {
+      name: 'gameOver';
+      runId: string;
+      streak: number;
+      expectedAnswer: string | null;
+      timedOut: boolean;
+    }
   | { name: 'handle'; runId: string; streak: number }
   | { name: 'leaderboard'; highlight?: ClaimResult };
 
@@ -33,6 +39,7 @@ export function App() {
             runId,
             streak: run.streak,
             expectedAnswer: run.last_expected_answer,
+            timedOut: false,
           });
         } else {
           runStorage.clear();
@@ -65,8 +72,8 @@ export function App() {
       return (
         <QuestionScreen
           runId={screen.runId}
-          onGameOver={(streak, expectedAnswer) => {
-            setScreen({ name: 'gameOver', runId: screen.runId, streak, expectedAnswer });
+          onGameOver={(streak, expectedAnswer, timedOut) => {
+            setScreen({ name: 'gameOver', runId: screen.runId, streak, expectedAnswer, timedOut });
           }}
         />
       );
@@ -75,6 +82,7 @@ export function App() {
         <GameOverScreen
           streak={screen.streak}
           expectedAnswer={screen.expectedAnswer}
+          timedOut={screen.timedOut}
           onSave={() => {
             setScreen({ name: 'handle', runId: screen.runId, streak: screen.streak });
           }}

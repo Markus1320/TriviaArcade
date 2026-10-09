@@ -3,13 +3,15 @@ import { strings } from '../strings';
 interface Props {
   streak: number;
   expectedAnswer: string | null;
+  timedOut: boolean;
   onSave: () => void;
   onSkip: () => void;
 }
 
-export function GameOverScreen({ streak, expectedAnswer, onSave, onSkip }: Props) {
+export function GameOverScreen({ streak, expectedAnswer, timedOut, onSave, onSkip }: Props) {
   return (
     <main className="screen screen--game-over">
+      {timedOut && <p className="time-up">{strings.timeUp}</p>}
       <h1 className="game-over">{strings.gameOver}</h1>
       <p className="score">
         <span className="score__label">{strings.finalStreak}</span>

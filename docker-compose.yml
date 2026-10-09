@@ -34,6 +34,7 @@ services:
       WALK_MIN_HOPS: ${WALK_MIN_HOPS:-1}
       WALK_MAX_HOPS: ${WALK_MAX_HOPS:-2}
       WALK_TOP_SHARE: ${WALK_TOP_SHARE:-0.5}
+      ANSWER_TIME_SECONDS: ${ANSWER_TIME_SECONDS:-45}
     healthcheck:
       test:
         [

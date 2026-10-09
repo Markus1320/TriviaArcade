@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     walk_min_hops: int = 1
     walk_max_hops: int = 2
     walk_top_share: float = 0.5
+
+    # Time limit per question in seconds, counted from when the question is shown. 0 = off.
+    answer_time_seconds: int = Field(default=45, ge=0)
 
     # Seconds to wait when probing a database for the health endpoint.
     health_timeout_seconds: float = 5.0

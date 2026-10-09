@@ -54,7 +54,9 @@ def get_game_service(
     generator: Annotated[QuestionSource, Depends(get_question_source)],
     judge: Annotated[AnswerChecker, Depends(get_answer_checker)],
 ) -> GameService:
-    return GameService(session, seeds, generator, judge)
+    return GameService(
+        session, seeds, generator, judge, answer_time_seconds=get_settings().answer_time_seconds
+    )
 
 
 def get_leaderboard_service(

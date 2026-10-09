@@ -1,4 +1,4 @@
-"""Run endpoints: start, question, answer, state and claim."""
+"""Run endpoints: start, question, start the clock, answer, time out, state and claim."""
 
 import uuid
 from typing import Annotated
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_game_service, get_leaderboard_service
-from app.game.service import GameService, QuestionView
+from app.game.service import AnswerResult, GameService, QuestionView
 from app.leaderboard.service import LeaderboardService
 from app.llm.judge import MAX_ANSWER_LENGTH
 
@@ -26,11 +26,18 @@ class QuestionOut(BaseModel):
     number: int
     text: str
     streak: int
+    time_limit_seconds: int | None
+    seconds_left: float | None
 
     @classmethod
     def from_view(cls, view: QuestionView) -> "QuestionOut":
         return cls(
-            question_id=view.question_id, number=view.number, text=view.text, streak=view.streak
+            question_id=view.question_id,
+            number=view.number,
+            text=view.text,
+            streak=view.streak,
+            time_limit_seconds=view.time_limit_seconds,
+            seconds_left=view.seconds_left,
         )
 
 
@@ -51,7 +58,18 @@ class AnswerOut(BaseModel):
     correct: bool
     streak: int
     game_over: bool
+    timed_out: bool
     expected_answer: str | None
+
+    @classmethod
+    def from_result(cls, result: AnswerResult) -> "AnswerOut":
+        return cls(
+            correct=result.correct,
+            streak=result.streak,
+            game_over=result.game_over,
+            timed_out=result.timed_out,
+            expected_answer=result.expected_answer,
+        )
 
 
 class ClaimIn(BaseModel):
@@ -88,15 +106,19 @@ def next_question(run_id: uuid.UUID, game: GameDep) -> QuestionOut:
     return QuestionOut.from_view(game.next_question(run_id))
 
 
+@router.post("/{run_id}/question/start")
+def start_question(run_id: uuid.UUID, game: GameDep) -> QuestionOut:
+    return QuestionOut.from_view(game.start_question(run_id))
+
+
 @router.post("/{run_id}/answer")
 def answer(run_id: uuid.UUID, body: AnswerIn, game: GameDep) -> AnswerOut:
-    result = game.answer(run_id, body.answer)
-    return AnswerOut(
-        correct=result.correct,
-        streak=result.streak,
-        game_over=result.game_over,
-        expected_answer=result.expected_answer,
-    )
+    return AnswerOut.from_result(game.answer(run_id, body.answer))
+
+
+@router.post("/{run_id}/timeout")
+def time_out(run_id: uuid.UUID, game: GameDep) -> AnswerOut:
+    return AnswerOut.from_result(game.time_out(run_id))
 
 
 @router.post("/{run_id}/claim")
