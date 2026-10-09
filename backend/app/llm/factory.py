@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from app.config import Settings
 from app.llm.call_log import CallLogger
 from app.llm.generator import QuestionGenerator
+from app.llm.generator_prompt import PROMPT as generator_prompt
 from app.llm.judge import AnswerJudge
+from app.llm.judge_prompt import PROMPT as judge_prompt
 from app.llm.ollama import OllamaClient
-from app.llm.prompts import load_prompt
 
 
 class LLMNotConfiguredError(RuntimeError):
@@ -42,8 +43,6 @@ def build_llm_components(settings: Settings, call_logger: CallLogger) -> LLMComp
         api_key=settings.ollama_api_key.get_secret_value(),
         timeout_seconds=settings.llm_timeout_seconds,
     )
-    generator = QuestionGenerator(
-        client, settings.llm_generator_model, load_prompt("generate_question"), call_logger
-    )
-    judge = AnswerJudge(client, settings.llm_judge_model, load_prompt("judge_answer"), call_logger)
+    generator = QuestionGenerator(client, settings.llm_generator_model, generator_prompt, call_logger)
+    judge = AnswerJudge(client, settings.llm_judge_model, judge_prompt, call_logger)
     return LLMComponents(client=client, generator=generator, judge=judge)

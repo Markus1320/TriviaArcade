@@ -136,11 +136,11 @@ Questions are generated in two independent LLM calls through the Ollama API:
 1. A random walk picks a starting entity (first a random entity type, then a random entity,
    so large types do not dominate) and walks 1 to 3 hops through the graph.
 2. The generator model writes a question from these facts, returned as JSON (question,
-   expected answer, accepted answers, numeric range) and validated.
+   expected answer, accepted answers) and validated.
 3. The judge model decides whether a player's answer is correct and may only reply `true` or
    `false`. The player's answer is treated as untrusted data inside clear delimiters.
 
-Prompts live in [backend/prompts/](backend/prompts). Every call is logged in the PostgreSQL
+Prompts live in [backend/app/llm/generator_prompt.py] and [judge_prompt.py].
 table `llm_calls` (prompt, raw output, parsed result, model, latency).
 
 ### Configuration

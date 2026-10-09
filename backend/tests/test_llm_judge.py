@@ -1,7 +1,6 @@
 import pytest
 
 from app.llm.client import LLMError
-from app.llm.generator import NumericRange
 from app.llm.judge import (
     MAX_ANSWER_LENGTH,
     VERDICT_SCHEMA,
@@ -17,7 +16,6 @@ ITEM = JudgeInput(
     question="Which city is the capital of France?",
     expected_answer="Paris",
     accepted_answers=("Paname",),
-    numeric_range=None,
 )
 
 
@@ -70,18 +68,17 @@ def test_answer_is_wrapped_in_delimiters() -> None:
     assert "untrusted" in client.requests[0].system
 
 
-def test_judge_request_contains_expected_answers_and_range() -> None:
+def test_judge_request_contains_expected_answers() -> None:
     client = ScriptedClient(["false"])
     item = JudgeInput(
-        question="About how long is the Nile?",
-        expected_answer="about 6,650 km",
-        accepted_answers=(),
-        numeric_range=NumericRange(min=5600, max=7700, unit="km"),
+        question="Which river flows through Cairo?",
+        expected_answer="Nile",
+        accepted_answers=("Nil",),
     )
-    make_judge(client, ListCallLogger()).judge(item, "3000 km")
+    make_judge(client, ListCallLogger()).judge(item, "Danube")
     request = client.requests[0]
-    assert "Expected answer: about 6,650 km" in request.user
-    assert "from 5600 to 7700 km" in request.user
+    assert "Expected answer: Nile" in request.user
+    assert '"Nil"' in request.user
     assert request.json_schema == VERDICT_SCHEMA
     assert request.temperature == 0.0
 

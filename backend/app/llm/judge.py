@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from app.llm.call_log import CallLogger, LLMCallRecord
 from app.llm.client import ChatRequest, LLMClient, timed_call
-from app.llm.generator import NumericRange
 from app.llm.prompts import PromptTemplate
 
 MAX_ANSWER_LENGTH = 200
@@ -29,7 +28,6 @@ class JudgeInput:
     question: str
     expected_answer: str
     accepted_answers: tuple[str, ...]
-    numeric_range: NumericRange | None
 
 
 def sanitize_answer(answer: str) -> str:
@@ -51,12 +49,6 @@ def parse_verdict(raw: str) -> bool:
     if text == "false":
         return False
     raise ValueError(f"judge output is not exactly true or false: {raw[:100]!r}")
-
-
-def _format_range(numeric_range: NumericRange | None) -> str:
-    if numeric_range is None:
-        return "none (not a numeric question)"
-    return f"from {numeric_range.min:g} to {numeric_range.max:g} {numeric_range.unit}".strip()
 
 
 class AnswerJudge:
@@ -87,7 +79,6 @@ class AnswerJudge:
                 question=item.question,
                 expected_answer=item.expected_answer,
                 accepted_answers=json.dumps(list(item.accepted_answers), ensure_ascii=False),
-                numeric_range=_format_range(item.numeric_range),
                 player_answer=answer,
             ),
             json_schema=VERDICT_SCHEMA,

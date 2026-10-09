@@ -14,7 +14,6 @@ RUN uv sync --locked --no-dev
 
 COPY alembic.ini ./
 COPY alembic ./alembic
-COPY prompts ./prompts
 COPY app ./app
 COPY importer ./importer
 COPY scripts ./scripts

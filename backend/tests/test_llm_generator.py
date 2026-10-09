@@ -26,7 +26,6 @@ def output(**overrides: Any) -> str:
         "question": "Which city is the capital of France?",
         "expected_answer": "Paris",
         "accepted_answers": ["Paname", " paris ", ""],
-        "numeric_range": None,
     }
     data.update(overrides)
     return json.dumps(data)
@@ -45,7 +44,6 @@ def test_parse_valid_output_cleans_accepted_answers() -> None:
     assert question.expected_answer == "Paris"
     # duplicate of the expected answer and the empty entry are removed
     assert question.accepted_answers == ["Paname"]
-    assert question.numeric_range is None
 
 
 @pytest.mark.parametrize(
@@ -70,19 +68,6 @@ def test_generate_accepts_fenced_output() -> None:
     assert logger.records[0].raw_output == raw  # logged unchanged
 
 
-def test_parse_numeric_question() -> None:
-    question = parse_generated_question(
-        output(
-            question="Roughly how many people live in Paris?",
-            expected_answer="about 2.1 million",
-            accepted_answers=[],
-            numeric_range={"min": 1800000, "max": 2400000, "unit": "people"},
-        )
-    )
-    assert question.numeric_range is not None
-    assert question.numeric_range.min == 1800000
-
-
 @pytest.mark.parametrize(
     ("raw", "message"),
     [
@@ -92,11 +77,6 @@ def test_parse_numeric_question() -> None:
         (output(expected_answer=""), "does not match the schema"),
         (output(question="Short?"), "does not match the schema"),
         (output(extra="field"), "does not match the schema"),
-        (
-            output(numeric_range={"min": 10, "max": 5, "unit": "km"}),
-            "must not exceed",
-        ),
-        (output(question="Is Paris the capital city of France?"), "gives away the expected answer"),
         (json.dumps(["a", "list"]), "does not match the schema"),
     ],
 )

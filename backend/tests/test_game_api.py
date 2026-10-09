@@ -21,7 +21,7 @@ from app.game.service import GameService
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.leaderboard.service import LeaderboardService
-from app.llm.generator import GeneratedQuestion, NumericRange, QuestionGenerationError
+from app.llm.generator import GeneratedQuestion, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError
 from app.main import app
 
@@ -58,7 +58,6 @@ class FakeGenerator:
             question=f"In which country is {seed.start.label}?",
             expected_answer="Secretland",
             accepted_answers=["Hiddenland"],
-            numeric_range=None,
         )
 
 
@@ -308,23 +307,6 @@ def test_question_and_verdict_are_stored(game: Game) -> None:
         assert question.player_answer == "Secretland"
         assert question.correct is True
         assert "Place 1 -- country --> Country" in question.facts
-
-
-def test_numeric_range_reaches_the_judge(game: Game) -> None:
-    def numeric(seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
-        return GeneratedQuestion(
-            question="Roughly how long is the river?",
-            expected_answer="about 100 km",
-            accepted_answers=[],
-            numeric_range=NumericRange(min=90, max=110, unit="km"),
-        )
-
-    game.generator.generate = numeric  # type: ignore[method-assign]
-    run_id = game.start()
-    game.question(run_id)
-    game.answer(run_id, "95 km")
-    item, _ = game.judge.calls[0]
-    assert item.numeric_range == NumericRange(min=90, max=110, unit="km")
 
 
 # Claiming and leaderboard

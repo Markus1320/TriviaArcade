@@ -82,7 +82,6 @@ class Question(Base):
     text: Mapped[str] = mapped_column(String(300))
     expected_answer: Mapped[str] = mapped_column(String(200))
     accepted_answers: Mapped[list[str]] = mapped_column(JSONType)
-    numeric_range: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     player_answer: Mapped[str | None] = mapped_column(String(200))
     correct: Mapped[bool | None] = mapped_column(Boolean)

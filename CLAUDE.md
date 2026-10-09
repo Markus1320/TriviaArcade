@@ -76,16 +76,15 @@ Key principles:
 │   ├── Dockerfile
 │   ├── alembic.ini
 │   ├── alembic/                # migrations; applied when the backend container starts
-│   ├── prompts/                # system prompt, "=== USER ===" line, user template ($placeholders)
-│   │   ├── generate_question.md
-│   │   └── judge_answer.md
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py           # settings from environment
 │   │   ├── api/                # routers (health, runs, leaderboard), deps.py, errors.py
 │   │   ├── game/               # rules.py (streak, game over), service.py (run lifecycle)
 │   │   ├── graph/              # Neo4j driver, repository, random walk (walk.py)
-│   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge,
+│   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge, prompts
+│   │   │   ├── generator_prompt.py   # system prompt, user template, examples
+│   │   │   └── judge_prompt.py       # system prompt, user template
 │   │   │                       # facts formatting, call logging, factory
 │   │   ├── leaderboard/        # handles.py, ranking.py, service.py (claim, top 10)
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
@@ -224,7 +223,9 @@ The walker also labels every node of a seed with its fame relative to its type: 
 
 - `app/llm/` defines an `LLMClient` protocol and an Ollama implementation.
 - Generator and judge use separately configured models.
-- Prompts live as template files in `backend/prompts/`, never as long strings inside Python code.
+- Prompts live as Python modules: `app/llm/generator_prompt.py` and `app/llm/judge_prompt.py`.
+  Each holds the system prompt, a `string.Template` user template and a `PROMPT` object.
+  Do not reintroduce separate prompt template files.
 - Both calls send an Ollama structured output schema (the question object for the generator, `{"type": "boolean"}` for the judge), but the Ollama cloud API does not reliably enforce it: `gemma4:31b-cloud` wrapped its JSON in Markdown code fences. Therefore the generator prompt spells out the exact JSON shape with examples and asks for no code fences, and the generator parser also tolerates a code fence or text around the JSON object (the raw output is logged unchanged). The judge stays strict: only `true` or `false` is accepted.
 - The generator also retries once on invalid output (bad JSON, schema mismatch, answer given away in the question) and then raises `QuestionGenerationError`. The judge raises `JudgeUnavailableError` after its retry; the game must pause the run on it.
 
@@ -233,7 +234,11 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
 - Target audience in the prompt: a casual quiz player. One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
-- Numeric questions must be phrased as approximations and include an accepted range.
+- The generator varies question formats: direct questions, open questions where any one
+  of several answers counts ("Name a country that borders Germany"), name several, true
+  or false, comparisons (time, size, population, distance) and rough time (century).
+- A few hand written examples from `EXAMPLES` are picked at random per request and placed
+  in the user message, to show style without fixing topics.
 - Output is enforced as JSON via Ollama's structured output and validated with Pydantic:
 
 ```json
@@ -241,11 +246,8 @@ The walker also labels every node of a seed with its fame relative to its type: 
   "question": "string",
   "expected_answer": "string",
   "accepted_answers": ["string"],
-  "numeric_range": { "min": 0, "max": 0, "unit": "string" }
 }
 ```
-
-`numeric_range` is null for non numeric questions. The expected answer and accepted answers are stored server side with the run.
 
 ### Call Two: Judge Answer
 
@@ -257,7 +259,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
   - Surnames alone are accepted for well known people (e.g. "Napoleon").
   - Vague answers are rejected (e.g. "in Europe" for a country).
   - Years must be exact unless the question asks for a decade or century.
-  - Numeric answers are accepted within the given range.
+  - "Name three" questions need at least that many distinct, correct items.
   - If a question allows several correct answers, any answer that is certainly correct for the question as asked is accepted, even if not listed. Ambiguous questions are therefore acceptable.
 - **Prompt injection defense:** the player answer is wrapped in clear delimiters and the prompt states that it is untrusted data, never instructions.
 - **Strict parsing:** any output other than `true` or `false` triggers one retry. If the retry fails too, the run is paused with an error, not ended.
@@ -361,7 +363,7 @@ Work through these in order. **Stop after each milestone** and report: what was 
 
 1. **Skeleton:** Docker Compose with Caddy, frontend, backend, Neo4j and PostgreSQL talking to each other; uv venv; linters; CI; MIT license; README with setup steps. Result: a placeholder page reachable from a phone on the home network, and a backend health endpoint that checks both databases.
 2. **Knowledge graph:** Wikidata importer with fame filter, relation allowlist, numeric tier, aliases and `config/import.yaml`. Result: a browsable graph in the Neo4j browser with balanced content.
-3. **LLM core:** random walk, question generator, judge, prompt files, structured output, call logging, and the sample question script. Alembic is introduced here, with the LLM call log table as the first migration. Result: printed sample questions that can be reviewed for quality.
+3. **LLM core:** random walk, question generator, judge, prompt modules, structured output, call logging, and the sample question script. Alembic is introduced here, with the LLM call log table as the first migration. Result: printed sample questions that can be reviewed for quality.
 4. **Game loop and leaderboard:** server side runs, PostgreSQL schema for players and runs (further Alembic migrations), API endpoints, handle entry, top 10 leaderboard. Result: the full game playable in a plain, unstyled UI.
 5. **Arcade look:** pixel font, neon styling, scanlines, all classic screens, Web Audio sound effects. Result: tagged as `v0.1.0`.
 

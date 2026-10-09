@@ -63,15 +63,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"A: {question.expected_answer}")
         if question.accepted_answers:
             print(f"   also accepted: {', '.join(question.accepted_answers)}")
-        if question.numeric_range:
-            r = question.numeric_range
-            print(f"   accepted range: {r.min:g} to {r.max:g} {r.unit}")
         if args.judge:
             item = JudgeInput(
                 question=question.question,
                 expected_answer=question.expected_answer,
                 accepted_answers=tuple(question.accepted_answers),
-                numeric_range=question.numeric_range,
             )
             _print_verdicts(llm.judge, item)
 

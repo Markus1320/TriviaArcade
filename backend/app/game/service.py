@@ -21,7 +21,7 @@ from app.game.rules import Progress, apply_verdict
 from app.graph.model import QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.llm.facts import format_seed
-from app.llm.generator import GeneratedQuestion, NumericRange, QuestionGenerationError
+from app.llm.generator import GeneratedQuestion, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError, sanitize_answer
 
 
@@ -167,9 +167,6 @@ class GameService:
                 text=generated.question,
                 expected_answer=generated.expected_answer,
                 accepted_answers=generated.accepted_answers,
-                numeric_range=(
-                    generated.numeric_range.model_dump() if generated.numeric_range else None
-                ),
                 asked_at=self._clock(),
             )
             self._session.add(question)
@@ -192,11 +189,6 @@ class GameService:
                 question=question.text,
                 expected_answer=question.expected_answer,
                 accepted_answers=tuple(question.accepted_answers),
-                numeric_range=(
-                    NumericRange.model_validate(question.numeric_range)
-                    if question.numeric_range
-                    else None
-                ),
             )
             try:
                 correct = self._judge.judge(item, answer, run_id=run.id)

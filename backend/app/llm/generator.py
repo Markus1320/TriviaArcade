@@ -3,15 +3,16 @@
 import json
 import re
 import uuid
-from typing import Any, Self
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.graph.model import QuestionSeed
 from app.llm.call_log import CallLogger, LLMCallRecord
 from app.llm.client import ChatRequest, LLMClient, timed_call
 from app.llm.facts import format_seed
 from app.llm.prompts import PromptTemplate
+from app.llm.generator_prompt import pick_examples
 
 GENERATOR_TEMPERATURE = 0.8
 
@@ -20,34 +21,12 @@ class QuestionGenerationError(RuntimeError):
     """The generator produced no valid question within the allowed attempts."""
 
 
-class NumericRange(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    min: float
-    max: float
-    unit: str = Field(max_length=40)
-
-    @model_validator(mode="after")
-    def _ordered(self) -> Self:
-        if self.min > self.max:
-            raise ValueError("numeric_range.min must not exceed numeric_range.max")
-        return self
-
-
 class GeneratedQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=10, max_length=300)
     expected_answer: str = Field(min_length=1, max_length=200)
     accepted_answers: list[str] = Field(default_factory=list, max_length=20)
-    numeric_range: NumericRange | None
-
-    @model_validator(mode="after")
-    def _answer_not_in_question(self) -> Self:
-        answer = self.expected_answer.strip().casefold()
-        if self.numeric_range is None and len(answer) > 2 and answer in self.question.casefold():
-            raise ValueError("the question gives away the expected answer")
-        return self
 
 
 # Written out instead of generated from the model so it has no $ref indirections,
@@ -58,22 +37,8 @@ QUESTION_SCHEMA: dict[str, Any] = {
         "question": {"type": "string"},
         "expected_answer": {"type": "string"},
         "accepted_answers": {"type": "array", "items": {"type": "string"}},
-        "numeric_range": {
-            "anyOf": [
-                {
-                    "type": "object",
-                    "properties": {
-                        "min": {"type": "number"},
-                        "max": {"type": "number"},
-                        "unit": {"type": "string"},
-                    },
-                    "required": ["min", "max", "unit"],
-                },
-                {"type": "null"},
-            ]
-        },
     },
-    "required": ["question", "expected_answer", "accepted_answers", "numeric_range"],
+    "required": ["question", "expected_answer", "accepted_answers"],
 }
 
 
@@ -143,7 +108,7 @@ class QuestionGenerator:
         request = ChatRequest(
             model=self._model,
             system=self._prompt.system,
-            user=self._prompt.render_user(facts=format_seed(seed)),
+            user=self._prompt.render_user(facts=format_seed(seed), examples=pick_examples()),
             json_schema=QUESTION_SCHEMA,
             temperature=GENERATOR_TEMPERATURE,
         )

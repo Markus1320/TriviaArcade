@@ -4,7 +4,14 @@ from collections.abc import Iterable
 
 from app.llm.call_log import LLMCallRecord
 from app.llm.client import ChatRequest, LLMError
-from app.llm.prompts import PromptTemplate, load_prompt
+from app.llm.generator_prompt import PROMPT as GENERATOR_PROMPT
+from app.llm.judge_prompt import PROMPT as JUDGE_PROMPT
+from app.llm.prompts import PromptTemplate
+
+_REAL_PROMPTS = {
+    "generate_question": GENERATOR_PROMPT,
+    "judge_answer": JUDGE_PROMPT,
+}
 
 
 class ScriptedClient:
@@ -33,5 +40,5 @@ class ListCallLogger:
 
 
 def real_prompt(name: str) -> PromptTemplate:
-    """The prompt files from backend/prompts, so tests also check that they render."""
-    return load_prompt(name)
+    """The real prompts, so tests also check that they render."""
+    return _REAL_PROMPTS[name]
