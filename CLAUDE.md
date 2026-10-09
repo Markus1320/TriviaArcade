@@ -227,7 +227,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
   Each holds the system prompt, a `string.Template` user template and a `PROMPT` object.
   Do not reintroduce separate prompt template files.
 - Both calls send an Ollama structured output schema (the question object for the generator, `{"type": "boolean"}` for the judge), but the Ollama cloud API does not reliably enforce it: `gemma4:31b-cloud` wrapped its JSON in Markdown code fences. Therefore the generator prompt spells out the exact JSON shape with examples and asks for no code fences, and the generator parser also tolerates a code fence or text around the JSON object (the raw output is logged unchanged). The judge stays strict: only `true` or `false` is accepted.
-- The generator also retries once on invalid output (bad JSON, schema mismatch, answer given away in the question) and then raises `QuestionGenerationError`. The judge raises `JudgeUnavailableError` after its retry; the game must pause the run on it.
+- The generator also retries once on invalid output (bad JSON, schema mismatch) and then raises `QuestionGenerationError`. The judge raises `JudgeUnavailableError` after its retry; the game must pause the run on it.
 
 ### Call One: Generate Question
 
@@ -245,13 +245,15 @@ The walker also labels every node of a seed with its fame relative to its type: 
 {
   "question": "string",
   "expected_answer": "string",
-  "accepted_answers": ["string"],
+  "accepted_answers": ["string"]
 }
 ```
 
+The expected answer and accepted answers are stored server side with the run. There is no automatic check that the question gives the answer away, because true or false and comparison questions name it on purpose; the prompt asks the model to avoid it.
+
 ### Call Two: Judge Answer
 
-- Independent from call one. Input: question, expected answer, accepted answers, numeric range, player answer.
+- Independent from call one. Input: question, expected answer, accepted answers, player answer.
 - Output: exactly `true` or `false`, nothing else.
 - Leniency policy (part of the judge prompt):
   - Typos are accepted.
@@ -281,7 +283,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 ## Game Loop (Current Implementation)
 
-- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, numeric range, player answer and verdict). `llm_calls.run_id` links calls to runs.
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, player answer and verdict). `llm_calls.run_id` links calls to runs.
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
