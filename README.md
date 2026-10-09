@@ -130,13 +130,16 @@ Very large classes can time out on the public endpoint.
 ## Playing
 
 Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below), press START
-and type your answers. Each correct answer adds one to your streak; the first wrong answer
-ends the run and shows the correct answer. Then save your score under a handle (3 to 8
-letters or digits) or pick one used before. The leaderboard shows the top 10 players with
-their best streak; ties go to the run that finished first.
+and type your answers. You have 30 seconds per question (a bar shows the time left); when
+the time is up, whatever you typed is judged, and with nothing typed the run ends. Each
+correct answer adds one to your streak; the first wrong answer ends the run. After every
+answer you see a short explanation with the correct answer and a fact worth knowing. Then
+save your score under a handle (3 to 8 letters or digits) or pick one used before. The
+leaderboard shows the top 10 players with their best streak; ties go to the run that
+finished first.
 
 If the judge is not reachable, the run is paused instead of ended: send the answer again.
-Reloading the page resumes the current run with the same question.
+Reloading the page resumes the current run with the same question; the clock keeps running.
 
 ### API
 
