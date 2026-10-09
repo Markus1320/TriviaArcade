@@ -310,7 +310,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 Current implementation:
 
 - The font comes from the npm package `@fontsource/press-start-2p` (OFL, Latin and Latin Extended subsets imported in `main.tsx`); Vite bundles the woff2 files.
-- `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom.
+- `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom. The answer input is never focused automatically, because the phone keyboard would cover the question.
 - Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong and game over with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
 - `components/SoundToggle.tsx` is the fixed toggle shown on every screen.
 

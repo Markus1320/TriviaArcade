@@ -170,7 +170,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            autoFocus
+            // No autoFocus: on phones it opens the keyboard, which hides the question.
             disabled={phase.kind === 'judging'}
           />
           <button
