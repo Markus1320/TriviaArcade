@@ -82,6 +82,9 @@ Bad questions (never write questions like these):
 - "Which is bigger, Europe or Berlin?" (a continent against a city, and Berlin lies in
   Europe)
 - "Which is larger, China or Luxembourg?" (absurdly obvious)
+- "What was the official language of the First French Empire?" (the question already
+  contains the answer)
+- "True or false: Ukraine is part of Europe." (too easy for a true or false question)
 
 Answers:
 - expected_answer is the single best answer, as a player would type it.
