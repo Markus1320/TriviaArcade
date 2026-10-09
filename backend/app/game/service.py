@@ -122,7 +122,7 @@ class GameService:
         generator: QuestionSource,
         judge: AnswerChecker,
         clock: Callable[[], datetime] = utc_now,
-        answer_time_seconds: int = 45,
+        answer_time_seconds: int = 30,
     ) -> None:
         self._session = session
         self._seeds = seeds

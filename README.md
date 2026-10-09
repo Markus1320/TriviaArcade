@@ -166,7 +166,7 @@ Difficulty is mainly controlled by which facts the random walk picks, set in `.e
   battles, rivers, ...) is used. Fame is compared within a type. Lower is easier.
 - `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
   connect. Fewer hops give simpler questions.
-- `ANSWER_TIME_SECONDS` (default `45`): seconds per question, counted from when it is
+- `ANSWER_TIME_SECONDS` (default `30`): seconds per question, counted from when it is
   shown. `0` turns the timer off.
 
 Try a setting with the sample script (`--seed` makes runs comparable), then restart the

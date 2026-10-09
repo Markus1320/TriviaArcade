@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     walk_top_share: float = 0.5
 
     # Time limit per question in seconds, counted from when the question is shown. 0 = off.
-    answer_time_seconds: int = Field(default=45, ge=0)
+    answer_time_seconds: int = Field(default=30, ge=0)
 
     # Seconds to wait when probing a database for the health endpoint.
     health_timeout_seconds: float = 5.0

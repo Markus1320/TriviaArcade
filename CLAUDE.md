@@ -155,7 +155,7 @@ LLM_TIMEOUT_SECONDS=      # optional, default 120
 WALK_TOP_SHARE=           # optional, default 0.5: most famous share of each type used for questions
 WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
-ANSWER_TIME_SECONDS=      # optional, default 45, 0 = no timer
+ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
 ```
 
 LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
@@ -167,7 +167,7 @@ Before filling in model names, check which model tags are actually available for
 ## Game Rules (Version One)
 
 - Constant difficulty. No difficulty ramp.
-- 45 seconds per question (`ANSWER_TIME_SECONDS`), enforced server side and counted from
+- 30 seconds per question (`ANSWER_TIME_SECONDS`), enforced server side and counted from
   when the question is shown. When the time is up, whatever the player typed is judged;
   with nothing typed the run ends. A late answer ends the run like a wrong one.
 - One wrong answer ends the run. No lives, no skips.
