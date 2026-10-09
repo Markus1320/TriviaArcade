@@ -93,6 +93,8 @@ class AnswerResult:
     timed_out: bool
     # Only filled when the run is over: the correct answer to the last question.
     expected_answer: str | None
+    # What the player can learn from the question; sent after every verdict.
+    explanation: str | None
 
 
 @dataclass(frozen=True)
@@ -102,6 +104,7 @@ class RunView:
     streak: int
     open_question: QuestionView | None
     last_expected_answer: str | None
+    last_explanation: str | None
     claimed_by: str | None
 
 
@@ -152,6 +155,7 @@ class GameService:
                 last_expected_answer=last.expected_answer
                 if run.status == RUN_OVER and last
                 else None,
+                last_explanation=last.explanation if run.status == RUN_OVER and last else None,
                 claimed_by=run.player.handle if run.player else None,
             )
 
@@ -184,6 +188,7 @@ class GameService:
                 text=generated.question,
                 expected_answer=generated.expected_answer,
                 accepted_answers=generated.accepted_answers,
+                explanation=generated.explanation or None,
                 asked_at=self._clock(),
             )
             self._session.add(question)
@@ -265,6 +270,7 @@ class GameService:
             game_over=progress.over,
             timed_out=timed_out,
             expected_answer=question.expected_answer if progress.over else None,
+            explanation=question.explanation,
         )
 
     def _in_time(self, question: Question, received_at: datetime) -> bool:

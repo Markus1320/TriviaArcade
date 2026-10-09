@@ -1,5 +1,6 @@
 """Prompt for call one: generate a question from a knowledge graph seed."""
 
+import json
 import random
 from string import Template
 
@@ -17,9 +18,12 @@ Audience:
 - The player is a casual quiz player, not an expert. A typical adult with some school
   knowledge and an everyday interest in films, music, sports and technology should have a
   fair chance.
-- Each entity is marked "world famous", "well known" or "known to fans" (compared with
-  other entities of its kind). Build the question around "world famous" or "well known"
-  entities. Entities "known to fans" may appear as clues only.
+- Each entity carries a fame hint: "world famous", "well known" or "known to fans". It
+  is computed from Wikipedia coverage, compared with other entities of its kind, and it is
+  often skewed. Treat it as a rough hint and trust your own judgement of what a casual
+  player knows: an entity marked "world famous" can still be obscure, and the other way
+  round. Build the question around entities you are confident are widely known; the others
+  may appear as clues only.
 - Simple is good. A short, clear question beats a clever, convoluted one.
 
 Question formats (vary them, do not always pick the first one):
@@ -51,6 +55,9 @@ Question formats (vary them, do not always pick the first one):
   the item that does not fit.
 - Analogy: "Ottawa is to Canada as Canberra is to ...?" Both pairs share the same relation,
   taken from the facts. expected_answer is the missing item.
+- Completion: an unfinished statement that the player completes, ending in "...":
+  "King Solomon appears in the collection of stories known as ...". Only one completion
+  may fit.
 
 Examples:
 - The request shows a few example questions. Let them inspire the format and style of your
@@ -69,6 +76,8 @@ Avoid:
   1789 for the French Revolution are the only exception. Numbers in the facts are useful
   as material for comparisons.
 - Obscure answers. If an answer would be obscure, turn it into an easier question format.
+- Where a person died. That is almost never general knowledge. The same goes for where a
+  person was born, unless the person is famously tied to that place.
 - Giving the answer away. Never mention the answer or an obvious form of it, except as
   one of the two options of a comparison. "Where did the French Revolution take place?"
   gives away France.
@@ -88,6 +97,8 @@ Bad questions (never write questions like these):
 - "What was the official language of the First French Empire?" (the question already
   contains the answer)
 - "True or false: Ukraine is part of Europe." (too easy for a true or false question)
+- "In which Indian city did the filmmaker Satyajit Ray pass away?" (too obscure; where
+  someone died is not general knowledge)
 
 Answers:
 - expected_answer is the single best answer, as a player would type it.
@@ -96,16 +107,27 @@ Answers:
   "Yes" or "No" for true or false questions, and for open formats every other correct
   answer. Leave it empty if there are none.
 
+Explanation:
+- explanation is shown to the player after they answered, whether they were right or
+  wrong, so that they learn something. Write one short sentence, two at most, under 200
+  characters.
+- It states the correct answer in a full sentence and adds one fact worth knowing when
+  there is one: a year, the reason, what the place or person is known for, or the true
+  detail behind a false claim.
+- For true or false questions start it with "True:" or "False:".
+- Everything in it must be certainly true. When in doubt, only state the answer.
+
 Write in English. Keep the question short, ideally under 150 characters.
 
 Output format:
 Reply with a single JSON object and nothing else: no Markdown code fences, no text before
-or after it. It has exactly these three fields:
+or after it. It has exactly these four fields:
 
 {
   "question": "the question text",
   "expected_answer": "the single best answer",
-  "accepted_answers": ["other correct form", "another correct form"]
+  "accepted_answers": ["other correct form", "another correct form"],
+  "explanation": "one short sentence with the answer and a fact worth knowing"
 }"""
 
 USER_TEMPLATE = Template(
@@ -116,113 +138,288 @@ USER_TEMPLATE = Template(
     "Write one easy trivia question for a casual quiz player. Reply with the JSON object only."
 )
 
-EXAMPLES: list[str] = [
+# Example questions shown to the model, a few per request (see pick_examples). Mix topics
+# and formats; every entry needs all four fields. The explanation is what the player reads
+# after answering.
+EXAMPLES: list[dict[str, str | list[str]]] = [
     # Direct, one answer
-    """{"question": "What is the capital of New Zealand?",
- "expected_answer": "Wellington",
- "accepted_answers": ["Te Whanganui-a-Tara"]}""",
-    """{"question": "Which country spans the most time zones, counting its overseas territories?",
- "expected_answer": "France",
- "accepted_answers": []}""",
-    """{"question": "What is the highest mountain in Germany?",
- "expected_answer": "Zugspitze",
- "accepted_answers": ["The Zugspitze"]}""",
-    """{"question": "What is the deepest known point in Earth's oceans?",
- "expected_answer": "Challenger Deep",
- "accepted_answers": ["Mariana Trench", "The Mariana Trench", "Marianas Trench"]}""",
-    # Direct, one answer - Minima and Maxima
-    """{"question": "Which planet is, on average, closest to Earth?",
- "expected_answer": "Mercury",
- "accepted_answers": []}""",
-    """{"question": "Which is the hottest planet in our solar system?",
- "expected_answer": "Venus",
- "accepted_answers": []}""",
-    """{"question": "What is the smallest country in the world by area?",
- "expected_answer": "Vatican City",
- "accepted_answers": ["Vatican", "Holy See", "Vatican City State"]}""",
-    """{"question": "Which is the smallest of the world's five oceans?",
- "expected_answer": "Arctic Ocean",
- "accepted_answers": ["Arctic"]}""",
+    {
+        "question": "What is the capital of New Zealand?",
+        "expected_answer": "Wellington",
+        "accepted_answers": ["Te Whanganui-a-Tara"],
+        "explanation": "Wellington has been the capital of New Zealand since 1865; the largest city is Auckland.",
+    },
+    {
+        "question": "Which country spans the most time zones, counting its overseas territories?",
+        "expected_answer": "France",
+        "accepted_answers": [],
+        "explanation": "France spans 12 time zones thanks to its overseas territories, more than any other country.",
+    },
+    {
+        "question": "What is the highest mountain in Germany?",
+        "expected_answer": "Zugspitze",
+        "accepted_answers": ["The Zugspitze"],
+        "explanation": "The Zugspitze in Bavaria is Germany's highest mountain at 2,962 metres.",
+    },
+    {
+        "question": "What is the deepest known point in Earth's oceans?",
+        "expected_answer": "Challenger Deep",
+        "accepted_answers": ["Mariana Trench", "The Mariana Trench", "Marianas Trench"],
+        "explanation": "The Challenger Deep in the Mariana Trench lies almost 11,000 metres below the surface of the Pacific.",
+    },
+    {
+        "question": "Who painted the Mona Lisa?",
+        "expected_answer": "Leonardo da Vinci",
+        "accepted_answers": ["Leonardo", "da Vinci"],
+        "explanation": "Leonardo da Vinci painted the Mona Lisa in the early 16th century; it hangs in the Louvre in Paris.",
+    },
+    {
+        "question": "Which company developed the video game Minecraft?",
+        "expected_answer": "Mojang",
+        "accepted_answers": ["Mojang Studios", "Mojang AB"],
+        "explanation": "Minecraft was developed by the Swedish studio Mojang, which Microsoft bought in 2014.",
+    },
+    {
+        "question": "Which planet do the moons Phobos and Deimos orbit?",
+        "expected_answer": "Mars",
+        "accepted_answers": [],
+        "explanation": "Phobos and Deimos are the two small moons of Mars.",
+    },
+    {
+        "question": "Which international organization was founded in 1945 and has its headquarters in New York City?",
+        "expected_answer": "United Nations",
+        "accepted_answers": ["UN", "UNO", "The United Nations", "Vereinte Nationen"],
+        "explanation": "The United Nations was founded in 1945, after the Second World War, and is based in New York City.",
+    },
+    # Direct, one answer: minima and maxima
+    {
+        "question": "Which planet is, on average, closest to Earth?",
+        "expected_answer": "Mercury",
+        "accepted_answers": [],
+        "explanation": "Averaged over time Mercury is closest to Earth, because it stays near the Sun while Venus and Mars move far away.",
+    },
+    {
+        "question": "Which is the hottest planet in our solar system?",
+        "expected_answer": "Venus",
+        "accepted_answers": [],
+        "explanation": "Venus is the hottest planet at about 465 °C; its dense atmosphere of carbon dioxide traps the heat.",
+    },
+    {
+        "question": "What is the smallest country in the world by area?",
+        "expected_answer": "Vatican City",
+        "accepted_answers": ["Vatican", "Holy See", "Vatican City State"],
+        "explanation": "Vatican City is the smallest country: less than half a square kilometre in the middle of Rome.",
+    },
+    {
+        "question": "Which is the smallest of the world's five oceans?",
+        "expected_answer": "Arctic Ocean",
+        "accepted_answers": ["Arctic"],
+        "explanation": "The Arctic Ocean around the North Pole is the smallest and shallowest of the five oceans.",
+    },
+    # Several facts combined into one clue
+    {
+        "question": "Which river flows through Vienna, Budapest and Belgrade?",
+        "expected_answer": "Danube",
+        "accepted_answers": ["Donau", "Duna", "Dunav"],
+        "explanation": "The Danube flows through four capitals: Vienna, Bratislava, Budapest and Belgrade.",
+    },
+    {
+        "question": "Who directed the films Jaws, E.T. and Jurassic Park?",
+        "expected_answer": "Steven Spielberg",
+        "accepted_answers": ["Spielberg"],
+        "explanation": "Steven Spielberg directed all three: Jaws (1975), E.T. (1982) and Jurassic Park (1993).",
+    },
+    {
+        "question": "Which empire was founded by Genghis Khan?",
+        "expected_answer": "Mongol Empire",
+        "accepted_answers": ["Mongolian Empire", "Mongols", "The Mongols"],
+        "explanation": "Genghis Khan founded the Mongol Empire in 1206; it became the largest connected land empire in history.",
+    },
     # Open: any one of several answers counts
-    """{"question": "Name a country that borders Germany.",
- "expected_answer": "France",
- "accepted_answers": ["Denmark", "Poland", "Czech Republic", "Czechia", "Austria",
-  "Switzerland", "Luxembourg", "Belgium", "Netherlands"]}""",
+    {
+        "question": "Name a country that borders Germany.",
+        "expected_answer": "France",
+        "accepted_answers": [
+            "Denmark",
+            "Poland",
+            "Czech Republic",
+            "Czechia",
+            "Austria",
+            "Switzerland",
+            "Luxembourg",
+            "Belgium",
+            "Netherlands",
+        ],
+        "explanation": "Germany has nine neighbours: Denmark, Poland, Czechia, Austria, Switzerland, France, Luxembourg, Belgium and the Netherlands.",
+    },
+    {
+        "question": "Name a member of the Beatles.",
+        "expected_answer": "John Lennon",
+        "accepted_answers": [
+            "Paul McCartney",
+            "George Harrison",
+            "Ringo Starr",
+            "Lennon",
+            "McCartney",
+            "Harrison",
+            "Ringo",
+        ],
+        "explanation": "The Beatles were John Lennon, Paul McCartney, George Harrison and Ringo Starr.",
+    },
     # Name several
-    """{"question": "Name three countries the Danube flows through.",
- "expected_answer": "Germany, Austria, Hungary",
- "accepted_answers": ["Germany", "Austria", "Slovakia", "Hungary", "Croatia", "Serbia",
-  "Romania", "Bulgaria", "Moldova", "Ukraine"]}""",
-    """{"question": "Name the three primary colors of the RGB color model.",
- "expected_answer": "Red, Green, Blue",
- "accepted_answers": ["Red Green Blue", "RGB"]}""",
-    # True or false (false claim)
-    """{"question": "True or false: Istanbul is the capital of Turkey.",
- "expected_answer": "False",
- "accepted_answers": ["No"]}""",
-    # True or false (false claim, swapped detail)
-    """{"question": "True or false: The Nile flows into the Red Sea.",
- "expected_answer": "False",
- "accepted_answers": ["No"]}""",
-    # True or false (true claim)
-    """{"question": "True or false: The Amazon River flows into the Atlantic Ocean.",
- "expected_answer": "True",
- "accepted_answers": ["Yes"]}""",
+    {
+        "question": "Name three countries the Danube flows through.",
+        "expected_answer": "Germany, Austria, Hungary",
+        "accepted_answers": [
+            "Germany",
+            "Austria",
+            "Slovakia",
+            "Hungary",
+            "Croatia",
+            "Serbia",
+            "Romania",
+            "Bulgaria",
+            "Moldova",
+            "Ukraine",
+        ],
+        "explanation": "The Danube flows through ten countries, more than any other river, from Germany to the Black Sea.",
+    },
+    {
+        "question": "Name the three primary colors of the RGB color model.",
+        "expected_answer": "Red, Green, Blue",
+        "accepted_answers": ["Red Green Blue", "RGB"],
+        "explanation": "RGB stands for red, green and blue, the three colours of light that screens mix into all others.",
+    },
+    # True or false (false claims swap one detail)
+    {
+        "question": "True or false: Istanbul is the capital of Turkey.",
+        "expected_answer": "False",
+        "accepted_answers": ["No"],
+        "explanation": "False: Ankara is the capital of Turkey. Istanbul is its largest city.",
+    },
+    {
+        "question": "True or false: The Nile flows into the Red Sea.",
+        "expected_answer": "False",
+        "accepted_answers": ["No"],
+        "explanation": "False: the Nile flows into the Mediterranean Sea, north of Cairo.",
+    },
+    {
+        "question": "True or false: The Amazon River flows into the Atlantic Ocean.",
+        "expected_answer": "True",
+        "accepted_answers": ["Yes"],
+        "explanation": "True: the Amazon reaches the Atlantic Ocean on the north coast of Brazil.",
+    },
+    {
+        "question": "True or false: Michael Schumacher won seven Formula One world championships.",
+        "expected_answer": "True",
+        "accepted_answers": ["Yes"],
+        "explanation": "True: Michael Schumacher won seven titles, two with Benetton and five with Ferrari.",
+    },
     # Comparison: time
-    """{"question": "Which came first: the Declaration of Independence or the French Revolution?",
- "expected_answer": "The Declaration of Independence",
- "accepted_answers": ["Declaration of Independence", "US Declaration of Independence",
-  "American Declaration of Independence", "American independence"]}""",
+    {
+        "question": "Which came first: the Declaration of Independence or the French Revolution?",
+        "expected_answer": "The Declaration of Independence",
+        "accepted_answers": [
+            "Declaration of Independence",
+            "US Declaration of Independence",
+            "American Declaration of Independence",
+            "American independence",
+        ],
+        "explanation": "The Declaration of Independence dates from 1776; the French Revolution began in 1789.",
+    },
+    {
+        "question": "Which came first: the invention of the telephone or the first ascent of Mount Everest?",
+        "expected_answer": "Invention of the telephone",
+        "accepted_answers": ["Telephone", "The telephone"],
+        "explanation": "The telephone was patented in 1876; Mount Everest was first climbed in 1953.",
+    },
     # Comparison: area, same kind of entity, answer not obvious from population
-    """{"question": "Which country is larger by area: Australia or India?",
- "expected_answer": "Australia",
- "accepted_answers": []}""",
-    # Comparison: Height
-    """{"question": "Which is taller: the Eiffel Tower or the Statue of Liberty (including its pedestal)?",
- "expected_answer": "Eiffel Tower",
- "accepted_answers": ["The Eiffel Tower", "Eiffel"]}""",
+    {
+        "question": "Which country is larger by area: Australia or India?",
+        "expected_answer": "Australia",
+        "accepted_answers": [],
+        "explanation": "Australia is more than twice as large as India, although India has over fifty times as many people.",
+    },
+    # Comparison: height
+    {
+        "question": "Which is taller: the Eiffel Tower or the Statue of Liberty (including its pedestal)?",
+        "expected_answer": "Eiffel Tower",
+        "accepted_answers": ["The Eiffel Tower", "Eiffel"],
+        "explanation": "The Eiffel Tower is about 330 metres tall; the Statue of Liberty with its pedestal reaches 93 metres.",
+    },
     # Comparison: length, two rivers
-    """{"question": "Which river is longer: the Danube or the Rhine?",
- "expected_answer": "Danube",
- "accepted_answers": ["Donau", "The Danube"]}""",
-    # Several hops combined into one clue
-    """{"question": "Which river flows through Vienna, Budapest and Belgrade?",
- "expected_answer": "Danube",
- "accepted_answers": ["Donau", "Duna", "Dunav"]}""",
-    # Rough time
-    """{"question": "In which century did Christopher Columbus first reach the Americas?",
- "expected_answer": "15th century",
- "accepted_answers": ["15th", "fifteenth century", "1400s"]}""",
-    """{"question": "Which came first: the invention of the telephone or the first ascent of Mount Everest?",
- "expected_answer": "Invention of the telephone",
- "accepted_answers": ["Telephone", "The telephone"]}""",
+    {
+        "question": "Which river is longer: the Danube or the Rhine?",
+        "expected_answer": "Danube",
+        "accepted_answers": ["Donau", "The Danube"],
+        "explanation": "The Danube is about 2,850 km long, more than twice the length of the Rhine.",
+    },
     # Comparison: distance
-    """{"question": "Which capital lies closer to the equator: Nairobi or Cairo?",
- "expected_answer": "Nairobi",
- "accepted_answers": []}""",
+    {
+        "question": "Which capital lies closer to the equator: Nairobi or Cairo?",
+        "expected_answer": "Nairobi",
+        "accepted_answers": [],
+        "explanation": "Nairobi lies just south of the equator; Cairo is about 30 degrees north of it.",
+    },
     # Comparison: count
-    """{"question": "Which country has more people: Nigeria or Russia?",
- "expected_answer": "Nigeria",
- "accepted_answers": []}""",
-    """{"question": "Who has more bones: a newborn baby or an adult human?",
- "expected_answer": "A newborn baby",
- "accepted_answers": ["Newborn", "Baby", "Newborn baby"]}""",
-    # Relation: founder
-    """{"question": "Which empire was founded by Genghis Khan?",
- "expected_answer": "Mongol Empire",
- "accepted_answers": ["Mongolian Empire", "Mongols", "The Mongols"]}""",
+    {
+        "question": "Which country has more people: Nigeria or Russia?",
+        "expected_answer": "Nigeria",
+        "accepted_answers": [],
+        "explanation": "Nigeria has well over 200 million people, Russia about 145 million.",
+    },
+    {
+        "question": "Who has more bones: a newborn baby or an adult human?",
+        "expected_answer": "A newborn baby",
+        "accepted_answers": ["Newborn", "Baby", "Newborn baby"],
+        "explanation": "A newborn has around 300 bones; many grow together, leaving 206 in an adult.",
+    },
+    # Rough time
+    {
+        "question": "In which century did Christopher Columbus first reach the Americas?",
+        "expected_answer": "15th century",
+        "accepted_answers": ["15th", "fifteenth century", "1400s"],
+        "explanation": "Columbus first reached the Americas in 1492, in the 15th century.",
+    },
     # Sorting
-    """{"question": "Sort these companies by founding year, oldest first: Google, Apple, Microsoft.",
- "expected_answer": "Microsoft, Apple, Google",
- "accepted_answers": ["Microsoft Apple Google"]}""",
-    # Odd one Out
-    """{"question": "Odd one out: Mercury, Venus, Ganymede, Mars, Earth.",
- "expected_answer": "Ganymede",
- "accepted_answers": []}""",
-    # Riddle
-    """{"question": "Ottawa is to Canada as Canberra is to ...?",
- "expected_answer": "Australia",
- "accepted_answers": []}""",
+    {
+        "question": "Sort these companies by founding year, oldest first: Google, Apple, Microsoft.",
+        "expected_answer": "Microsoft, Apple, Google",
+        "accepted_answers": ["Microsoft Apple Google"],
+        "explanation": "Microsoft was founded in 1975, Apple in 1976 and Google in 1998.",
+    },
+    # Odd one out
+    {
+        "question": "Odd one out: Mercury, Venus, Ganymede, Mars, Earth.",
+        "expected_answer": "Ganymede",
+        "accepted_answers": [],
+        "explanation": "Ganymede is a moon of Jupiter; the other four are planets.",
+    },
+    # Analogy
+    {
+        "question": "Ottawa is to Canada as Canberra is to ...?",
+        "expected_answer": "Australia",
+        "accepted_answers": [],
+        "explanation": "Ottawa is the capital of Canada, and Canberra is the capital of Australia.",
+    },
+    # Completion
+    {
+        "question": "King Solomon appears in the collection of stories known as ...",
+        "expected_answer": "One Thousand and One Nights",
+        "accepted_answers": [
+            "Thousand and One Nights",
+            "Arabian Nights",
+            "1001 Nights",
+            "Tausendundeine Nacht",
+        ],
+        "explanation": "King Solomon appears in several tales of the One Thousand and One Nights, where he seals rebellious jinn into bottles.",
+    },
+    {
+        "question": "Complete the film title: The Silence of the ...",
+        "expected_answer": "Lambs",
+        "accepted_answers": ["The Silence of the Lambs"],
+        "explanation": "The Silence of the Lambs (1991), with Jodie Foster and Anthony Hopkins, won the five main Academy Awards.",
+    },
 ]
 
 EXAMPLES_PER_QUESTION = 2
@@ -240,8 +437,14 @@ def pick_true_false_hint(rng: random.Random | None = None) -> str:
     return FALSE_CLAIM_HINT if draw < FALSE_CLAIM_SHARE else TRUE_CLAIM_HINT
 
 
+def format_example(example: dict[str, str | list[str]]) -> str:
+    """An example as the JSON object the model is asked to write."""
+    return json.dumps(example, ensure_ascii=False, indent=1)
+
+
 def pick_examples() -> str:
-    return "\n\n".join(random.sample(EXAMPLES, k=min(EXAMPLES_PER_QUESTION, len(EXAMPLES))))
+    picked = random.sample(EXAMPLES, k=min(EXAMPLES_PER_QUESTION, len(EXAMPLES)))
+    return "\n\n".join(format_example(example) for example in picked)
 
 
 PROMPT = PromptTemplate(name="generate_question", system=SYSTEM_PROMPT, user_template=USER_TEMPLATE)

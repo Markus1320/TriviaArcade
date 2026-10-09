@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"A: {question.expected_answer}")
         if question.accepted_answers:
             print(f"   also accepted: {', '.join(question.accepted_answers)}")
+        print(f"E: {question.explanation or '(none)'}")
         if args.judge:
             item = JudgeInput(
                 question=question.question,

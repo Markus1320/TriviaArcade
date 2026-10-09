@@ -18,6 +18,7 @@ export interface RunState {
   streak: number;
   open_question: Question | null;
   last_expected_answer: string | null;
+  last_explanation: string | null;
   claimed_by: string | null;
 }
 
@@ -29,6 +30,8 @@ export interface AnswerResult {
   timed_out: boolean;
   // Only set when the run is over.
   expected_answer: string | null;
+  // A sentence or two about the answer, shown after every verdict. null for old questions.
+  explanation: string | null;
 }
 
 export interface ClaimResult {

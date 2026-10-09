@@ -7,6 +7,7 @@ from app.llm.generator_prompt import (
     FALSE_CLAIM_HINT,
     FALSE_CLAIM_SHARE,
     TRUE_CLAIM_HINT,
+    format_example,
     pick_examples,
     pick_true_false_hint,
 )
@@ -28,7 +29,8 @@ def test_pick_examples_returns_distinct_examples() -> None:
     picked = pick_examples().split("\n\n")
     assert len(picked) == EXAMPLES_PER_QUESTION
     assert len(set(picked)) == EXAMPLES_PER_QUESTION
-    assert all(example in EXAMPLES for example in picked)
+    formatted = [format_example(example) for example in EXAMPLES]
+    assert all(example in formatted for example in picked)
 
 
 def test_true_false_hint_prefers_false_claims() -> None:
@@ -41,7 +43,10 @@ def test_true_false_hint_prefers_false_claims() -> None:
 
 def test_examples_are_valid_generator_output() -> None:
     for example in EXAMPLES:
-        parse_generated_question(example)
+        # Every example shows the model all four fields, with a real, short explanation.
+        assert set(example) == {"question", "expected_answer", "accepted_answers", "explanation"}
+        question = parse_generated_question(format_example(example))
+        assert 20 < len(question.explanation) <= 200
 
 
 def test_judge_prompt_inserts_player_answer_verbatim() -> None:

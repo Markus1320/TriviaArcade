@@ -27,6 +27,9 @@ class GeneratedQuestion(BaseModel):
     question: str = Field(min_length=10, max_length=300)
     expected_answer: str = Field(min_length=1, max_length=200)
     accepted_answers: list[str] = Field(default_factory=list, max_length=20)
+    # Shown to the player after answering. Optional on purpose: a missing explanation is
+    # not worth rejecting an otherwise good question.
+    explanation: str = Field(default="", max_length=400)
 
 
 # Written out instead of generated from the model so it has no $ref indirections,
@@ -37,8 +40,9 @@ QUESTION_SCHEMA: dict[str, Any] = {
         "question": {"type": "string"},
         "expected_answer": {"type": "string"},
         "accepted_answers": {"type": "array", "items": {"type": "string"}},
+        "explanation": {"type": "string"},
     },
-    "required": ["question", "expected_answer", "accepted_answers"],
+    "required": ["question", "expected_answer", "accepted_answers", "explanation"],
 }
 
 
@@ -85,6 +89,7 @@ def parse_generated_question(raw: str) -> GeneratedQuestion:
             "question": question.question.strip(),
             "expected_answer": question.expected_answer.strip(),
             "accepted_answers": accepted,
+            "explanation": question.explanation.strip(),
         }
     )
 

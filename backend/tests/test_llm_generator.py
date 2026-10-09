@@ -26,6 +26,7 @@ def output(**overrides: Any) -> str:
         "question": "Which city is the capital of France?",
         "expected_answer": "Paris",
         "accepted_answers": ["Paname", " paris ", ""],
+        "explanation": " Paris has been the capital of France for centuries. ",
     }
     data.update(overrides)
     return json.dumps(data)
@@ -44,6 +45,13 @@ def test_parse_valid_output_cleans_accepted_answers() -> None:
     assert question.expected_answer == "Paris"
     # duplicate of the expected answer and the empty entry are removed
     assert question.accepted_answers == ["Paname"]
+    assert question.explanation == "Paris has been the capital of France for centuries."
+
+
+def test_explanation_is_optional() -> None:
+    data = json.loads(output())
+    del data["explanation"]
+    assert parse_generated_question(json.dumps(data)).explanation == ""
 
 
 @pytest.mark.parametrize(

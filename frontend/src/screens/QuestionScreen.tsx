@@ -11,7 +11,12 @@ const MAX_ANSWER_LENGTH = 200;
 
 interface Props {
   runId: string;
-  onGameOver: (streak: number, expectedAnswer: string | null, timedOut: boolean) => void;
+  onGameOver: (
+    streak: number,
+    expectedAnswer: string | null,
+    timedOut: boolean,
+    explanation: string | null,
+  ) => void;
 }
 
 // deadline: performance.now() timestamp when the time is up, null without a time limit.
@@ -20,7 +25,7 @@ type Phase =
   | { kind: 'loadFailed'; message: string }
   | { kind: 'asking'; question: Question; error: string | null; deadline: number | null }
   | { kind: 'judging'; question: Question }
-  | { kind: 'correct'; question: Question; streak: number };
+  | { kind: 'correct'; question: Question; streak: number; explanation: string | null };
 
 // The next question, requested while the player still sees the "correct" verdict.
 interface Prefetch {
@@ -102,7 +107,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
   const endRun = (result: AnswerResult) => {
     play('wrong');
     play('gameOver');
-    onGameOver(result.streak, result.expected_answer, result.timed_out);
+    onGameOver(result.streak, result.expected_answer, result.timed_out, result.explanation);
   };
 
   const sendAnswer = (text: string) => {
@@ -116,7 +121,12 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           endRun(result);
         } else {
           play('correct');
-          setPhase({ kind: 'correct', question, streak: result.streak });
+          setPhase({
+            kind: 'correct',
+            question,
+            streak: result.streak,
+            explanation: result.explanation,
+          });
           startPrefetch();
         }
       })
@@ -199,8 +209,13 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       {!correct && limit !== null && remainingMs !== null && (
         <TimeBar remainingMs={remainingMs} limitMs={limit * 1000} />
       )}
+      {/* After a correct answer the box shows what there is to learn, not the question again. */}
       <section className={correct ? 'question-box question-box--correct' : 'question-box'}>
-        <h2 className="question-text">{question.text}</h2>
+        {correct && phase.explanation ? (
+          <p className="question-text">{phase.explanation}</p>
+        ) : (
+          <h2 className="question-text">{question.text}</h2>
+        )}
       </section>
       {correct ? (
         <>

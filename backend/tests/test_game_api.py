@@ -25,6 +25,8 @@ from app.llm.generator import GeneratedQuestion, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError
 from app.main import app
 
+EXPLANATION = "Secretland is where every place in these tests lies."
+
 
 class FakeSeeds:
     """Hands out start nodes N1, N2, ... and records what was excluded."""
@@ -58,6 +60,7 @@ class FakeGenerator:
             question=f"In which country is {seed.start.label}?",
             expected_answer="Secretland",
             accepted_answers=["Hiddenland"],
+            explanation=EXPLANATION,
         )
 
 
@@ -179,6 +182,7 @@ def test_question_does_not_reveal_the_answer(game: Game) -> None:
         "time_limit_seconds": 45,
         "seconds_left": None,
     }
+    # Neither the answer nor the explanation (which names it) leaves the server yet.
     assert "Secretland" not in response.text
     assert "Secretland" not in game.client.get(f"/api/runs/{run_id}").text
 
@@ -195,6 +199,7 @@ def test_correct_answers_build_the_streak(game: Game) -> None:
             "game_over": False,
             "timed_out": False,
             "expected_answer": None,
+            "explanation": EXPLANATION,
         }
 
 
@@ -210,10 +215,12 @@ def test_first_wrong_answer_ends_the_run_and_shows_the_answer(game: Game) -> Non
         "game_over": True,
         "timed_out": False,
         "expected_answer": "Secretland",
+        "explanation": EXPLANATION,
     }
     state = game.client.get(f"/api/runs/{run_id}").json()
     assert state["over"] is True
     assert state["last_expected_answer"] == "Secretland"
+    assert state["last_explanation"] == EXPLANATION
     assert game.question(run_id).status_code == 409
     assert game.answer(run_id, "Secretland").status_code == 409
 
@@ -313,6 +320,18 @@ def test_question_failure_keeps_the_run_going(game: Game, failing: str) -> None:
     assert game.question(run_id).json()["number"] == 1
 
 
+def test_question_without_explanation_still_works(game: Game) -> None:
+    def plain(seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
+        return GeneratedQuestion(
+            question="In which country is this place?", expected_answer="Secretland"
+        )
+
+    game.generator.generate = plain  # type: ignore[method-assign]
+    run_id = game.start()
+    game.question(run_id)
+    assert game.answer(run_id, "Secretland").json()["explanation"] is None
+
+
 # Time limit
 
 
@@ -364,6 +383,7 @@ def test_late_answer_times_out_without_the_judge(game: Game) -> None:
         "game_over": True,
         "timed_out": True,
         "expected_answer": "Secretland",
+        "explanation": EXPLANATION,
     }
     assert game.judge.calls == []
     with game.sessions() as session:

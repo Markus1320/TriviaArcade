@@ -96,7 +96,8 @@ Key principles:
 │   │   ├── build.py            # seeds -> relations -> labels -> facts
 │   │   ├── explore.py          # python -m importer.explore: preview candidate types
 │   │   └── loader.py           # writes the graph into Neo4j
-│   ├── scripts/                # manual tools: sample_questions.py (real LLM calls)
+│   ├── scripts/                # manual tools: sample_questions.py (real LLM calls),
+│   │                           # reset_leaderboard.py
 │   └── tests/
 └── frontend/
     ├── package.json
@@ -173,7 +174,9 @@ Before filling in model names, check which model tags are actually available for
 - One wrong answer ends the run. No lives, no skips.
 - The streak is the score.
 - Within a run, the same starting node is never used twice.
-- After game over, the correct answer to the last question may be shown.
+- After every answer the player sees a short explanation (one or two sentences with the
+  answer and a fact worth knowing), so there is something to learn whether the answer was
+  right or wrong. After game over the correct answer is shown with it.
 - If the judge fails technically (see below), the run is paused with an error message. A technical failure must never end a run.
 
 ## Knowledge Graph
@@ -246,13 +249,19 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - The generator varies question formats: direct questions, open questions where any one
   of several answers counts ("Name a country that borders Germany"), name several, true
   or false, comparisons (time, size, population, distance), rough time (century), sorting
-  ("oldest first"), odd one out and analogies ("Ottawa is to Canada as Canberra is to ...?").
+  ("oldest first"), odd one out, analogies ("Ottawa is to Canada as Canberra is to ...?")
+  and completions ("King Solomon appears in the collection of stories known as ...").
   Comparisons pair two entities of the same kind (never a city against a continent), neither
   part of the other, with a clear but not absurdly obvious answer.
 - A few hand written examples from `EXAMPLES` are picked at random per request and placed
   in the user message. They inspire format and style only; the prompt says the topic must
-  come from the facts. Example lines may exceed the line length (E501 is ignored for
-  `generator_prompt.py`), because a line break would change the JSON text.
+  come from the facts. `EXAMPLES` is a list of Python dicts with the four output fields,
+  rendered as JSON by `format_example`; a test checks that every example is valid generator
+  output with an explanation. Long lines are fine there (E501 is ignored for
+  `generator_prompt.py`).
+- The fame labels from the walk are passed on as a hint only: sitelink counts are often
+  skewed, so the prompt tells the model to trust its own judgement of what a casual player
+  knows. Places of death (and of birth, unless famous) are ruled out as question topics.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
@@ -262,11 +271,14 @@ The walker also labels every node of a seed with its fame relative to its type: 
 {
   "question": "string",
   "expected_answer": "string",
-  "accepted_answers": ["string"]
+  "accepted_answers": ["string"],
+  "explanation": "string"
 }
 ```
 
-The expected answer and accepted answers are stored server side with the run. There is no automatic check that the question gives the answer away, because true or false and comparison questions name it on purpose; the prompt asks the model to avoid it.
+`explanation` is what the player reads after answering: one or two short sentences that state the answer and add a fact worth knowing ("False: Ankara is the capital of Turkey. Istanbul is its largest city."). It is optional when parsing: a question without one is still used, and nothing is shown. It is only sent to the browser together with a verdict, because it names the answer.
+
+The expected answer, accepted answers and explanation are stored server side with the run. There is no automatic check that the question gives the answer away, because true or false and comparison questions name it on purpose; the prompt asks the model to avoid it.
 
 ### Call Two: Judge Answer
 
@@ -301,7 +313,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 ## Game Loop (Current Implementation)
 
-- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, the explanation, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
@@ -309,6 +321,8 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - Only claimed runs count for the leaderboard, one entry per player (`best_per_player` in `ranking.py`, a `row_number()` window query in `service.py`). Claiming returns the player's rank (may be below 10) and `personal_best`, whether this run became the player's entry.
 - After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe.
 - Time limit: generating (or prefetching) a question does not start the clock. When the browser shows a question it calls `POST /runs/{id}/question/start`, which sets `shown_at` once; calling it again (after a reload) returns the seconds left without restarting the clock. `POST /answer` checks the deadline when the answer arrives, before judging, with `ANSWER_GRACE_SECONDS` (3) for the auto-submit's network delay (`rules.py`); a late answer is stored with `timed_out` and the judge is not called. When the countdown ends with nothing typed, the browser calls `POST /runs/{id}/timeout`, which ends the run (it only ever ends the caller's own run, so no deadline check).
+- Every verdict (`POST /answer`, `POST /timeout`) carries the question's `explanation`; `GET /runs/{id}` returns `last_explanation` once the run is over. The frontend shows it in the question box after a correct answer and under the answer on the game over screen.
+- `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay. A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
 - Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
 
 ## Frontend and Styling

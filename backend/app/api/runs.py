@@ -47,6 +47,7 @@ class RunState(BaseModel):
     streak: int
     open_question: QuestionOut | None
     last_expected_answer: str | None
+    last_explanation: str | None
     claimed_by: str | None
 
 
@@ -60,6 +61,7 @@ class AnswerOut(BaseModel):
     game_over: bool
     timed_out: bool
     expected_answer: str | None
+    explanation: str | None
 
     @classmethod
     def from_result(cls, result: AnswerResult) -> "AnswerOut":
@@ -69,6 +71,7 @@ class AnswerOut(BaseModel):
             game_over=result.game_over,
             timed_out=result.timed_out,
             expected_answer=result.expected_answer,
+            explanation=result.explanation,
         )
 
 
@@ -97,6 +100,7 @@ def get_run(run_id: uuid.UUID, game: GameDep) -> RunState:
         streak=view.streak,
         open_question=QuestionOut.from_view(view.open_question) if view.open_question else None,
         last_expected_answer=view.last_expected_answer,
+        last_explanation=view.last_explanation,
         claimed_by=view.claimed_by,
     )
 

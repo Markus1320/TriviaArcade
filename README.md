@@ -154,6 +154,12 @@ All endpoints live under `/api`:
 | `GET` | `/leaderboard` | top 10 players, each with their best run |
 | `GET` | `/players` | existing handles, most recently used first |
 
+To empty the leaderboard (runs and handles are kept, everybody starts from zero):
+
+```bash
+docker compose exec backend python -m scripts.reset_leaderboard --yes
+```
+
 Errors return `{"code": "...", "detail": "..."}`, e.g. `judge_unavailable` (503) or
 `run_already_claimed` (409). Expected answers are only sent once the run is over.
 
@@ -165,7 +171,8 @@ Questions are generated in two independent LLM calls through the Ollama API:
    so large types do not dominate) and walks 1 to 2 hops through the graph (configurable
    with `WALK_MIN_HOPS` and `WALK_MAX_HOPS`).
 2. The generator model writes a question from these facts, returned as JSON (question,
-   expected answer, accepted answers) and validated.
+   expected answer, accepted answers, a short explanation) and validated. The explanation
+   is shown after every answer, right or wrong.
 3. The judge model decides whether a player's answer is correct and may only reply `true` or
    `false`. The player's answer is treated as untrusted data inside clear delimiters.
 

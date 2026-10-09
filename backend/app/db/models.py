@@ -83,6 +83,8 @@ class Question(Base):
     text: Mapped[str] = mapped_column(String(300))
     expected_answer: Mapped[str] = mapped_column(String(200))
     accepted_answers: Mapped[list[str]] = mapped_column(JSONType)
+    # One or two sentences shown to the player after answering; null for older questions.
+    explanation: Mapped[str | None] = mapped_column(Text)
     # asked_at: when the question was generated (possibly prefetched). shown_at: when the
     # player first saw it, which starts the time limit.
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

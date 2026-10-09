@@ -16,6 +16,7 @@ export type Screen =
       runId: string;
       streak: number;
       expectedAnswer: string | null;
+      explanation: string | null;
       timedOut: boolean;
     }
   | { name: 'handle'; runId: string; streak: number }
@@ -39,6 +40,7 @@ export function App() {
             runId,
             streak: run.streak,
             expectedAnswer: run.last_expected_answer,
+            explanation: run.last_explanation,
             timedOut: false,
           });
         } else {
@@ -72,8 +74,15 @@ export function App() {
       return (
         <QuestionScreen
           runId={screen.runId}
-          onGameOver={(streak, expectedAnswer, timedOut) => {
-            setScreen({ name: 'gameOver', runId: screen.runId, streak, expectedAnswer, timedOut });
+          onGameOver={(streak, expectedAnswer, timedOut, explanation) => {
+            setScreen({
+              name: 'gameOver',
+              runId: screen.runId,
+              streak,
+              expectedAnswer,
+              explanation,
+              timedOut,
+            });
           }}
         />
       );
@@ -82,6 +91,7 @@ export function App() {
         <GameOverScreen
           streak={screen.streak}
           expectedAnswer={screen.expectedAnswer}
+          explanation={screen.explanation}
           timedOut={screen.timedOut}
           onSave={() => {
             setScreen({ name: 'handle', runId: screen.runId, streak: screen.streak });
