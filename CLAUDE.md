@@ -253,7 +253,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
-- Target audience in the prompt: a casual quiz player. One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
+- Target audience in the prompt: an experienced quiz player who is not an expert; the request itself asks for an easy question for a casual player (see the format mix below for why). One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
 - The generator chooses one of three answer formats by difficulty:
   - `free`: the player types. For answers a casual player can recall. Question types:
     direct, record or rank ("the first country to...", "the second largest..."), open
@@ -272,8 +272,9 @@ The walker also labels every node of a seed with its fame relative to its type: 
   knowledge (context, famous records, the second option of a comparison, wrong options) as
   long as it is certainly true.
 - `FREE_EXAMPLES` and `CHOICE_EXAMPLES` hold hand written examples, the same number in each
-  group (a test checks it). Every request gets one of each, in random order, in the user
-  message. They inspire format and style only; the prompt says the topic must come from
+  group (a test checks it). A request normally gets one of each, in random order, in the
+  user message (`pick_examples` builds the whole example block, per language). They
+  inspire format and style only; the prompt says the topic must come from
   the facts. `format_example` renders them as JSON; a test checks that every example is
   valid generator output with an explanation. Long lines are fine there (E501 is ignored
   for `generator_prompt.py`).
@@ -293,9 +294,21 @@ The walker also labels every node of a seed with its fame relative to its type: 
   only its correct option; no option may combine or exclude the others ("All of the
   above", "Both A and B"); option counts and correct options must fit the format. The
   retry request names the reason for the rejection (`RETRY_NOTE`).
-- The model does not hold a stable mix of formats: depending on small changes in the
-  wording, samples ranged from 15% to 85% choice questions. If the mix matters, let the
-  code set it per request, as it does for true or false claims.
+- Format mix, measured on batches of 40 real questions:
+  - The request wording decides it. "One easy trivia question for a casual quiz player"
+    gives about two thirds free input and options for the harder answers. "Experienced
+    quiz player" flipped it to two thirds single choice with more failures, so the request
+    stays "easy" and "casual" although the audience section speaks of an experienced
+    player.
+  - Left alone, the model almost never writes multiple choice, sorting, analogies or
+    completions, whatever the prompt says about them.
+  - An example alone is not a lever: with a single example and "follow it if it fits" the
+    model followed the type in 6 of 34 questions. Naming the type in the request works
+    (about 30 of 33), but forced sorting, analogy, comparison and odd one out questions
+    were weak.
+  - Therefore only multiple choice is steered: in `MULTIPLE_SHARE` (15%) of the requests
+    the example block is one multiple choice example plus a sentence suggesting that type.
+    All other requests carry no suggestion.
 - The options are shuffled by code, because models tend to put the correct one first.
   True/False (and Yes/No, Wahr/Falsch) keep their order.
 - Left alone, the model writes mostly true claims for true or false questions. So the code

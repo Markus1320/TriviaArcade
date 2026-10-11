@@ -21,7 +21,7 @@ Audience:
   should have a fair chance.
 - Each entity carries a fame hint: "world famous", "well known" or "known to fans". It
   is computed from Wikipedia coverage, compared with other entities of its kind, and it is
-  often skewed. Treat it as a rough hint and trust your own judgement of what such a
+  often skewed. Treat it as a rough hint and trust your own judgement of what a casual
   player knows: an entity marked "world famous" can still be obscure, and the other way
   round. Build the question around entities you are confident are widely known; the others
   may appear as clues only.
@@ -29,7 +29,7 @@ Audience:
 
 Answer formats:
 Every question has one of three answer formats. Choose by difficulty:
-- "free": the player types the answer. Use it when the player can recall the answer
+- "free": the player types the answer. Use it when a casual player can recall the answer
   without help.
 - "single": the player picks exactly one of the options you provide. Use it when the
   answer is harder to recall, so that a player needs the options for a fair chance, and
@@ -83,7 +83,7 @@ Question types for "single" (vary them):
 - Which of these: a direct question with three or four options, one of them correct:
   "Which element has the chemical symbol W?" The wrong options have to be plausible: the
   same kind of thing, similar fame, none of them silly.
-- Odd one out: four or five options, all but one clearly share a property the player
+- Odd one out: four or five options, all but one clearly share a property a casual player
   can spot. Say what they share when it helps: "Which of these films was not directed by
   Steven Spielberg?"
 
@@ -94,9 +94,12 @@ Both need four to six options, at least two correct and at least one wrong. Ever
 is clearly right or clearly wrong; no borderline cases.
 
 Examples:
-- The request shows two example questions, one with options and one without. Let them
-  inspire the format and style of your question. Never copy their topics or entities: the
-  content of your question comes from the facts.
+- The request usually shows two example questions, one with options and one without.
+  Let them inspire the format and style of your question. Never copy their topics or
+  entities: the content of your question comes from the facts.
+- Sometimes the request shows a single example and suggests its question type. Then write
+  a question of that type if the facts allow a good one, with options that are all the
+  same kind of thing. If they do not, choose another type.
 
 Grounding:
 - The facts are your inspiration and the starting point: the question is about at least
@@ -216,26 +219,22 @@ Options ("single" with exactly one correct option, "multiple" with two or more):
   "explanation": "one short sentence with the answer and a fact worth knowing"
 }"""
 
+# $examples is the whole example block of the request, see pick_examples.
 USER_TEMPLATE = Template(
-    "Two examples of good questions, one for each kind of answer format. Let their format "
-    "and style inspire you, but do not copy their topics; your question is about the facts "
-    "below:\n\n$examples\n\n"
+    "$examples\n\n"
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
-    "Write one trivia question for an experienced quiz player, in English. Choose the answer "
+    "Write one easy trivia question for a casual quiz player, in English. Choose the answer "
     "format by difficulty. Reply with the JSON object only."
 )
 
 # The same request in German. The examples and facts stay English; the request says so and
 # asks for German explicitly.
 USER_TEMPLATE_DE = Template(
-    "Zwei Beispiele für gute Fragen, eines für jedes Antwortformat. Lass dich von Format und "
-    "Stil inspirieren, aber übernimm nicht ihre Themen; deine Frage handelt von den Fakten "
-    "unten. Beispiele und Fakten sind auf Englisch, deine Frage ist auf Deutsch:\n\n"
     "$examples\n\n"
     "Fakten:\n\n$facts\n\n"
     "$true_false_hint\n\n"
-    "Schreibe eine Quizfrage für einen erfahrenen Quizspieler, auf Deutsch. Frage, "
+    "Schreibe eine leichte Quizfrage für einen Gelegenheitsspieler, auf Deutsch. Frage, "
     "Optionen, Antworten und Erklärung sind auf Deutsch, mit den im Deutschen üblichen "
     "Namen. Wähle das Antwortformat nach Schwierigkeit. Antworte nur mit dem JSON-Objekt."
 )
@@ -263,8 +262,8 @@ def _choice(question: str, options: list[str], correct: list[str], explanation: 
     }
 
 
-# Example questions shown to the model: one free and one choice example per request (see
-# pick_examples). Keep both groups the same size and mix topics and question types. The
+# Example questions shown to the model: usually one free and one choice example per
+# request (see pick_examples). Keep both groups the same size and mix topics and question types. The
 # explanation is what the player reads after answering.
 FREE_EXAMPLES: list[Example] = [
     # Direct, one answer
@@ -666,12 +665,55 @@ def format_example(example: Example) -> str:
     return json.dumps(example, ensure_ascii=False, indent=1)
 
 
-def pick_examples(rng: random.Random | None = None) -> str:
-    """One free and one choice example, in random order."""
+# Left alone, the model almost never writes multiple choice questions, and showing an
+# example alone does not change that. So in this share of requests the code shows a single
+# multiple choice example and names the type as a suggestion. Tests with real questions:
+# the model follows a named type nearly always, an unnamed example hardly ever.
+MULTIPLE_SHARE = 0.15
+MULTIPLE_EXAMPLES: list[Example] = [e for e in CHOICE_EXAMPLES if e["format"] == "multiple"]
+
+# The example block of the request by language: (intro for two mixed examples, intro for
+# the single example, suggestion placed after the single example).
+EXAMPLE_TEXTS: dict[str, tuple[str, str, str]] = {
+    "en": (
+        "Two examples of good questions, one for each kind of answer format. Let their format "
+        "and style inspire you, but do not copy their topics; your question is about the "
+        "facts below:",
+        "One example of a good question. Do not copy its topic; your question is about the "
+        "facts below:",
+        'This example is a "multiple" question (select all that apply). Suggested question '
+        'type for this request: a "multiple" question, like the example. Use it if the facts '
+        "allow a good question of this type; if they do not, choose another type.",
+    ),
+    "de": (
+        "Zwei Beispiele für gute Fragen, eines für jedes Antwortformat. Lass dich von Format "
+        "und Stil inspirieren, aber übernimm nicht ihre Themen; deine Frage handelt von den "
+        "Fakten unten. Beispiele und Fakten sind auf Englisch, deine Frage ist auf Deutsch:",
+        "Ein Beispiel für eine gute Frage. Übernimm nicht sein Thema; deine Frage handelt von "
+        "den Fakten unten. Beispiel und Fakten sind auf Englisch, deine Frage ist auf Deutsch:",
+        'Dieses Beispiel ist eine "multiple"-Frage (alle zutreffenden Optionen auswählen). '
+        'Vorgeschlagener Fragetyp für diese Anfrage: eine "multiple"-Frage wie das Beispiel. '
+        "Verwende ihn, wenn die Fakten eine gute Frage dieses Typs erlauben; wenn nicht, wähle "
+        "einen anderen Typ.",
+    ),
+}
+
+
+def pick_examples(rng: random.Random | None = None, language: str = "en") -> str:
+    """The example block of a request.
+
+    Usually one free and one choice example, in random order. In MULTIPLE_SHARE of the
+    requests a single multiple choice example with the suggestion to write that type.
+    """
     source = rng or random
+    two_intro, one_intro, suggestion = EXAMPLE_TEXTS.get(language, EXAMPLE_TEXTS["en"])
+    if source.random() < MULTIPLE_SHARE:
+        example = format_example(source.choice(MULTIPLE_EXAMPLES))
+        return f"{one_intro}\n\n{example}\n\n{suggestion}"
     picked = [source.choice(FREE_EXAMPLES), source.choice(CHOICE_EXAMPLES)]
     source.shuffle(picked)
-    return "\n\n".join(format_example(example) for example in picked)
+    examples = "\n\n".join(format_example(example) for example in picked)
+    return f"{two_intro}\n\n{examples}"
 
 
 PROMPT = PromptTemplate(

@@ -295,7 +295,7 @@ class QuestionGenerator:
             user=self._prompt.render_user(
                 language,
                 facts=format_seed(seed),
-                examples=pick_examples(),
+                examples=pick_examples(language=language),
                 true_false_hint=pick_true_false_hint(language=language),
             ),
             json_schema=QUESTION_SCHEMA,
