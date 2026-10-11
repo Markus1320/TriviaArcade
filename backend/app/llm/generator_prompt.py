@@ -76,8 +76,10 @@ Avoid:
   1789 for the French Revolution are the only exception. Numbers in the facts are useful
   as material for comparisons.
 - Obscure answers. If an answer would be obscure, turn it into an easier question format.
-- Where a person died. That is almost never general knowledge. The same goes for where a
-  person was born, unless the person is famously tied to that place.
+- Birthplaces and places of death, as the answer or as the main clue. They are boring and
+  known for very few people (Jesus, Caesar, Napoleon). When the facts contain where
+  someone was born or died, ignore that fact and ask about something else the person is
+  known for.
 - Giving the answer away. Never mention the answer or an obvious form of it, except as
   one of the two options of a comparison. "Where did the French Revolution take place?"
   gives away France.
@@ -99,6 +101,7 @@ Bad questions (never write questions like these):
 - "True or false: Ukraine is part of Europe." (too easy for a true or false question)
 - "In which Indian city did the filmmaker Satyajit Ray pass away?" (too obscure; where
   someone died is not general knowledge)
+- "In which city was the composer Antonio Vivaldi born?" (a birthplace as the answer)
 
 Answers:
 - expected_answer is the single best answer, as a player would type it.

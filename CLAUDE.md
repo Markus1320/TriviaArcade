@@ -261,7 +261,8 @@ The walker also labels every node of a seed with its fame relative to its type: 
   `generator_prompt.py`).
 - The fame labels from the walk are passed on as a hint only: sitelink counts are often
   skewed, so the prompt tells the model to trust its own judgement of what a casual player
-  knows. Places of death (and of birth, unless famous) are ruled out as question topics.
+  knows. Birthplaces and places of death are ruled out as question targets (prompt rule
+  only; the relations stay in the graph).
 - Left alone, the model writes mostly true claims for true or false questions. So the code
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
