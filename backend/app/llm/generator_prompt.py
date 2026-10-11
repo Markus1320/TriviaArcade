@@ -16,9 +16,9 @@ between them, found by walking from one entity to the next. Write exactly one qu
 inspired by these facts.
 
 Audience:
-- The player is a casual quiz player, not an expert. A typical adult with some school
-  knowledge and an everyday interest in films, music, sports and technology should have a
-  fair chance.
+- The player is an experienced quiz player, but not an expert. A typical adult with school
+  knowledge and an everyday interest in geography, films, music, sports and technology
+  should have a fair chance.
 - Each entity carries a fame hint: "world famous", "well known" or "known to fans". It
   is computed from Wikipedia coverage, compared with other entities of its kind, and it is
   often skewed. Treat it as a rough hint and trust your own judgement of what a casual
@@ -35,12 +35,10 @@ Every question has one of three answer formats. Choose by difficulty:
   answer is harder to recall, so that a player needs the options for a fair chance, and
   for questions that are a choice by nature (true or false, "A or B", odd one out).
 - "multiple": the player ticks every option that applies. Use it when several things
-  share a property and a casual player knows some of them.
-Both kinds are common: over many questions about half are free and half have options.
-Neither is the default. Do not add options to a very easy question ("In which country is
-Vatican City?" is trivial with options), and do not ask for a hard answer without them.
-Options also allow more interesting questions about less famous facts, so use them to
-vary: comparisons, true or false, odd one out and select all that apply should all appear.
+  share a property.
+"free" is the default. Use "single" and "multiple" only for questions that are too hard
+for "free". "single" is for the hardest questions about less famous facts. "multiple" is
+the middle ground: easier to answer than "free" and harder than "single".
 
 Question types for "free" (vary them):
 - Direct question with exactly one answer: "What is the capital of New Zealand?"
@@ -63,7 +61,8 @@ Question types for "free" (vary them):
   "King Solomon appears in the collection of stories known as ...". Only one completion
   may fit.
 A free question never contains its own answer, in any form or language. Such questions are
-rejected automatically.
+rejected automatically. Types like "Sorting", "Analogy" and "Completion" are especially
+interesting but rarely apply, so if they do, do not miss the chance to use them.
 
 Question types for "single" (vary them):
 - True or false: for facts that are too hard to ask openly. State a claim: "True or
@@ -82,16 +81,17 @@ Question types for "single" (vary them):
     first: the Disney film Cinderella or the programming language Java?" combines film and
     technology. For this you may add a famous thing from another domain yourself.
 - Which of these: a direct question with three or four options, one of them correct:
-  "Which element has the chemical symbol W?" The wrong options are plausible: the same
-  kind of thing, similar fame, none of them silly.
+  "Which element has the chemical symbol W?" The wrong options have to be plausible: the
+  same kind of thing, similar fame, none of them silly.
 - Odd one out: four or five options, all but one clearly share a property a casual player
   can spot. Say what they share when it helps: "Which of these films was not directed by
   Steven Spielberg?"
 
 Question types for "multiple":
-- Select all that apply: "Which of these countries lie on the equator?" Four to six
-  options, at least two correct and at least one wrong. Every option is clearly right or
-  clearly wrong; no borderline cases.
+- Select all that apply: "Which of these countries lie on the equator?"
+- Select all that do not apply: "Which of these countries are not part of Asia?"
+Both need four to six options, at least two correct and at least one wrong. Every option
+is clearly right or clearly wrong; no borderline cases.
 
 Examples:
 - The request shows two example questions, one with options and one without. Let them
@@ -108,17 +108,19 @@ Grounding:
   Never present a past fact as a current one. Avoid "current" office holders.
 
 Avoid:
-- Numbers as answers: no populations, areas, lengths or exact years. Famous years like
-  1789 for the French Revolution are the only exception. Numbers in the facts are useful
-  as material for comparisons.
+- Numbers as answers in the "free" format: no populations, areas, lengths or exact years.
+  Famous years like 1789 for the French Revolution are the only exception. Numbers can be
+  used in "single" or "multiple" questions, for comparisons or as options, when they are
+  interesting.
 - Obscure answers. If an answer would be obscure, use options instead of free input, or
   ask about something else.
+- Trivial questions that almost everybody can answer ("What is the capital of France?").
+- Giving the answer away in a free question. "Where did the French Revolution take
+  place?" gives away France.
 - Birthplaces and places of death, as the answer or as the main clue. They are boring and
   known for very few people (Jesus, Caesar, Napoleon). When the facts contain where
   someone was born or died, ignore that fact and ask about something else the person is
   known for.
-- Giving the answer away in a free question. "Where did the French Revolution take
-  place?" gives away France.
 - Options that give the answer away: one option much longer or more detailed than the
   others, or wrong options that are obviously silly.
 - Side details that do not help the player find the answer.

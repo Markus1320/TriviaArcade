@@ -408,7 +408,7 @@ Current implementation:
   language; German translates the backend's error codes, English shows its `detail`.
 - `components/OptionList.tsx` shows the options of a choice question: buttons while asking
   (digits pick, arrow keys move, Enter confirms; the keyboard handling is in
-  `QuestionScreen.tsx`), and after the verdict a list marked right, correct (not picked) or wrong, on the
+  `QuestionScreen.tsx`), and after the verdict a list marked right, missing (a correct option not picked, red like a wrong pick) or wrong, on the
   question screen and on the game over screen.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.

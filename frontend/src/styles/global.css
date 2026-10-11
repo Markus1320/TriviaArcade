@@ -466,9 +466,10 @@ button.option:disabled {
   color: var(--green);
 }
 
+/* A correct option that was not picked: a mistake too, so it is red like a wrong pick. */
 .option--missed {
-  border: 2px dashed var(--green);
-  color: var(--green);
+  border: 2px dashed var(--red);
+  color: var(--red);
 }
 
 .option--wrong {
