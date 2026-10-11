@@ -28,7 +28,7 @@ _ERRORS: dict[type[Exception], tuple[int, str, str]] = {
     InvalidAnswerError: (
         status.HTTP_422_UNPROCESSABLE_CONTENT,
         "invalid_answer",
-        "Please type an answer.",
+        "Please give an answer.",
     ),
     QuestionUnavailableError: (
         status.HTTP_503_SERVICE_UNAVAILABLE,

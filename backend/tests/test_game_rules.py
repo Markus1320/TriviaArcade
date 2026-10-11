@@ -8,6 +8,7 @@ from app.game.rules import (
     RunAlreadyOverError,
     answer_in_time,
     apply_verdict,
+    choice_correct,
     seconds_left,
 )
 
@@ -56,3 +57,19 @@ def test_seconds_left_counts_down_and_stops_at_zero() -> None:
 )
 def test_answer_in_time_includes_grace(after: float, in_time: bool) -> None:
     assert answer_in_time(SHOWN, SHOWN + timedelta(seconds=after), 45) is in_time
+
+
+@pytest.mark.parametrize(
+    ("selected", "correct", "expected"),
+    [
+        ([1], [1], True),
+        ([2, 0], [0, 2], True),
+        ([0], [0, 2], False),
+        ([0, 1, 2], [0, 2], False),
+        ([], [1], False),
+    ],
+)
+def test_choice_needs_exactly_the_correct_options(
+    selected: list[int], correct: list[int], expected: bool
+) -> None:
+    assert choice_correct(selected, correct) is expected

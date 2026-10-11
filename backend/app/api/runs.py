@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.api.deps import get_game_service, get_leaderboard_service
 from app.game.service import AnswerResult, GameService, QuestionView
@@ -25,6 +25,8 @@ class QuestionOut(BaseModel):
     question_id: int
     number: int
     text: str
+    format: str
+    options: list[str]
     streak: int
     time_limit_seconds: int | None
     seconds_left: float | None
@@ -35,6 +37,8 @@ class QuestionOut(BaseModel):
             question_id=view.question_id,
             number=view.number,
             text=view.text,
+            format=view.format,
+            options=list(view.options),
             streak=view.streak,
             time_limit_seconds=view.time_limit_seconds,
             seconds_left=view.seconds_left,
@@ -48,11 +52,23 @@ class RunState(BaseModel):
     open_question: QuestionOut | None
     last_expected_answer: str | None
     last_explanation: str | None
+    last_options: list[str] | None
+    last_correct_options: list[int] | None
+    last_selected_options: list[int] | None
     claimed_by: str | None
 
 
 class AnswerIn(BaseModel):
-    answer: str = Field(min_length=1, max_length=MAX_ANSWER_LENGTH)
+    """A typed answer for free questions, or the selected option positions for choice ones."""
+
+    answer: str | None = Field(default=None, min_length=1, max_length=MAX_ANSWER_LENGTH)
+    selected: list[int] | None = Field(default=None, min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def exactly_one(self) -> "AnswerIn":
+        if (self.answer is None) == (self.selected is None):
+            raise ValueError("send either answer or selected")
+        return self
 
 
 class AnswerOut(BaseModel):
@@ -62,6 +78,7 @@ class AnswerOut(BaseModel):
     timed_out: bool
     expected_answer: str | None
     explanation: str | None
+    correct_options: list[int] | None
 
     @classmethod
     def from_result(cls, result: AnswerResult) -> "AnswerOut":
@@ -72,7 +89,12 @@ class AnswerOut(BaseModel):
             timed_out=result.timed_out,
             expected_answer=result.expected_answer,
             explanation=result.explanation,
+            correct_options=_as_list(result.correct_options),
         )
+
+
+def _as_list[T](values: tuple[T, ...] | None) -> list[T] | None:
+    return list(values) if values is not None else None
 
 
 class ClaimIn(BaseModel):
@@ -101,6 +123,9 @@ def get_run(run_id: uuid.UUID, game: GameDep) -> RunState:
         open_question=QuestionOut.from_view(view.open_question) if view.open_question else None,
         last_expected_answer=view.last_expected_answer,
         last_explanation=view.last_explanation,
+        last_options=_as_list(view.last_options),
+        last_correct_options=_as_list(view.last_correct_options),
+        last_selected_options=_as_list(view.last_selected_options),
         claimed_by=view.claimed_by,
     )
 
@@ -117,7 +142,7 @@ def start_question(run_id: uuid.UUID, game: GameDep) -> QuestionOut:
 
 @router.post("/{run_id}/answer")
 def answer(run_id: uuid.UUID, body: AnswerIn, game: GameDep) -> AnswerOut:
-    return AnswerOut.from_result(game.answer(run_id, body.answer))
+    return AnswerOut.from_result(game.answer(run_id, body.answer, body.selected))
 
 
 @router.post("/{run_id}/timeout")

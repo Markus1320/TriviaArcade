@@ -1,4 +1,5 @@
 import json
+import random
 from typing import Any
 
 import pytest
@@ -10,7 +11,9 @@ from app.llm.generator import (
     GeneratedQuestion,
     QuestionGenerationError,
     QuestionGenerator,
+    find_giveaway,
     parse_generated_question,
+    shuffle_options,
 )
 from tests.llm_fakes import ListCallLogger, ScriptedClient, real_prompt
 
@@ -27,6 +30,18 @@ def output(**overrides: Any) -> str:
         "expected_answer": "Paris",
         "accepted_answers": ["Paname", " paris ", ""],
         "explanation": " Paris has been the capital of France for centuries. ",
+    }
+    data.update(overrides)
+    return json.dumps(data)
+
+
+def choice(**overrides: Any) -> str:
+    data: dict[str, Any] = {
+        "format": "single",
+        "question": "Which of these cities is the capital of France?",
+        "options": ["Lyon", " Paris ", "Marseille"],
+        "correct_options": ["paris"],
+        "explanation": "Paris is the capital of France.",
     }
     data.update(overrides)
     return json.dumps(data)
@@ -81,8 +96,24 @@ def test_generate_accepts_fenced_output() -> None:
     [
         ("not json", "not valid JSON"),
         ("```json\n{broken\n```", "not valid JSON"),
-        ('{"question": "Which city?"}', "does not match the schema"),
-        (output(expected_answer=""), "does not match the schema"),
+        ('{"question": "Which city?"}', "needs an expected_answer"),
+        (output(expected_answer=""), "needs an expected_answer"),
+        (output(format="essay"), "does not match the schema"),
+        (output(options=["Paris", "Lyon"]), "must not have options"),
+        # Giveaways: the answer, or an accepted form of it, is part of the question.
+        (output(question="Is Paris the capital of France, or is it Lyon?"), "its own answer"),
+        (output(accepted_answers=["Capital of France"]), "its own answer"),
+        (choice(options=["Paris"]), "needs 2 to 5 options"),
+        (choice(options=["Paris", "paris ", "Lyon"]), "must be distinct"),
+        (choice(options=["Paris", "", "Lyon"]), "1 to 80 characters"),
+        (choice(correct_options=["Nice"]), "not among the options"),
+        (choice(correct_options=[]), "exactly one correct"),
+        (choice(correct_options=["Paris", "Lyon"]), "exactly one correct"),
+        (choice(format="multiple", correct_options=["Paris"]), "at least two correct"),
+        (
+            choice(format="multiple", correct_options=["Paris", "Lyon", "Marseille"]),
+            "at least two correct",
+        ),
         (output(question="Short?"), "does not match the schema"),
         (output(extra="field"), "does not match the schema"),
         (json.dumps(["a", "list"]), "does not match the schema"),
@@ -95,7 +126,93 @@ def test_parse_rejects_invalid_output(raw: str, message: str) -> None:
 
 def test_schema_matches_model_fields() -> None:
     assert set(QUESTION_SCHEMA["properties"]) == set(GeneratedQuestion.model_fields)
-    assert set(QUESTION_SCHEMA["required"]) == set(GeneratedQuestion.model_fields)
+    # The other fields depend on the format.
+    assert set(QUESTION_SCHEMA["required"]) == {"format", "question", "explanation"}
+
+
+def test_format_defaults_to_free() -> None:
+    question = parse_generated_question(output())
+    assert question.format == "free"
+    assert not question.is_choice
+
+
+def test_parse_single_choice() -> None:
+    question = parse_generated_question(choice())
+    assert question.is_choice
+    assert question.options == ["Lyon", "Paris", "Marseille"]
+    # Matched to the option's own spelling; expected_answer is derived for display.
+    assert question.correct_options == ["Paris"]
+    assert question.correct_indices == [1]
+    assert question.expected_answer == "Paris"
+
+
+def test_parse_multiple_choice() -> None:
+    question = parse_generated_question(
+        choice(
+            format="multiple",
+            question="Which of these cities lie in France?",
+            options=["Lyon", "Paris", "Geneva", "Turin"],
+            correct_options=["Paris", "Lyon"],
+        )
+    )
+    assert question.correct_indices == [0, 1]
+    assert question.expected_answer == "Lyon, Paris"
+
+
+def test_choice_question_may_name_its_answer() -> None:
+    raw = choice(
+        question="True or false: Paris is the capital of France.",
+        options=["True", "False"],
+        correct_options=["True"],
+    )
+    assert parse_generated_question(raw).expected_answer == "True"
+
+
+@pytest.mark.parametrize(
+    ("question", "answers", "found"),
+    [
+        ("Where did the French Revolution take place?", ["France"], None),
+        ("What was the language of the French Empire?", ["French"], "French"),
+        ("Which river flows through Vienna?", ["Danube", "vienna"], "vienna"),
+        ("Who founded the Mongol Empire?", ["Mongol  empire!"], "Mongol  empire!"),
+        # Short answers would match by accident.
+        ("Which UN agency is based in Paris?", ["UN"], None),
+        ("Sort these, oldest first: Google, Apple.", ["Apple, Google"], None),
+    ],
+)
+def test_find_giveaway(question: str, answers: list[str], found: str | None) -> None:
+    assert find_giveaway(question, answers) == found
+
+
+def test_shuffle_keeps_the_correct_options() -> None:
+    question = parse_generated_question(
+        choice(options=["Paris", "Lyon", "Marseille", "Nice", "Lille"], correct_options=["Paris"])
+    )
+    orders = {tuple(shuffle_options(question, random.Random(seed)).options) for seed in range(20)}
+    assert len(orders) > 1
+    for seed in range(20):
+        shuffled = shuffle_options(question, random.Random(seed))
+        assert sorted(shuffled.options) == sorted(question.options)
+        assert shuffled.options[shuffled.correct_indices[0]] == "Paris"
+
+
+def test_shuffle_keeps_true_false_in_order() -> None:
+    question = parse_generated_question(
+        choice(
+            question="True or false: Lyon is the capital of France.",
+            options=["False", "True"],
+            correct_options=["False"],
+        )
+    )
+    for seed in range(5):
+        shuffled = shuffle_options(question, random.Random(seed))
+        assert shuffled.options == ["True", "False"]
+        assert shuffled.correct_indices == [1]
+
+
+def test_shuffle_leaves_free_questions_alone() -> None:
+    question = parse_generated_question(output())
+    assert shuffle_options(question, random.Random(1)) == question
 
 
 # Generator calls

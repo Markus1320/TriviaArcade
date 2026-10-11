@@ -51,11 +51,15 @@ class FakeGenerator:
     def __init__(self) -> None:
         self.fail = False
         self.run_ids: list[uuid.UUID | None] = []
+        # Set to hand out this question instead of the default free one.
+        self.next: GeneratedQuestion | None = None
 
     def generate(self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
         self.run_ids.append(run_id)
         if self.fail:
             raise QuestionGenerationError("model returned garbage twice")
+        if self.next is not None:
+            return self.next
         return GeneratedQuestion(
             question=f"In which country is {seed.start.label}?",
             expected_answer="Secretland",
@@ -120,6 +124,9 @@ class Game:
     def answer(self, run_id: str, answer: str) -> Any:
         return self.client.post(f"/api/runs/{run_id}/answer", json={"answer": answer})
 
+    def select(self, run_id: str, *selected: int) -> Any:
+        return self.client.post(f"/api/runs/{run_id}/answer", json={"selected": list(selected)})
+
     def play(self, correct_answers: int) -> str:
         """Start a run, answer correctly n times, then wrongly. Returns the run ID."""
         run_id = self.start()
@@ -178,6 +185,8 @@ def test_question_does_not_reveal_the_answer(game: Game) -> None:
         "question_id": body["question_id"],
         "number": 1,
         "text": "In which country is Place 1?",
+        "format": "free",
+        "options": [],
         "streak": 0,
         "time_limit_seconds": 45,
         "seconds_left": None,
@@ -200,6 +209,7 @@ def test_correct_answers_build_the_streak(game: Game) -> None:
             "timed_out": False,
             "expected_answer": None,
             "explanation": EXPLANATION,
+            "correct_options": None,
         }
 
 
@@ -216,6 +226,7 @@ def test_first_wrong_answer_ends_the_run_and_shows_the_answer(game: Game) -> Non
         "timed_out": False,
         "expected_answer": "Secretland",
         "explanation": EXPLANATION,
+        "correct_options": None,
     }
     state = game.client.get(f"/api/runs/{run_id}").json()
     assert state["over"] is True
@@ -384,6 +395,7 @@ def test_late_answer_times_out_without_the_judge(game: Game) -> None:
         "timed_out": True,
         "expected_answer": "Secretland",
         "explanation": EXPLANATION,
+        "correct_options": None,
     }
     assert game.judge.calls == []
     with game.sessions() as session:
@@ -567,3 +579,111 @@ def test_reset_empties_the_leaderboard_and_keeps_handles_and_runs(game: Game) ->
     assert game.claim(old_run, "ALICE").json()["code"] == "run_already_claimed"
     # New runs count from zero.
     assert game.claim(game.play(1), "ALICE").json()["rank"] == 1
+
+
+# Choice questions
+
+SINGLE = GeneratedQuestion(
+    format="single",
+    question="Which of these cities is the capital of Secretland?",
+    options=["Alpha", "Beta", "Gamma"],
+    correct_options=["Beta"],
+    expected_answer="Beta",
+    explanation=EXPLANATION,
+)
+MULTIPLE = GeneratedQuestion(
+    format="multiple",
+    question="Which of these cities lie in Secretland?",
+    options=["Alpha", "Beta", "Gamma", "Delta"],
+    correct_options=["Alpha", "Gamma"],
+    expected_answer="Alpha, Gamma",
+    explanation=EXPLANATION,
+)
+
+
+def test_choice_question_shows_options_but_not_the_correct_ones(game: Game) -> None:
+    game.generator.next = SINGLE
+    run_id = game.start()
+    body = game.question(run_id).json()
+    assert body["format"] == "single"
+    assert body["options"] == ["Alpha", "Beta", "Gamma"]
+    assert "correct" not in game.question(run_id).text
+
+
+def test_single_choice_is_checked_without_the_judge(game: Game) -> None:
+    game.generator.next = SINGLE
+    run_id = game.start()
+    game.question(run_id)
+    result = game.select(run_id, 1).json()
+    assert result["correct"] is True
+    assert result["streak"] == 1
+    assert result["correct_options"] == [1]
+    assert game.judge.calls == []
+
+
+def test_wrong_choice_ends_the_run_and_shows_the_correct_options(game: Game) -> None:
+    game.generator.next = SINGLE
+    run_id = game.start()
+    game.question(run_id)
+    result = game.select(run_id, 2).json()
+    assert result["correct"] is False
+    assert result["game_over"] is True
+    assert result["expected_answer"] == "Beta"
+    assert result["correct_options"] == [1]
+    state = game.client.get(f"/api/runs/{run_id}").json()
+    assert state["last_options"] == ["Alpha", "Beta", "Gamma"]
+    assert state["last_correct_options"] == [1]
+    assert state["last_selected_options"] == [2]
+    with game.sessions() as session:
+        assert session.scalars(select(Question)).one().player_answer == "Gamma"
+
+
+@pytest.mark.parametrize(
+    ("selected", "correct"),
+    [((0, 2), True), ((2, 0), True), ((0,), False), ((0, 1, 2), False), ((1, 3), False)],
+)
+def test_multiple_choice_needs_exactly_the_correct_options(
+    game: Game, selected: tuple[int, ...], correct: bool
+) -> None:
+    game.generator.next = MULTIPLE
+    run_id = game.start()
+    game.question(run_id)
+    result = game.select(run_id, *selected).json()
+    assert result["correct"] is correct
+    assert result["correct_options"] == [0, 2]
+
+
+@pytest.mark.parametrize("selected", [(0, 1), (3,), (-1,)])
+def test_invalid_selection_is_rejected_and_the_question_stays_open(
+    game: Game, selected: tuple[int, ...]
+) -> None:
+    game.generator.next = SINGLE
+    run_id = game.start()
+    game.question(run_id)
+    response = game.select(run_id, *selected)
+    assert response.status_code == 422
+    assert game.client.get(f"/api/runs/{run_id}").json()["open_question"] is not None
+
+
+def test_answer_kind_must_match_the_question_format(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    # Free question: a selection carries no typed answer.
+    assert game.select(run_id, 0).status_code == 422
+    game.answer(run_id, "Secretland")
+    game.generator.next = SINGLE
+    game.question(run_id)
+    assert game.answer(run_id, "Beta").status_code == 422
+    assert game.client.post(f"/api/runs/{run_id}/answer", json={}).status_code == 422
+
+
+def test_late_choice_times_out(game: Game) -> None:
+    game.generator.next = SINGLE
+    run_id = game.start()
+    game.question(run_id)
+    game.start_question(run_id)
+    game.wait(60)
+    result = game.select(run_id, 1).json()
+    assert result["correct"] is False
+    assert result["timed_out"] is True
+    assert result["correct_options"] == [1]

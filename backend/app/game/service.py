@@ -6,13 +6,16 @@ results; expected answers leave the server only after the run is over.
 Each public method runs in its own transaction and locks the run row, so two parallel
 requests for the same run cannot both generate a question or both judge an answer.
 
+Answers: free questions are judged by the LLM; choice questions (single, multiple) are
+checked by code against the stored correct options, without a judge call.
+
 Time limit: generating a question (also when prefetched) does not start the clock;
 start_question does, when the browser shows the question. The deadline is checked when an
 answer arrives, before judging. A late answer ends the run without asking the judge.
 """
 
 import uuid
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -21,7 +24,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Question, Run
-from app.game.rules import Progress, answer_in_time, apply_verdict, seconds_left
+from app.game.rules import (
+    Progress,
+    answer_in_time,
+    apply_verdict,
+    choice_correct,
+    seconds_left,
+)
 from app.graph.model import QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.llm.facts import format_seed
@@ -78,6 +87,9 @@ class QuestionView:
     question_id: int
     number: int
     text: str
+    # "free", "single" or "multiple"; options is empty for free questions.
+    format: str
+    options: tuple[str, ...]
     streak: int
     # None when the time limit is off.
     time_limit_seconds: int | None
@@ -95,6 +107,9 @@ class AnswerResult:
     expected_answer: str | None
     # What the player can learn from the question; sent after every verdict.
     explanation: str | None
+    # Choice questions only: positions of the correct options, sent after every verdict so
+    # the player sees what was missed or wrongly selected.
+    correct_options: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -105,7 +120,15 @@ class RunView:
     open_question: QuestionView | None
     last_expected_answer: str | None
     last_explanation: str | None
+    # Filled when the run is over and the last question was a choice question.
+    last_options: tuple[str, ...] | None
+    last_correct_options: tuple[int, ...] | None
+    last_selected_options: tuple[int, ...] | None
     claimed_by: str | None
+
+
+# questions.player_answer is a String(200) column.
+MAX_STORED_ANSWER_LENGTH = 200
 
 
 def utc_now() -> datetime:
@@ -147,15 +170,23 @@ class GameService:
             run = self._load_run(run_id, lock=False)
             open_question = _open_question(run)
             last = run.questions[-1] if run.questions else None
+            if run.status != RUN_OVER:
+                last = None
+            last_choice = last if last is not None and last.options else None
             return RunView(
                 run_id=run.id,
                 over=run.status == RUN_OVER,
                 streak=run.streak,
                 open_question=self._view(open_question, run) if open_question else None,
-                last_expected_answer=last.expected_answer
-                if run.status == RUN_OVER and last
+                last_expected_answer=last.expected_answer if last else None,
+                last_explanation=last.explanation if last else None,
+                last_options=tuple(last_choice.options or ()) if last_choice else None,
+                last_correct_options=tuple(last_choice.correct_options or ())
+                if last_choice
                 else None,
-                last_explanation=last.explanation if run.status == RUN_OVER and last else None,
+                last_selected_options=tuple(last_choice.selected_options or ())
+                if last_choice
+                else None,
                 claimed_by=run.player.handle if run.player else None,
             )
 
@@ -186,6 +217,9 @@ class GameService:
                 start_node_id=seed.start.wikidata_id,
                 facts=format_seed(seed),
                 text=generated.question,
+                format=generated.format,
+                options=generated.options if generated.is_choice else None,
+                correct_options=generated.correct_indices if generated.is_choice else None,
                 expected_answer=generated.expected_answer,
                 accepted_answers=generated.accepted_answers,
                 explanation=generated.explanation or None,
@@ -204,19 +238,37 @@ class GameService:
                 question.shown_at = self._clock()
             return self._view(question, run)
 
-    def answer(self, run_id: uuid.UUID, player_answer: str) -> AnswerResult:
+    def answer(
+        self,
+        run_id: uuid.UUID,
+        player_answer: str | None = None,
+        selected: Sequence[int] | None = None,
+    ) -> AnswerResult:
+        """Judge a typed answer (free questions) or the selected options (choice questions)."""
         judge_error: JudgeUnavailableError | None = None
         with self._session.begin():
             run = self._load_run(run_id, lock=True)
             question = self._open_question_or_raise(run)
-            answer = sanitize_answer(player_answer)
-            if not answer:
-                raise InvalidAnswerError("the answer is empty")
+            if question.options:
+                picked = _valid_selection(question, selected)
+                answer = ", ".join(question.options[index] for index in picked)
+            else:
+                picked = None
+                answer = sanitize_answer(player_answer or "")
+                if not answer:
+                    raise InvalidAnswerError("the answer is empty")
             received_at = self._clock()
             if question.shown_at is None:
                 question.shown_at = received_at
             if not self._in_time(question, received_at):
-                return self._finish(run, question, answer, correct=False, timed_out=True)
+                return self._finish(
+                    run, question, answer, correct=False, timed_out=True, selected=picked
+                )
+            if picked is not None:
+                correct = choice_correct(picked, question.correct_options or ())
+                return self._finish(
+                    run, question, answer, correct=correct, timed_out=False, selected=picked
+                )
 
             item = JudgeInput(
                 question=question.text,
@@ -253,10 +305,12 @@ class GameService:
         *,
         correct: bool,
         timed_out: bool,
+        selected: list[int] | None = None,
     ) -> AnswerResult:
         progress = apply_verdict(Progress(streak=run.streak), correct)
         now = self._clock()
-        question.player_answer = answer
+        question.player_answer = answer[:MAX_STORED_ANSWER_LENGTH] if answer else answer
+        question.selected_options = selected
         question.correct = correct
         question.timed_out = timed_out
         question.answered_at = now
@@ -271,6 +325,7 @@ class GameService:
             timed_out=timed_out,
             expected_answer=question.expected_answer if progress.over else None,
             explanation=question.explanation,
+            correct_options=tuple(question.correct_options or ()) if question.options else None,
         )
 
     def _in_time(self, question: Question, received_at: datetime) -> bool:
@@ -286,6 +341,8 @@ class GameService:
             question_id=question.id,
             number=question.position,
             text=question.text,
+            format=question.format,
+            options=tuple(question.options or ()),
             streak=run.streak,
             time_limit_seconds=self._time_limit,
             seconds_left=left,
@@ -309,6 +366,18 @@ class GameService:
         if run is None:
             raise RunNotFoundError(f"run {run_id} not found")
         return run
+
+
+def _valid_selection(question: Question, selected: Sequence[int] | None) -> list[int]:
+    options = question.options or []
+    picked = sorted(set(selected or ()))
+    if not picked:
+        raise InvalidAnswerError("no option is selected")
+    if picked[0] < 0 or picked[-1] >= len(options):
+        raise InvalidAnswerError("unknown option")
+    if question.format == "single" and len(picked) != 1:
+        raise InvalidAnswerError("select exactly one option")
+    return picked
 
 
 def _open_question(run: Run) -> Question | None:

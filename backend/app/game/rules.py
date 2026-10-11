@@ -3,10 +3,12 @@
 - The streak is the score: the number of correct answers in a row.
 - One wrong answer ends the run. No lives, no skips.
 - A technical judge failure is not a verdict and never reaches these rules.
+- Choice questions are checked by code: exactly the correct options must be selected.
 - With a time limit, an answer must arrive within the limit after the question was shown,
   plus a short grace for network delay. A late answer ends the run like a wrong one.
 """
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -31,6 +33,11 @@ def apply_verdict(progress: Progress, correct: bool) -> Progress:
     if correct:
         return Progress(streak=progress.streak + 1, over=False)
     return Progress(streak=progress.streak, over=True)
+
+
+def choice_correct(selected: Collection[int], correct: Collection[int]) -> bool:
+    """All correct options selected and no wrong one. Holds for single and multiple choice."""
+    return set(selected) == set(correct)
 
 
 def seconds_left(shown_at: datetime, now: datetime, limit_seconds: float) -> float:

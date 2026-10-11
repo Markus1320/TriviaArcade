@@ -81,6 +81,14 @@ class Question(Base):
     start_node_id: Mapped[str] = mapped_column(String(20))
     facts: Mapped[str] = mapped_column(Text)
     text: Mapped[str] = mapped_column(String(300))
+    # "free" (typed answer, judged by the LLM) or "single" / "multiple" (options, checked
+    # by code). options is the order shown to the player; correct_options and
+    # selected_options are positions in it.
+    format: Mapped[str] = mapped_column(String(10), default="free", server_default="free")
+    options: Mapped[list[str] | None] = mapped_column(JSONType)
+    correct_options: Mapped[list[int] | None] = mapped_column(JSONType)
+    selected_options: Mapped[list[int] | None] = mapped_column(JSONType)
+    # For choice questions: the correct options joined, for display and logs.
     expected_answer: Mapped[str] = mapped_column(String(200))
     accepted_answers: Mapped[list[str]] = mapped_column(JSONType)
     # One or two sentences shown to the player after answering; null for older questions.

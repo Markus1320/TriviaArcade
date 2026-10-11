@@ -2,10 +2,11 @@ import random
 
 from app.llm.generator import parse_generated_question
 from app.llm.generator_prompt import (
+    CHOICE_EXAMPLES,
     EXAMPLES,
-    EXAMPLES_PER_QUESTION,
     FALSE_CLAIM_HINT,
     FALSE_CLAIM_SHARE,
+    FREE_EXAMPLES,
     TRUE_CLAIM_HINT,
     format_example,
     pick_examples,
@@ -25,12 +26,25 @@ def test_generator_prompt_renders_facts_and_examples() -> None:
     assert "trivia" in GENERATOR_PROMPT.system
 
 
-def test_pick_examples_returns_distinct_examples() -> None:
-    picked = pick_examples().split("\n\n")
-    assert len(picked) == EXAMPLES_PER_QUESTION
-    assert len(set(picked)) == EXAMPLES_PER_QUESTION
-    formatted = [format_example(example) for example in EXAMPLES]
-    assert all(example in formatted for example in picked)
+def test_pick_examples_returns_one_of_each_group() -> None:
+    free = [format_example(example) for example in FREE_EXAMPLES]
+    choice = [format_example(example) for example in CHOICE_EXAMPLES]
+    first_is_free = set()
+    for seed in range(20):
+        picked = pick_examples(random.Random(seed)).split("\n\n")
+        assert len(picked) == 2
+        assert sum(example in free for example in picked) == 1
+        assert sum(example in choice for example in picked) == 1
+        first_is_free.add(picked[0] in free)
+    # The order varies, so the model does not learn to prefer one format.
+    assert first_is_free == {True, False}
+
+
+def test_example_groups_are_balanced() -> None:
+    assert len(FREE_EXAMPLES) == len(CHOICE_EXAMPLES)
+    assert all(example["format"] == "free" for example in FREE_EXAMPLES)
+    formats = [example["format"] for example in CHOICE_EXAMPLES]
+    assert set(formats) == {"single", "multiple"}
 
 
 def test_true_false_hint_prefers_false_claims() -> None:
@@ -43,8 +57,7 @@ def test_true_false_hint_prefers_false_claims() -> None:
 
 def test_examples_are_valid_generator_output() -> None:
     for example in EXAMPLES:
-        # Every example shows the model all four fields, with a real, short explanation.
-        assert set(example) == {"question", "expected_answer", "accepted_answers", "explanation"}
+        # Every example is valid output, with a real, short explanation.
         question = parse_generated_question(format_example(example))
         assert 20 < len(question.explanation) <= 200
 
