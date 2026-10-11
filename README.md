@@ -139,9 +139,9 @@ You have 30 seconds per question (a bar shows the time left); when the time is u
 you typed or picked is judged, and with nothing the run ends. Each correct answer adds one
 to your streak; the first wrong answer ends the run. After every answer you see a short
 explanation with the correct answer and a fact worth knowing, and for options which ones
-were right, missed or wrong.
+were right, correct but not picked, or wrong.
 
-The button next to the sound toggle switches between English and German. The UI changes at
+The language button at the bottom of the screen switches between English and German. The UI changes at
 once; questions follow with the next run, because a run keeps the language it was started
 in. Both languages share one leaderboard.
 

@@ -53,7 +53,8 @@ const en = {
   pickOne: 'PICK ONE',
   pickAll: 'SELECT ALL THAT APPLY',
   optionRight: 'RIGHT',
-  optionMissed: 'MISSED',
+  // A correct option the player did not pick.
+  optionMissed: 'CORRECT',
   optionWrong: 'WRONG',
   judging: 'JUDGING',
   correct: 'CORRECT!',
@@ -114,7 +115,7 @@ const de: Strings = {
   pickOne: 'WÄHLE EINE ANTWORT',
   pickAll: 'WÄHLE ALLE RICHTIGEN',
   optionRight: 'RICHTIG',
-  optionMissed: 'FEHLT',
+  optionMissed: 'RICHTIG',
   optionWrong: 'FALSCH',
   judging: 'PRÜFE',
   correct: 'RICHTIG!',

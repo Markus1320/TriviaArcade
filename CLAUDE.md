@@ -400,14 +400,15 @@ Current implementation:
 - `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom. The answer input is never focused automatically, because the phone keyboard would cover the question.
 - Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong, game over and the countdown tick with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
 - `components/SoundToggle.tsx` and `components/LanguageToggle.tsx` sit in the fixed
-  `.toggles` bar shown on every screen.
+  `.toggles` bar at the bottom of every screen (one per corner on phones, both left on
+  wider screens).
 - Language: `LanguageProvider` keeps the choice (remembered in `localStorage`; without one a
   German browser starts in German) and components read texts with `useStrings()`. Errors
   are kept as thrown and turned into text when rendered (`errors.ts`), so they follow the
   language; German translates the backend's error codes, English shows its `detail`.
 - `components/OptionList.tsx` shows the options of a choice question: buttons while asking
   (digits pick, arrow keys move, Enter confirms; the keyboard handling is in
-  `QuestionScreen.tsx`), and after the verdict a list marked right, missed or wrong, on the
+  `QuestionScreen.tsx`), and after the verdict a list marked right, correct (not picked) or wrong, on the
   question screen and on the game over screen.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.
