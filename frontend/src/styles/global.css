@@ -347,6 +347,13 @@ input {
   text-align: left;
 }
 
+/* The open question cannot be selected, so it is not copied into a search in one move. */
+.question-text--locked {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .answer-form,
 .handle-form {
   display: flex;
@@ -360,6 +367,95 @@ input {
   color: var(--dim);
   font-size: 10px;
   letter-spacing: 0.05em;
+}
+
+/* Options of a choice question: buttons while asking, a marked list after the verdict. */
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid var(--dim);
+  background: transparent;
+  color: var(--fg);
+  font-size: clamp(11px, 3.2vw, 13px);
+  line-height: 1.7;
+  text-align: left;
+}
+
+button.option {
+  cursor: pointer;
+}
+
+button.option:hover:not(:disabled, .option--picked) {
+  border-color: var(--cyan);
+}
+
+button.option:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+button.option:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.option--picked {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  box-shadow: var(--box-glow);
+}
+
+.option__key {
+  flex: none;
+  color: var(--dim);
+  font-size: 10px;
+}
+
+.option--picked .option__key {
+  color: inherit;
+}
+
+.option__text {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.option__mark {
+  flex: none;
+  font-size: 9px;
+}
+
+.option--other {
+  opacity: 0.55;
+}
+
+.option--right {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.option--missed {
+  border: 2px dashed var(--green);
+  color: var(--green);
+}
+
+.option--wrong {
+  border-color: var(--red);
+  color: var(--red);
 }
 
 .text-input {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api, type ClaimResult } from './api/client';
+import { type ChoiceReveal } from './components/OptionList';
 import { runStorage } from './runStorage';
 import { GameOverScreen } from './screens/GameOverScreen';
 import { HandleScreen } from './screens/HandleScreen';
@@ -18,6 +19,8 @@ export type Screen =
       expectedAnswer: string | null;
       explanation: string | null;
       timedOut: boolean;
+      // The options of the last question with what was right and what was picked.
+      choice: ChoiceReveal | null;
     }
   | { name: 'handle'; runId: string; streak: number }
   | { name: 'leaderboard'; highlight?: ClaimResult };
@@ -42,6 +45,14 @@ export function App() {
             expectedAnswer: run.last_expected_answer,
             explanation: run.last_explanation,
             timedOut: false,
+            choice:
+              run.last_options && run.last_correct_options
+                ? {
+                    options: run.last_options,
+                    correct: run.last_correct_options,
+                    selected: run.last_selected_options ?? [],
+                  }
+                : null,
           });
         } else {
           runStorage.clear();
@@ -74,15 +85,8 @@ export function App() {
       return (
         <QuestionScreen
           runId={screen.runId}
-          onGameOver={(streak, expectedAnswer, timedOut, explanation) => {
-            setScreen({
-              name: 'gameOver',
-              runId: screen.runId,
-              streak,
-              expectedAnswer,
-              explanation,
-              timedOut,
-            });
+          onGameOver={(result) => {
+            setScreen({ name: 'gameOver', runId: screen.runId, ...result });
           }}
         />
       );
@@ -93,6 +97,7 @@ export function App() {
           expectedAnswer={screen.expectedAnswer}
           explanation={screen.explanation}
           timedOut={screen.timedOut}
+          choice={screen.choice}
           onSave={() => {
             setScreen({ name: 'handle', runId: screen.runId, streak: screen.streak });
           }}

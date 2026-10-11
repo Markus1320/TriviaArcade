@@ -1,10 +1,16 @@
 // Typed client for the backend API. All game state lives on the server; the browser only
 // keeps the run ID.
 
+export type QuestionFormat = 'free' | 'single' | 'multiple';
+
 export interface Question {
   question_id: number;
   number: number;
   text: string;
+  // free: the player types the answer. single, multiple: the player picks from options.
+  format: QuestionFormat;
+  // Empty for free questions.
+  options: string[];
   streak: number;
   // null when the server runs without a time limit.
   time_limit_seconds: number | null;
@@ -19,6 +25,10 @@ export interface RunState {
   open_question: Question | null;
   last_expected_answer: string | null;
   last_explanation: string | null;
+  // Set when the run is over and the last question was a choice question.
+  last_options: string[] | null;
+  last_correct_options: number[] | null;
+  last_selected_options: number[] | null;
   claimed_by: string | null;
 }
 
@@ -32,6 +42,8 @@ export interface AnswerResult {
   expected_answer: string | null;
   // A sentence or two about the answer, shown after every verdict. null for old questions.
   explanation: string | null;
+  // Choice questions: positions of the correct options. null for free questions.
+  correct_options: number[] | null;
 }
 
 export interface ClaimResult {
@@ -117,6 +129,9 @@ export const api = {
   startQuestion: (runId: string) => request<Question>('POST', `/runs/${runId}/question/start`),
   answer: (runId: string, answer: string) =>
     request<AnswerResult>('POST', `/runs/${runId}/answer`, { answer }),
+  // Answers a choice question with the positions of the selected options.
+  select: (runId: string, selected: number[]) =>
+    request<AnswerResult>('POST', `/runs/${runId}/answer`, { selected }),
   // Ends the run when the countdown ran out with nothing typed.
   timeOut: (runId: string) => request<AnswerResult>('POST', `/runs/${runId}/timeout`),
   claim: (runId: string, handle: string) =>

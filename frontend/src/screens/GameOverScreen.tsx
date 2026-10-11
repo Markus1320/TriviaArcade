@@ -1,3 +1,4 @@
+import { OptionList, type ChoiceReveal } from '../components/OptionList';
 import { strings } from '../strings';
 
 interface Props {
@@ -5,6 +6,7 @@ interface Props {
   expectedAnswer: string | null;
   explanation: string | null;
   timedOut: boolean;
+  choice: ChoiceReveal | null;
   onSave: () => void;
   onSkip: () => void;
 }
@@ -14,6 +16,7 @@ export function GameOverScreen({
   expectedAnswer,
   explanation,
   timedOut,
+  choice,
   onSave,
   onSkip,
 }: Props) {
@@ -25,10 +28,19 @@ export function GameOverScreen({
         <span className="score__label">{strings.finalStreak}</span>
         <span className="score__value">{strings.streakValue(streak)}</span>
       </p>
-      {expectedAnswer && (
+      {(choice ?? expectedAnswer) && (
         <section className="answer-reveal">
-          <p className="answer-reveal__label">{strings.correctAnswerWas}</p>
-          <p className="answer-reveal__value">{expectedAnswer}</p>
+          {choice ? (
+            <>
+              <p className="answer-reveal__label">{strings.correctOptionsWere}</p>
+              <OptionList options={choice.options} selected={choice.selected} reveal={choice} />
+            </>
+          ) : (
+            <>
+              <p className="answer-reveal__label">{strings.correctAnswerWas}</p>
+              <p className="answer-reveal__value">{expectedAnswer}</p>
+            </>
+          )}
           {explanation && <p className="answer-reveal__explanation">{explanation}</p>}
         </section>
       )}

@@ -8,6 +8,7 @@ Never part of CI: it calls the real Ollama API and needs Neo4j and PostgreSQL.
 import argparse
 import random
 import sys
+from collections import Counter
 
 from app.config import get_settings
 from app.db.engine import get_session_factory
@@ -48,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     walker = build_walker(settings, random.Random(args.seed))
     used_starts: set[str] = set()
     failures = 0
+    formats: Counter[str] = Counter()
     for number in range(1, args.count + 1):
         seed = walker.walk(exclude_start_ids=used_starts)
         used_starts.add(seed.start.wikidata_id)
@@ -59,12 +61,19 @@ def main(argv: list[str] | None = None) -> int:
             failures += 1
             print(f"\n!! Generation failed: {error}")
             continue
-        print(f"\nQ: {question.question}")
-        print(f"A: {question.expected_answer}")
-        if question.accepted_answers:
-            print(f"   also accepted: {', '.join(question.accepted_answers)}")
+        formats[question.format] += 1
+        print(f"\nQ ({question.format}): {question.question}")
+        if question.is_choice:
+            for option in question.options:
+                mark = "x" if option in question.correct_options else " "
+                print(f"   [{mark}] {option}")
+        else:
+            print(f"A: {question.expected_answer}")
+            if question.accepted_answers:
+                print(f"   also accepted: {', '.join(question.accepted_answers)}")
         print(f"E: {question.explanation or '(none)'}")
-        if args.judge:
+        # Choice questions are checked by code, so there is nothing for the judge to do.
+        if args.judge and not question.is_choice:
             item = JudgeInput(
                 question=question.question,
                 expected_answer=question.expected_answer,
@@ -74,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
     llm.client.close()
     print(f"\nDone: {args.count - failures} of {args.count} questions generated.")
+    print("Formats: " + ", ".join(f"{name} {count}" for name, count in sorted(formats.items())))
     return 0 if failures == 0 else 1
 
 

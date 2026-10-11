@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'reac
 
 import { api, type AnswerResult, type Question } from '../api/client';
 import { useSound } from '../audio/soundState';
+import { OptionList, type ChoiceReveal } from '../components/OptionList';
 import { TimeBar, URGENT_MS } from '../components/TimeBar';
 import { errorMessage } from '../errors';
 import { strings } from '../strings';
@@ -9,14 +10,17 @@ import { useCountdown } from '../useCountdown';
 
 const MAX_ANSWER_LENGTH = 200;
 
+export interface GameOverResult {
+  streak: number;
+  expectedAnswer: string | null;
+  explanation: string | null;
+  timedOut: boolean;
+  choice: ChoiceReveal | null;
+}
+
 interface Props {
   runId: string;
-  onGameOver: (
-    streak: number,
-    expectedAnswer: string | null,
-    timedOut: boolean,
-    explanation: string | null,
-  ) => void;
+  onGameOver: (result: GameOverResult) => void;
 }
 
 // deadline: performance.now() timestamp when the time is up, null without a time limit.
@@ -25,7 +29,13 @@ type Phase =
   | { kind: 'loadFailed'; message: string }
   | { kind: 'asking'; question: Question; error: string | null; deadline: number | null }
   | { kind: 'judging'; question: Question }
-  | { kind: 'correct'; question: Question; streak: number; explanation: string | null };
+  | {
+      kind: 'correct';
+      question: Question;
+      streak: number;
+      explanation: string | null;
+      choice: ChoiceReveal | null;
+    };
 
 // The next question, requested while the player still sees the "correct" verdict.
 interface Prefetch {
@@ -36,8 +46,11 @@ interface Prefetch {
 export function QuestionScreen({ runId, onGameOver }: Props) {
   const { play } = useSound();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
+  // The typed answer of a free question, or the picked options of a choice question.
   const [answer, setAnswer] = useState('');
+  const [selected, setSelected] = useState<number[]>([]);
   const prefetch = useRef<Prefetch | null>(null);
+  const optionButtons = useRef<(HTMLButtonElement | null)[]>([]);
 
   const fail = useCallback((err: unknown) => {
     setPhase({ kind: 'loadFailed', message: errorMessage(err) });
@@ -51,6 +64,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       .startQuestion(runId)
       .then((started) => {
         setAnswer('');
+        setSelected([]);
         setPhase({
           kind: 'asking',
           question: started,
@@ -104,28 +118,45 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     awaitQuestion(entry?.promise ?? api.nextQuestion(runId));
   };
 
-  const endRun = (result: AnswerResult) => {
+  const question = 'question' in phase ? phase.question : null;
+  const isChoice = question !== null && question.format !== 'free';
+  const canSubmit = isChoice ? selected.length > 0 : answer.trim() !== '';
+
+  const revealOf = (shown: Question, result: AnswerResult): ChoiceReveal | null =>
+    result.correct_options === null
+      ? null
+      : { options: shown.options, correct: result.correct_options, selected };
+
+  const endRun = (shown: Question, result: AnswerResult) => {
     play('wrong');
     play('gameOver');
-    onGameOver(result.streak, result.expected_answer, result.timed_out, result.explanation);
+    onGameOver({
+      streak: result.streak,
+      expectedAnswer: result.expected_answer,
+      explanation: result.explanation,
+      timedOut: result.timed_out,
+      choice: revealOf(shown, result),
+    });
   };
 
-  const sendAnswer = (text: string) => {
-    if (phase.kind !== 'asking' || text.trim() === '') return;
-    const { question } = phase;
-    setPhase({ kind: 'judging', question });
-    api
-      .answer(runId, text)
+  // Sends the typed answer or the picked options, whichever the question asks for.
+  const sendAnswer = () => {
+    if (phase.kind !== 'asking' || !canSubmit) return;
+    const shown = phase.question;
+    setPhase({ kind: 'judging', question: shown });
+    const request = isChoice ? api.select(runId, selected) : api.answer(runId, answer);
+    request
       .then((result) => {
         if (result.game_over) {
-          endRun(result);
+          endRun(shown, result);
         } else {
           play('correct');
           setPhase({
             kind: 'correct',
-            question,
+            question: shown,
             streak: result.streak,
             explanation: result.explanation,
+            choice: revealOf(shown, result),
           });
           startPrefetch();
         }
@@ -135,28 +166,84 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
         // The server gives a fresh time limit for it.
         setPhase({
           kind: 'asking',
-          question,
+          question: shown,
           error: errorMessage(err),
-          deadline: deadlineIn(question.time_limit_seconds),
+          deadline: deadlineIn(shown.time_limit_seconds),
         });
       });
   };
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    sendAnswer(answer);
+    sendAnswer();
   };
 
-  // Time is up: whatever the player typed is sent to the judge; with nothing typed the run ends.
+  // Time is up: whatever the player typed or picked is sent; with nothing the run ends.
   const expire = () => {
     if (phase.kind !== 'asking') return;
-    if (answer.trim() !== '') {
-      sendAnswer(answer);
+    if (canSubmit) {
+      sendAnswer();
       return;
     }
-    setPhase({ kind: 'judging', question: phase.question });
-    api.timeOut(runId).then(endRun).catch(fail);
+    const shown = phase.question;
+    setPhase({ kind: 'judging', question: shown });
+    api
+      .timeOut(runId)
+      .then((result) => {
+        endRun(shown, result);
+      })
+      .catch(fail);
   };
+
+  const toggleOption = (index: number) => {
+    if (question?.format === 'multiple') {
+      setSelected((current) =>
+        current.includes(index) ? current.filter((item) => item !== index) : [...current, index],
+      );
+    } else {
+      setSelected([index]);
+    }
+  };
+
+  // Keyboard for choice questions: digits pick an option, the arrow keys move through the
+  // options (and pick, when only one can be picked), Enter confirms.
+  const asking = phase.kind === 'asking';
+  const onKey = useRef<(event: KeyboardEvent) => void>(() => undefined);
+  useEffect(() => {
+    onKey.current = (event) => {
+      if (!asking || !isChoice || event.ctrlKey || event.metaKey || event.altKey) return;
+      const count = question.options.length;
+      const digit = Number(event.key);
+      if (Number.isInteger(digit) && digit >= 1 && digit <= count) {
+        event.preventDefault();
+        toggleOption(digit - 1);
+        optionButtons.current[digit - 1]?.focus();
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const focused = optionButtons.current.findIndex(
+          (button) => button !== null && button === document.activeElement,
+        );
+        const start = focused === -1 ? (step === 1 ? -1 : 0) : focused;
+        const next = (start + step + count) % count;
+        optionButtons.current[next]?.focus();
+        if (question.format === 'single') setSelected([next]);
+      } else if (event.key === 'Enter') {
+        // Enter on a focused option would pick it again instead of confirming.
+        event.preventDefault();
+        sendAnswer();
+      }
+    };
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => {
+      onKey.current(event);
+    };
+    window.addEventListener('keydown', listener);
+    return () => {
+      window.removeEventListener('keydown', listener);
+    };
+  }, []);
 
   const remainingMs = useCountdown(phase.kind === 'asking' ? phase.deadline : null, {
     onSecond: (secondsLeft) => {
@@ -174,11 +261,11 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       </main>
     );
   }
-  if (phase.kind === 'loadFailed') {
+  if (phase.kind === 'loadFailed' || question === null) {
     return (
       <main className="screen screen--question">
         <p className="message message--error" role="alert">
-          {phase.message}
+          {phase.kind === 'loadFailed' ? phase.message : strings.genericError}
         </p>
         <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
           {strings.retry}
@@ -187,10 +274,10 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     );
   }
 
-  const { question } = phase;
   const correct = phase.kind === 'correct';
   const streak = correct ? phase.streak : question.streak;
   const limit = question.time_limit_seconds;
+  const judging = phase.kind === 'judging';
   return (
     <main className="screen screen--question">
       <header className="hud">
@@ -214,11 +301,18 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
         {correct && phase.explanation ? (
           <p className="question-text">{phase.explanation}</p>
         ) : (
-          <h2 className="question-text">{question.text}</h2>
+          <h2 className="question-text question-text--locked">{question.text}</h2>
         )}
       </section>
       {correct ? (
         <>
+          {phase.choice && (
+            <OptionList
+              options={phase.choice.options}
+              selected={phase.choice.selected}
+              reveal={phase.choice}
+            />
+          )}
           <p className="verdict verdict--correct" role="status">
             {strings.correct}
           </p>
@@ -228,34 +322,51 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
         </>
       ) : (
         <form className="answer-form" onSubmit={submit}>
-          <label className="field-label" htmlFor="answer">
-            {strings.answerLabel}
-          </label>
-          <input
-            id="answer"
-            className="text-input"
-            value={answer}
-            onChange={(event) => {
-              setAnswer(event.target.value);
-            }}
-            placeholder={strings.answerPlaceholder}
-            maxLength={MAX_ANSWER_LENGTH}
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            // No autoFocus: on phones it opens the keyboard, which hides the question.
-            disabled={phase.kind === 'judging'}
-          />
-          <button
-            type="submit"
-            className="button button--primary"
-            disabled={phase.kind === 'judging' || answer.trim() === ''}
-          >
-            {phase.kind === 'judging' ? (
-              <span className="blink">{strings.judging}</span>
-            ) : (
-              strings.submit
-            )}
+          {isChoice ? (
+            <>
+              <p className="field-label">
+                {question.format === 'multiple' ? strings.pickAll : strings.pickOne}
+              </p>
+              <OptionList
+                options={question.options}
+                selected={selected}
+                multiple={question.format === 'multiple'}
+                disabled={judging}
+                onToggle={toggleOption}
+                buttons={optionButtons}
+              />
+            </>
+          ) : (
+            <>
+              <label className="field-label" htmlFor="answer">
+                {strings.answerLabel}
+              </label>
+              <input
+                id="answer"
+                className="text-input"
+                value={answer}
+                onChange={(event) => {
+                  setAnswer(event.target.value);
+                }}
+                placeholder={strings.answerPlaceholder}
+                maxLength={MAX_ANSWER_LENGTH}
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                // Typing only: pasting or dropping a looked up answer is blocked.
+                onPaste={(event) => {
+                  event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                }}
+                // No autoFocus: on phones it opens the keyboard, which hides the question.
+                disabled={judging}
+              />
+            </>
+          )}
+          <button type="submit" className="button button--primary" disabled={judging || !canSubmit}>
+            {judging ? <span className="blink">{strings.judging}</span> : strings.submit}
           </button>
           {phase.kind === 'asking' && phase.error && (
             <p className="message message--error" role="alert">
