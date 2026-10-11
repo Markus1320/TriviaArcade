@@ -32,10 +32,15 @@ Every question has one of three answer formats. Choose by difficulty:
 - "free": the player types the answer. Use it when a casual player can recall the answer
   without help.
 - "single": the player picks exactly one of the options you provide. Use it when the
-  answer is harder to recall, so that seeing the options gives a fair chance, and for
-  every question that offers alternatives (true or false, "A or B").
+  answer is harder to recall, so that a player needs the options for a fair chance, and
+  for questions that are a choice by nature (true or false, "A or B", odd one out).
 - "multiple": the player ticks every option that applies. Use it when several things
   share a property and a casual player knows some of them.
+Both kinds are common: over many questions about half are free and half have options.
+Neither is the default. Do not add options to a very easy question ("In which country is
+Vatican City?" is trivial with options), and do not ask for a hard answer without them.
+Options also allow more interesting questions about less famous facts, so use them to
+vary: comparisons, true or false, odd one out and select all that apply should all appear.
 
 Question types for "free" (vary them):
 - Direct question with exactly one answer: "What is the capital of New Zealand?"
@@ -137,6 +142,11 @@ Bad questions (never write questions like these):
 - "In which city was the composer Antonio Vivaldi born?" (a birthplace as the answer)
 - "What is the third largest country in the world?" (disputed: China or the United States,
   depending on how area is counted)
+- "Which of these countries borders Georgia?" with the options Russia, Kuril Islands and
+  Armenian Highlands (the wrong options are not countries, so only one option fits the
+  question at all)
+- "Of which country was the Soviet chess champion Garry Kasparov a citizen?" with the
+  option Soviet Union (the question names the correct option)
 
 Answers of a free question:
 - expected_answer is the single best answer, as a player would type it.
@@ -148,6 +158,10 @@ Options of a single or multiple question:
 - options lists every option, short and in the same style. Do not number or letter them.
   The game shuffles them, so never refer to their position ("the first one", "all of the
   above").
+- Every option is one single thing. No option combines others ("Both A and B", "All of
+  them", "None of them").
+- Every wrong option is a real candidate: the same kind of thing as the correct one (a
+  writer among writers, a country among countries), and similarly well known.
 - correct_options repeats the correct option or options, spelled exactly as in options.
 
 Explanation:
@@ -159,8 +173,24 @@ Explanation:
   detail behind a false claim.
 - For true or false questions start it with "True:" or "False:".
 - Everything in it must be certainly true. When in doubt, only state the answer.
+- It must agree with the answer you give. If you notice while writing it that the answer
+  is wrong or doubtful, fix the question instead.
 
-Write in English. Keep the question short, ideally under 150 characters.
+Language:
+- The game is played in several languages. The request is written in the language of
+  the game and names it. Write the question, the options, the answers and the explanation
+  in that language.
+- This prompt, the examples and the facts are always in English, whatever the language of
+  the game. Do not let that pull you towards English: translate, and use the names that
+  are usual in the language of the game ("Munich" becomes "München" in German, "Cologne
+  Cathedral" becomes "Kölner Dom"). Titles of films, games and songs keep the title under
+  which they are known in that language.
+- In a free question, accepted_answers also lists the English name when it differs, so
+  that both spellings count.
+- "True" and "False" are translated too (German: "Wahr" and "Falsch"), in the options and
+  at the start of the explanation.
+
+Keep the question short, ideally under 150 characters.
 
 Output format:
 Reply with a single JSON object and nothing else: no Markdown code fences, no text before
@@ -190,8 +220,22 @@ USER_TEMPLATE = Template(
     "below:\n\n$examples\n\n"
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
-    "Write one easy trivia question for a casual quiz player. Choose the answer format by "
-    "difficulty. Reply with the JSON object only."
+    "Write one easy trivia question for a casual quiz player, in English. Choose the answer "
+    "format by difficulty. Reply with the JSON object only."
+)
+
+# The same request in German. The examples and facts stay English; the request says so and
+# asks for German explicitly.
+USER_TEMPLATE_DE = Template(
+    "Zwei Beispiele für gute Fragen, eines für jedes Antwortformat. Lass dich von Format und "
+    "Stil inspirieren, aber übernimm nicht ihre Themen; deine Frage handelt von den Fakten "
+    "unten. Beispiele und Fakten sind auf Englisch, deine Frage ist auf Deutsch:\n\n"
+    "$examples\n\n"
+    "Fakten:\n\n$facts\n\n"
+    "$true_false_hint\n\n"
+    "Schreibe eine leichte Quizfrage für einen Gelegenheitsspieler, auf Deutsch. Frage, "
+    "Optionen, Antworten und Erklärung sind auf Deutsch, mit den im Deutschen üblichen "
+    "Namen. Wähle das Antwortformat nach Schwierigkeit. Antworte nur mit dem JSON-Objekt."
 )
 
 Example = dict[str, Any]
@@ -599,11 +643,20 @@ EXAMPLES: list[Example] = [*FREE_EXAMPLES, *CHOICE_EXAMPLES]
 FALSE_CLAIM_SHARE = 0.7
 FALSE_CLAIM_HINT = "If you write a true or false question, the claim must be false."
 TRUE_CLAIM_HINT = "If you write a true or false question, the claim must be true."
+# (false claim hint, true claim hint) by language.
+CLAIM_HINTS: dict[str, tuple[str, str]] = {
+    "en": (FALSE_CLAIM_HINT, TRUE_CLAIM_HINT),
+    "de": (
+        "Wenn du eine Wahr-oder-falsch-Frage schreibst, muss die Behauptung falsch sein.",
+        "Wenn du eine Wahr-oder-falsch-Frage schreibst, muss die Behauptung wahr sein.",
+    ),
+}
 
 
-def pick_true_false_hint(rng: random.Random | None = None) -> str:
+def pick_true_false_hint(rng: random.Random | None = None, language: str = "en") -> str:
     draw = (rng or random).random()
-    return FALSE_CLAIM_HINT if draw < FALSE_CLAIM_SHARE else TRUE_CLAIM_HINT
+    false_hint, true_hint = CLAIM_HINTS.get(language, CLAIM_HINTS["en"])
+    return false_hint if draw < FALSE_CLAIM_SHARE else true_hint
 
 
 def format_example(example: Example) -> str:
@@ -619,4 +672,9 @@ def pick_examples(rng: random.Random | None = None) -> str:
     return "\n\n".join(format_example(example) for example in picked)
 
 
-PROMPT = PromptTemplate(name="generate_question", system=SYSTEM_PROMPT, user_template=USER_TEMPLATE)
+PROMPT = PromptTemplate(
+    name="generate_question",
+    system=SYSTEM_PROMPT,
+    user_template=USER_TEMPLATE,
+    localized_user_templates={"de": USER_TEMPLATE_DE},
+)

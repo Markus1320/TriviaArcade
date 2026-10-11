@@ -129,11 +129,23 @@ Very large classes can time out on the public endpoint.
 
 ## Playing
 
-Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below), press START
-and type your answers. You have 30 seconds per question (a bar shows the time left); when
-the time is up, whatever you typed is judged, and with nothing typed the run ends. Each
-correct answer adds one to your streak; the first wrong answer ends the run. After every
-answer you see a short explanation with the correct answer and a fact worth knowing. Then
+Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below) and press
+START. Some questions are answered by typing, others by picking from options: one option,
+or every option that applies ("select all that apply", all correct ones and no wrong one).
+On a keyboard the digits and arrow keys pick options and Enter confirms. Pasting into the
+answer box is blocked.
+
+You have 30 seconds per question (a bar shows the time left); when the time is up, whatever
+you typed or picked is judged, and with nothing the run ends. Each correct answer adds one
+to your streak; the first wrong answer ends the run. After every answer you see a short
+explanation with the correct answer and a fact worth knowing, and for options which ones
+were right, missed or wrong.
+
+The button next to the sound toggle switches between English and German. The UI changes at
+once; questions follow with the next run, because a run keeps the language it was started
+in. Both languages share one leaderboard.
+
+Then
 save your score under a handle (3 to 8 letters or digits) or pick one used before. The
 leaderboard shows the top 10 players with their best streak; ties go to the run that
 finished first.
@@ -147,11 +159,11 @@ All endpoints live under `/api`:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/runs` | start a run, returns `run_id` |
+| `POST` | `/runs` | start a run, optionally with `{"language": "en"}` or `"de"`; returns `run_id` |
 | `GET` | `/runs/{run_id}` | run state, including the open question (for reloads) |
 | `POST` | `/runs/{run_id}/question` | next question; returns the open one if unanswered |
 | `POST` | `/runs/{run_id}/question/start` | starts the time limit of the open question when it is shown; returns `seconds_left` |
-| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters), returns the verdict (`timed_out` if too late) |
+| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters) for a typed answer or `{"selected": [0, 2]}` (option positions) for a choice question; returns the verdict (`timed_out` if too late) and, for choice questions, `correct_options` |
 | `POST` | `/runs/{run_id}/timeout` | ends the run when the time ran out with no answer |
 | `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
 | `GET` | `/leaderboard` | top 10 players, each with their best run |
@@ -173,11 +185,18 @@ Questions are generated in two independent LLM calls through the Ollama API:
 1. A random walk picks a starting entity (first a random entity type, then a random entity,
    so large types do not dominate) and walks 1 to 2 hops through the graph (configurable
    with `WALK_MIN_HOPS` and `WALK_MAX_HOPS`).
-2. The generator model writes a question from these facts, returned as JSON (question,
-   expected answer, accepted answers, a short explanation) and validated. The explanation
-   is shown after every answer, right or wrong.
-3. The judge model decides whether a player's answer is correct and may only reply `true` or
-   `false`. The player's answer is treated as untrusted data inside clear delimiters.
+2. The generator model writes a question from these facts, returned as JSON and validated.
+   It chooses the answer format by difficulty: `free` (typed answer, with expected and
+   accepted answers), `single` (options, one correct) or `multiple` (options, several
+   correct). It also writes a short explanation, shown after every answer. Free questions
+   that contain their own answer are rejected and written again.
+3. Typed answers go to the judge model, which decides whether the answer is correct and may
+   only reply `true` or `false`. The player's answer is treated as untrusted data inside
+   clear delimiters. Picked options are checked by code, without an LLM call.
+
+Questions are written in the language of the run (English or German). The system prompt,
+the examples and the facts stay English; the request to the model is written in the
+language of the run and asks for it explicitly.
 
 Prompts live in [generator_prompt.py](backend/app/llm/generator_prompt.py) and
 [judge_prompt.py](backend/app/llm/judge_prompt.py). Every call is logged in the PostgreSQL
@@ -222,7 +241,8 @@ docker compose run --rm backend python -m scripts.sample_questions --count 10 --
 
 `--judge` also runs the judge on the expected answer (should be `true`), a wrong answer and
 a prompt injection attempt (both should be `false`). `--seed 42` makes the walks
-reproducible, `--no-log` skips the call log.
+reproducible, `--no-log` skips the call log, `--language de` asks for German questions.
+The last line counts the questions per answer format.
 
 To look at logged calls:
 

@@ -9,10 +9,12 @@ import argparse
 import random
 import sys
 from collections import Counter
+from typing import get_args
 
 from app.config import get_settings
 from app.db.engine import get_session_factory
 from app.graph.factory import build_walker
+from app.languages import Language
 from app.llm.call_log import CallLogger, NullCallLogger, SqlCallLogger
 from app.llm.factory import LLMNotConfiguredError, build_llm_components
 from app.llm.facts import format_seed
@@ -34,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
         help="also judge the expected answer, a wrong answer and an injection attempt",
     )
     parser.add_argument("--no-log", action="store_true", help="do not log calls to PostgreSQL")
+    parser.add_argument(
+        "--language", choices=get_args(Language), default="en", help="language of the questions"
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
@@ -56,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n=== Question {number} ({seed.start.entity_type}, {len(seed.edges)} hops) ===")
         print(format_seed(seed))
         try:
-            question = llm.generator.generate(seed)
+            question = llm.generator.generate(seed, language=args.language)
         except QuestionGenerationError as error:
             failures += 1
             print(f"\n!! Generation failed: {error}")

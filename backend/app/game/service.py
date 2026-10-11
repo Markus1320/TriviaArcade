@@ -33,6 +33,7 @@ from app.game.rules import (
 )
 from app.graph.model import QuestionSeed
 from app.graph.walk import NoQuestionSeedError
+from app.languages import DEFAULT_LANGUAGE
 from app.llm.facts import format_seed
 from app.llm.generator import GeneratedQuestion, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError, sanitize_answer
@@ -44,7 +45,7 @@ class SeedSource(Protocol):
 
 class QuestionSource(Protocol):
     def generate(
-        self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None
+        self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
     ) -> GeneratedQuestion: ...
 
 
@@ -158,9 +159,10 @@ class GameService:
         # 0 turns the time limit off.
         self._time_limit = answer_time_seconds or None
 
-    def start_run(self) -> uuid.UUID:
+    def start_run(self, language: str = DEFAULT_LANGUAGE) -> uuid.UUID:
+        """Start a run. Its questions are written in the given language until it ends."""
         with self._session.begin():
-            run = Run(started_at=self._clock(), status="active", streak=0)
+            run = Run(started_at=self._clock(), status="active", streak=0, language=language)
             self._session.add(run)
             self._session.flush()
             return run.id
@@ -207,7 +209,7 @@ class GameService:
             used_starts = {question.start_node_id for question in run.questions}
             try:
                 seed = self._seeds.walk(exclude_start_ids=used_starts)
-                generated = self._generator.generate(seed, run_id=run.id)
+                generated = self._generator.generate(seed, run_id=run.id, language=run.language)
             except (NoQuestionSeedError, QuestionGenerationError) as error:
                 raise QuestionUnavailableError(str(error)) from error
 

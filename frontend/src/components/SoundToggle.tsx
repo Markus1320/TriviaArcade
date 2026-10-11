@@ -1,12 +1,13 @@
 import { useSound } from '../audio/soundState';
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 export function SoundToggle() {
+  const strings = useStrings();
   const { soundOn, toggleSound } = useSound();
   return (
     <button
       type="button"
-      className="sound-toggle"
+      className="toggle toggle--sound"
       onClick={toggleSound}
       aria-pressed={soundOn}
       aria-label={soundOn ? strings.soundOnLabel : strings.soundOffLabel}

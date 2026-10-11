@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useSound } from '../audio/soundState';
 import { errorMessage } from '../errors';
-import { strings } from '../strings';
+import { useLanguage } from '../language/languageState';
 
 interface Props {
   onStarted: (runId: string) => void;
@@ -12,20 +12,21 @@ interface Props {
 
 export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
   const { play } = useSound();
+  const { language, strings } = useLanguage();
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const start = () => {
     play('start');
     setStarting(true);
     setError(null);
     api
-      .startRun()
+      .startRun(language)
       .then(({ run_id }) => {
         onStarted(run_id);
       })
       .catch((err: unknown) => {
-        setError(errorMessage(err));
+        setError(err);
         setStarting(false);
       });
   };
@@ -44,9 +45,9 @@ export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
       <button type="button" className="button button--secondary" onClick={onShowLeaderboard}>
         {strings.showLeaderboard}
       </button>
-      {error && (
+      {error !== null && (
         <p className="message message--error" role="alert">
-          {error}
+          {errorMessage(error, strings)}
         </p>
       )}
       <p className="footer">{strings.footer}</p>

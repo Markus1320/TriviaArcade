@@ -1,6 +1,8 @@
 // Typed client for the backend API. All game state lives on the server; the browser only
 // keeps the run ID.
 
+import type { Language } from '../strings';
+
 export type QuestionFormat = 'free' | 'single' | 'multiple';
 
 export interface Question {
@@ -106,6 +108,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
+    // Shown as strings.serverUnreachable, see errors.ts.
     throw new ApiError(0, 'unknown', 'The server is not reachable.');
   }
   let payload: unknown = null;
@@ -122,7 +125,8 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
 }
 
 export const api = {
-  startRun: () => request<{ run_id: string }>('POST', '/runs'),
+  // The questions of the run are written in this language until it ends.
+  startRun: (language: Language) => request<{ run_id: string }>('POST', '/runs', { language }),
   getRun: (runId: string) => request<RunState>('GET', `/runs/${runId}`),
   nextQuestion: (runId: string) => request<Question>('POST', `/runs/${runId}/question`),
   // Starts the time limit when the question is shown. Safe to call again: the clock keeps running.

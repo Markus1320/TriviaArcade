@@ -5,7 +5,7 @@ import { useSound } from '../audio/soundState';
 import { OptionList, type ChoiceReveal } from '../components/OptionList';
 import { TimeBar, URGENT_MS } from '../components/TimeBar';
 import { errorMessage } from '../errors';
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 import { useCountdown } from '../useCountdown';
 
 const MAX_ANSWER_LENGTH = 200;
@@ -26,8 +26,8 @@ interface Props {
 // deadline: performance.now() timestamp when the time is up, null without a time limit.
 type Phase =
   | { kind: 'loading' }
-  | { kind: 'loadFailed'; message: string }
-  | { kind: 'asking'; question: Question; error: string | null; deadline: number | null }
+  | { kind: 'loadFailed'; error: unknown }
+  | { kind: 'asking'; question: Question; error: unknown; deadline: number | null }
   | { kind: 'judging'; question: Question }
   | {
       kind: 'correct';
@@ -45,6 +45,7 @@ interface Prefetch {
 
 export function QuestionScreen({ runId, onGameOver }: Props) {
   const { play } = useSound();
+  const strings = useStrings();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   // The typed answer of a free question, or the picked options of a choice question.
   const [answer, setAnswer] = useState('');
@@ -53,7 +54,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
   const optionButtons = useRef<(HTMLButtonElement | null)[]>([]);
 
   const fail = useCallback((err: unknown) => {
-    setPhase({ kind: 'loadFailed', message: errorMessage(err) });
+    setPhase({ kind: 'loadFailed', error: err });
   }, []);
 
   // Tells the server the open question is now shown, which starts its time limit, then shows
@@ -167,7 +168,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
         setPhase({
           kind: 'asking',
           question: shown,
-          error: errorMessage(err),
+          error: err,
           deadline: deadlineIn(shown.time_limit_seconds),
         });
       });
@@ -265,7 +266,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     return (
       <main className="screen screen--question">
         <p className="message message--error" role="alert">
-          {phase.kind === 'loadFailed' ? phase.message : strings.genericError}
+          {phase.kind === 'loadFailed' ? errorMessage(phase.error, strings) : strings.genericError}
         </p>
         <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
           {strings.retry}
@@ -368,9 +369,9 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           <button type="submit" className="button button--primary" disabled={judging || !canSubmit}>
             {judging ? <span className="blink">{strings.judging}</span> : strings.submit}
           </button>
-          {phase.kind === 'asking' && phase.error && (
+          {phase.kind === 'asking' && phase.error !== null && (
             <p className="message message--error" role="alert">
-              {phase.error}
+              {errorMessage(phase.error, strings)}
             </p>
           )}
         </form>

@@ -1,5 +1,5 @@
 import { OptionList, type ChoiceReveal } from '../components/OptionList';
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 interface Props {
   streak: number;
@@ -20,6 +20,7 @@ export function GameOverScreen({
   onSave,
   onSkip,
 }: Props) {
+  const strings = useStrings();
   return (
     <main className="screen screen--game-over">
       {timedOut && <p className="time-up">{strings.timeUp}</p>}

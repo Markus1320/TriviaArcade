@@ -1,5 +1,6 @@
 """Call one: turn a question seed into a trivia question with expected answers."""
 
+import dataclasses
 import json
 import random
 import re
@@ -17,6 +18,13 @@ from app.llm.prompts import PromptTemplate
 
 GENERATOR_TEMPERATURE = 0.8
 
+# Added to the request when the previous attempt was rejected, so the retry does not repeat
+# the same mistake.
+RETRY_NOTE = (
+    "\n\nYour previous attempt was rejected: {error}. "
+    "Write a different question that avoids this problem."
+)
+
 
 class QuestionGenerationError(RuntimeError):
     """The generator produced no valid question within the allowed attempts."""
@@ -32,8 +40,35 @@ MAX_OPTION_LENGTH = 80
 MAX_EXPECTED_ANSWER_LENGTH = 200
 # Answers shorter than this are not checked by the giveaway check ("UN", "No", "5").
 MIN_GIVEAWAY_LENGTH = 3
+# Options that refer to the other options instead of being an answer themselves (English
+# and German). They break shuffling and the "exactly these options" rule.
+COMBINED_OPTIONS = (
+    "all of the above",
+    "none of the above",
+    "all of them",
+    "all of these",
+    "none of them",
+    "none of these",
+    "both ",
+    "neither ",
+    "alle genannten",
+    "alle oben",
+    "alle drei",
+    "keine der",
+    "keines der",
+    "keiner der",
+    "beide",
+    "sowohl ",
+    "weder ",
+)
 # Kept in this order instead of being shuffled.
-FIXED_OPTION_ORDERS = (("true", "false"), ("yes", "no"))
+FIXED_OPTION_ORDERS = (
+    ("true", "false"),
+    ("yes", "no"),
+    ("wahr", "falsch"),
+    ("richtig", "falsch"),
+    ("ja", "nein"),
+)
 
 
 class GeneratedQuestion(BaseModel):
@@ -147,6 +182,9 @@ def _clean_choice(question: GeneratedQuestion) -> GeneratedQuestion:
     options = [option.strip() for option in question.options]
     if any(not option or len(option) > MAX_OPTION_LENGTH for option in options):
         raise ValueError(f"options must have 1 to {MAX_OPTION_LENGTH} characters")
+    combined = [option for option in options if option.casefold().startswith(COMBINED_OPTIONS)]
+    if combined:
+        raise ValueError(f"an option must not combine or exclude the others: {combined[0]!r}")
     by_key = {option.casefold(): option for option in options}
     if len(by_key) != len(options):
         raise ValueError("options must be distinct")
@@ -165,6 +203,16 @@ def _clean_choice(question: GeneratedQuestion) -> GeneratedQuestion:
         raise ValueError(
             "a multiple choice question needs at least two correct and one wrong option"
         )
+    # A question may name its options ("Which is longer, the Danube or the Rhine?"), but
+    # one that names only the correct option gives the answer away.
+    wrong = [option for option in options if option.casefold() not in correct_keys]
+    if (
+        question.format == "single"
+        and not _is_fixed_pair(options)
+        and find_giveaway(question.question, correct) is not None
+        and find_giveaway(question.question, wrong) is None
+    ):
+        raise ValueError(f"the question names only the correct option: {correct[0]!r}")
     expected = ", ".join(correct)
     if len(expected) > MAX_EXPECTED_ANSWER_LENGTH:
         raise ValueError("the correct options are too long")
@@ -178,6 +226,12 @@ def _clean_choice(question: GeneratedQuestion) -> GeneratedQuestion:
     )
 
 
+def _is_fixed_pair(options: list[str]) -> bool:
+    """True/False, Yes/No and their translations."""
+    keys = sorted(option.casefold() for option in options)
+    return any(keys == sorted(fixed) for fixed in FIXED_OPTION_ORDERS)
+
+
 def _words(text: str) -> str:
     """Lower case words separated by single spaces, padded so whole words can be matched."""
     return " " + " ".join(re.findall(r"\w+", text.casefold())) + " "
@@ -186,7 +240,8 @@ def _words(text: str) -> str:
 def find_giveaway(question: str, answers: list[str]) -> str | None:
     """The first answer that appears word for word in the question, if any.
 
-    Only meaningful for free questions: choice questions show their answers on purpose.
+    Free questions must not name any of their answers. Choice questions may name their
+    options, see _clean_choice.
     """
     question_words = _words(question)
     for answer in answers:
@@ -230,30 +285,36 @@ class QuestionGenerator:
         self._max_attempts = max_attempts
         self._rng = rng or random.Random()
 
-    def generate(self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
+    def generate(
+        self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
+    ) -> GeneratedQuestion:
+        """Write a question in the given language (a code from app.languages)."""
         request = ChatRequest(
             model=self._model,
             system=self._prompt.system,
             user=self._prompt.render_user(
+                language,
                 facts=format_seed(seed),
                 examples=pick_examples(),
-                true_false_hint=pick_true_false_hint(),
+                true_false_hint=pick_true_false_hint(language=language),
             ),
             json_schema=QUESTION_SCHEMA,
             temperature=GENERATOR_TEMPERATURE,
         )
+        first_user = request.user
         errors: list[str] = []
         for attempt in range(1, self._max_attempts + 1):
             outcome = timed_call(self._client, request)
             question: GeneratedQuestion | None = None
             error = outcome.error
+            rejected: str | None = None
             if outcome.raw_output is not None:
                 try:
                     question = shuffle_options(
                         parse_generated_question(outcome.raw_output), self._rng
                     )
                 except ValueError as parse_error:
-                    error = str(parse_error)
+                    error = rejected = str(parse_error)
             self._call_logger.log(
                 LLMCallRecord(
                     purpose="generate",
@@ -270,4 +331,7 @@ class QuestionGenerator:
             if question is not None:
                 return question
             errors.append(error or "unknown error")
+            # Tell the model why its output was rejected. Technical failures are retried as is.
+            retry_user = first_user + RETRY_NOTE.format(error=rejected) if rejected else first_user
+            request = dataclasses.replace(request, user=retry_user)
         raise QuestionGenerationError("; ".join(errors))

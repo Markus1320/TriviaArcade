@@ -2,7 +2,7 @@ import { useEffect, useState, type SubmitEvent } from 'react';
 
 import { api, type ClaimResult } from '../api/client';
 import { errorMessage } from '../errors';
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 // Same rule as the backend (app/leaderboard/handles.py); the server has the final say.
 const HANDLE_PATTERN = /^[A-Z0-9]{3,8}$/;
@@ -16,8 +16,11 @@ interface Props {
 export function HandleScreen({ runId, streak, onSaved }: Props) {
   const [handle, setHandle] = useState('');
   const [existing, setExisting] = useState<string[]>([]);
+  const strings = useStrings();
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // What went wrong: the typed name is not valid, or the request failed with this error.
+  const [invalid, setInvalid] = useState(false);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     api
@@ -31,10 +34,11 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
   const save = (value: string) => {
     const normalized = value.trim().toUpperCase();
     if (!HANDLE_PATTERN.test(normalized)) {
-      setError(strings.handleInvalid);
+      setInvalid(true);
       return;
     }
     setSaving(true);
+    setInvalid(false);
     setError(null);
     api
       .claim(runId, normalized)
@@ -42,7 +46,7 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
         onSaved(result);
       })
       .catch((err: unknown) => {
-        setError(errorMessage(err));
+        setError(err);
         setSaving(false);
       });
   };
@@ -107,9 +111,9 @@ export function HandleScreen({ runId, streak, onSaved }: Props) {
           </ul>
         </section>
       )}
-      {error && (
+      {(invalid || error !== null) && (
         <p className="message message--error" role="alert">
-          {error}
+          {invalid ? strings.handleInvalid : errorMessage(error, strings)}
         </p>
       )}
     </main>

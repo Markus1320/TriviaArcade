@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.api.deps import get_game_service, get_leaderboard_service
 from app.game.service import AnswerResult, GameService, QuestionView
+from app.languages import DEFAULT_LANGUAGE, Language
 from app.leaderboard.service import LeaderboardService
 from app.llm.judge import MAX_ANSWER_LENGTH
 
@@ -15,6 +16,10 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 
 GameDep = Annotated[GameService, Depends(get_game_service)]
 LeaderboardDep = Annotated[LeaderboardService, Depends(get_leaderboard_service)]
+
+
+class RunIn(BaseModel):
+    language: Language = DEFAULT_LANGUAGE
 
 
 class RunCreated(BaseModel):
@@ -109,8 +114,8 @@ class ClaimOut(BaseModel):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def start_run(game: GameDep) -> RunCreated:
-    return RunCreated(run_id=game.start_run())
+def start_run(game: GameDep, body: RunIn | None = None) -> RunCreated:
+    return RunCreated(run_id=game.start_run(body.language if body else DEFAULT_LANGUAGE))
 
 
 @router.get("/{run_id}")

@@ -10,7 +10,8 @@ Core loop (version one):
 
 1. The player presses START.
 2. The backend picks a random path through a Wikidata based knowledge graph and asks an LLM to write a trivia question from those facts.
-3. The player types an answer. A second, independent LLM call judges it as correct or incorrect.
+3. The player types an answer, which a second, independent LLM call judges as correct or
+   incorrect, or picks from options, which the code checks.
 4. Each correct answer increases the streak. The first wrong answer ends the run.
 5. After game over, the player picks an existing handle or enters a new one, and the run is added to a top 10 leaderboard.
 
@@ -80,6 +81,7 @@ Key principles:
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── config.py           # settings from environment
+│   │   ├── languages.py        # languages the game can be played in
 │   │   ├── api/                # routers (health, runs, leaderboard), deps.py, errors.py
 │   │   ├── game/               # rules.py (streak, game over), service.py (run lifecycle)
 │   │   ├── graph/              # Neo4j driver, repository, random walk (walk.py)
@@ -105,10 +107,11 @@ Key principles:
     └── src/
         ├── App.tsx             # screen switching, resumes a run after reload
         ├── screens/            # title, question, game over, handle entry, leaderboard
-        ├── components/
+        ├── components/         # option list, time bar, language and sound toggles
+        ├── language/           # LanguageProvider, useStrings()
         ├── api/                # typed API client
         ├── audio/              # Web Audio sound effects
-        ├── strings.ts          # all UI texts in one place
+        ├── strings.ts          # all UI texts, once per language
         └── styles/
 ```
 
@@ -172,6 +175,11 @@ Before filling in model names, check which model tags are actually available for
   when the question is shown. When the time is up, whatever the player typed is judged;
   with nothing typed the run ends. A late answer ends the run like a wrong one.
 - One wrong answer ends the run. No lives, no skips.
+- A question is answered by typing (`free`) or by picking from options: exactly one
+  (`single`) or every one that applies (`multiple`: all correct options and no wrong one).
+  When the time is up, picked options are judged like a typed answer.
+- The game is played in English or German. A run keeps the language it was started in;
+  both languages share one leaderboard.
 - The streak is the score.
 - Within a run, the same starting node is never used twice.
 - After every answer the player sees a short explanation (one or two sentences with the
@@ -246,23 +254,45 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
 - Target audience in the prompt: a casual quiz player. One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
-- The generator varies question formats: direct questions, open questions where any one
-  of several answers counts ("Name a country that borders Germany"), name several, true
-  or false, comparisons (time, size, population, distance), rough time (century), sorting
-  ("oldest first"), odd one out, analogies ("Ottawa is to Canada as Canberra is to ...?")
-  and completions ("King Solomon appears in the collection of stories known as ...").
-  Comparisons pair two entities of the same kind (never a city against a continent), neither
-  part of the other, with a clear but not absurdly obvious answer.
-- A few hand written examples from `EXAMPLES` are picked at random per request and placed
-  in the user message. They inspire format and style only; the prompt says the topic must
-  come from the facts. `EXAMPLES` is a list of Python dicts with the four output fields,
-  rendered as JSON by `format_example`; a test checks that every example is valid generator
-  output with an explanation. Long lines are fine there (E501 is ignored for
-  `generator_prompt.py`).
+- The generator chooses one of three answer formats by difficulty:
+  - `free`: the player types. For answers a casual player can recall. Question types:
+    direct, record or rank ("the first country to...", "the second largest..."), open
+    ("Name a country that borders Germany"), name several, rough time (century), sorting
+    ("oldest first"), analogy and completion.
+  - `single`: options with exactly one correct. For harder answers and everything that
+    offers alternatives: true or false, comparisons (the two things are the options),
+    "which of these" with three or four options, odd one out.
+  - `multiple`: "select all that apply", four to six options, at least two correct and one
+    wrong.
+  Comparisons of size or location pair two entities of the same kind, neither part of the
+  other, with a clear but not absurdly obvious answer. Comparisons in time may cross
+  domains ("Which was released first: the Disney film Cinderella or the programming
+  language Java?").
+- The facts are the inspiration and the starting point; the model may add its own
+  knowledge (context, famous records, the second option of a comparison, wrong options) as
+  long as it is certainly true.
+- `FREE_EXAMPLES` and `CHOICE_EXAMPLES` hold hand written examples, the same number in each
+  group (a test checks it). Every request gets one of each, in random order, in the user
+  message. They inspire format and style only; the prompt says the topic must come from
+  the facts. `format_example` renders them as JSON; a test checks that every example is
+  valid generator output with an explanation. Long lines are fine there (E501 is ignored
+  for `generator_prompt.py`).
+- Language: the system prompt, the examples and the facts are always English. The user
+  message exists per language (`localized_user_templates` in the prompt, German in
+  `USER_TEMPLATE_DE`) and asks for the language explicitly; the system prompt explains
+  the mismatch and asks for the names usual in that language, with the English name as an
+  accepted answer. Whether German names need to come from the graph instead is decided on
+  real questions.
 - The fame labels from the walk are passed on as a hint only: sitelink counts are often
   skewed, so the prompt tells the model to trust its own judgement of what a casual player
   knows. Birthplaces and places of death are ruled out as question targets (prompt rule
   only; the relations stay in the graph).
+- Code checks on the output (`generator.py`), each counting as invalid output with a retry:
+  a free question must not contain its expected or an accepted answer (word for word,
+  answers under three characters are not checked); a single choice question must not name
+  only its correct option; option counts and correct options must fit the format.
+- The options are shuffled by code, because models tend to put the correct one first.
+  True/False (and Yes/No, Wahr/Falsch) keep their order.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
@@ -270,6 +300,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
 
 ```json
 {
+  "format": "free",
   "question": "string",
   "expected_answer": "string",
   "accepted_answers": ["string"],
@@ -277,12 +308,26 @@ The walker also labels every node of a seed with its fame relative to its type: 
 }
 ```
 
+```json
+{
+  "format": "single",
+  "question": "string",
+  "options": ["string"],
+  "correct_options": ["string"],
+  "explanation": "string"
+}
+```
+
+For choice questions `expected_answer` is derived: the correct options, joined.
+
 `explanation` is what the player reads after answering: one or two short sentences that state the answer and add a fact worth knowing ("False: Ankara is the capital of Turkey. Istanbul is its largest city."). It is optional when parsing: a question without one is still used, and nothing is shown. It is only sent to the browser together with a verdict, because it names the answer.
 
-The expected answer, accepted answers and explanation are stored server side with the run. There is no automatic check that the question gives the answer away, because true or false and comparison questions name it on purpose; the prompt asks the model to avoid it.
+The expected answer, accepted answers, options, correct options and explanation are stored server side with the run.
 
 ### Call Two: Judge Answer
 
+- Only for free questions; choice questions are checked by code (`choice_correct` in
+  `rules.py`) and never reach the judge.
 - Independent from call one. Input: question, expected answer, accepted answers, player answer.
 - Output: exactly `true` or `false`, nothing else.
 - Leniency policy (part of the judge prompt):
@@ -314,7 +359,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 ## Game Loop (Current Implementation)
 
-- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, expected and accepted answers, the explanation, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, the `format`, expected and accepted answers, for choice questions `options` in the shown order with `correct_options` and `selected_options` as positions in it, the explanation, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
@@ -322,6 +367,13 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - Only claimed runs count for the leaderboard, one entry per player (`best_per_player` in `ranking.py`, a `row_number()` window query in `service.py`). Claiming returns the player's rank (may be below 10) and `personal_best`, whether this run became the player's entry.
 - After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe.
 - Time limit: generating (or prefetching) a question does not start the clock. When the browser shows a question it calls `POST /runs/{id}/question/start`, which sets `shown_at` once; calling it again (after a reload) returns the seconds left without restarting the clock. `POST /answer` checks the deadline when the answer arrives, before judging, with `ANSWER_GRACE_SECONDS` (3) for the auto-submit's network delay (`rules.py`); a late answer is stored with `timed_out` and the judge is not called. When the countdown ends with nothing typed, the browser calls `POST /runs/{id}/timeout`, which ends the run (it only ever ends the caller's own run, so no deadline check).
+- `runs.language` holds the language of the run, set by `POST /runs` (`{"language": "de"}`,
+  default `en`) and passed to the generator for every question.
+- `POST /answer` takes `{"answer": "..."}` for free questions and `{"selected": [positions]}`
+  for choice questions; the wrong kind for the open question is a 422 and the question
+  stays open. Choice verdicts carry `correct_options`; once the run is over,
+  `GET /runs/{id}` returns `last_options`, `last_correct_options` and
+  `last_selected_options` so the game over screen survives a reload.
 - Every verdict (`POST /answer`, `POST /timeout`) carries the question's `explanation`; `GET /runs/{id}` returns `last_explanation` once the run is over. The frontend shows it in the question box after a correct answer and under the answer on the game over screen.
 - `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay. A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
 - Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
@@ -332,7 +384,9 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - Screens: title with blinking PRESS START, question screen with streak counter, game over, handle entry, leaderboard.
 - All assets are original. Do not use characters, sprites, logos or sounds from real arcade games.
 - Sound effects for correct, wrong and game over are generated with the Web Audio API (no audio files). Sound is **muted by default** with a visible toggle.
-- UI language is English. All UI texts live in `src/strings.ts` so a translation can be added later.
+- UI languages are English and German, switched with a button next to the sound toggle.
+  All UI texts live in `src/strings.ts`, once per language. Arcade phrases (PRESS START,
+  GAME OVER, HIGH SCORES, ENTER) and the name of the game are the same in both.
 - The layout must work on phones, since the game is played across the home network.
 
 Current implementation:
@@ -340,7 +394,18 @@ Current implementation:
 - The font comes from the npm package `@fontsource/press-start-2p` (OFL, Latin and Latin Extended subsets imported in `main.tsx`); Vite bundles the woff2 files.
 - `src/styles/global.css` holds the design tokens (colours on `:root`), the scanline and vignette overlay (`body::before` / `body::after`, `pointer-events: none`) and all screen styles. `prefers-reduced-motion` disables blinking, flicker and other animations. Inputs use at least 16px font size so phones do not zoom. The answer input is never focused automatically, because the phone keyboard would cover the question.
 - Sounds: `src/audio/sfx.ts` synthesizes start, correct, wrong, game over and the countdown tick with oscillators; `SoundProvider` keeps the on/off state (default off, remembered in `localStorage`) and only creates the `AudioContext` after the player turns sound on. `useSound()` lives in `audio/soundState.ts`.
-- `components/SoundToggle.tsx` is the fixed toggle shown on every screen.
+- `components/SoundToggle.tsx` and `components/LanguageToggle.tsx` sit in the fixed
+  `.toggles` bar shown on every screen.
+- Language: `LanguageProvider` keeps the choice (remembered in `localStorage`; without one a
+  German browser starts in German) and components read texts with `useStrings()`. Errors
+  are kept as thrown and turned into text when rendered (`errors.ts`), so they follow the
+  language; German translates the backend's error codes, English shows its `detail`.
+- `components/OptionList.tsx` shows the options of a choice question: buttons while asking
+  (digits pick, arrow keys move, Enter confirms; the keyboard handling is in
+  `QuestionScreen.tsx`), and after the verdict a list marked right, missed or wrong, on the
+  question screen and on the game over screen.
+- The answer input ignores paste and drop, and the open question text cannot be selected.
+  This only slows down looking answers up; the time limit is the real defence.
 - `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
 
 ## Code Quality and Testing
@@ -440,7 +505,7 @@ These are planned for later. Keep the design open for them, but do not build the
 - Player accounts and handle protection
 - Deterministic or fuzzy answer matching before the LLM judge
 - Hallucination checks against the graph
-- German UI translation
+- Sorting questions answered by tapping the items in order
 - Per category leaderboards, stats, achievements
 - Production hosting outside the home network
 

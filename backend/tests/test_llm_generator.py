@@ -107,9 +107,16 @@ def test_generate_accepts_fenced_output() -> None:
         (choice(options=["Paris", "paris ", "Lyon"]), "must be distinct"),
         (choice(options=["Paris", "", "Lyon"]), "1 to 80 characters"),
         (choice(correct_options=["Nice"]), "not among the options"),
+        (choice(options=["Lyon", "Paris", "All of the above"]), "must not combine"),
+        (choice(options=["Lyon", "Paris", "Both Lyon and Paris"]), "must not combine"),
+        (choice(options=["Lyon", "Paris", "Keine der genannten"]), "must not combine"),
         (choice(correct_options=[]), "exactly one correct"),
         (choice(correct_options=["Paris", "Lyon"]), "exactly one correct"),
         (choice(format="multiple", correct_options=["Paris"]), "at least two correct"),
+        (
+            choice(question="Which of these, like Paris, is the capital of France?"),
+            "names only the correct option",
+        ),
         (
             choice(format="multiple", correct_options=["Paris", "Lyon", "Marseille"]),
             "at least two correct",
@@ -254,3 +261,60 @@ def test_generate_raises_after_two_failures() -> None:
         make_generator(client, logger).generate(SEED)
     assert len(logger.records) == 2
     assert logger.records[0].raw_output is None
+
+
+def test_generate_asks_in_the_language_of_the_run() -> None:
+    client = ScriptedClient([output()])
+    make_generator(client, ListCallLogger()).generate(SEED, language="de")
+    request = client.requests[0]
+    assert "auf Deutsch" in request.user
+    assert "France -- capital --> Paris" in request.user
+    assert "Wahr-oder-falsch-Frage" in request.user
+
+
+def test_shuffle_keeps_wahr_falsch_in_order() -> None:
+    question = parse_generated_question(
+        choice(
+            question="Wahr oder falsch: Lyon ist die Hauptstadt von Frankreich.",
+            options=["Falsch", "Wahr"],
+            correct_options=["Falsch"],
+        )
+    )
+    assert shuffle_options(question, random.Random(3)).options == ["Wahr", "Falsch"]
+
+
+def test_choice_question_may_name_all_its_options() -> None:
+    raw = choice(
+        question="Which city is larger, Paris or Lyon?",
+        options=["Paris", "Lyon"],
+        correct_options=["Paris"],
+    )
+    assert parse_generated_question(raw).expected_answer == "Paris"
+
+
+def test_true_false_question_may_use_the_word_true() -> None:
+    raw = choice(
+        question="Is it true that Paris is the capital of France?",
+        options=["True", "False"],
+        correct_options=["True"],
+    )
+    assert parse_generated_question(raw).expected_answer == "True"
+
+
+def test_retry_tells_the_model_why_it_was_rejected() -> None:
+    giveaway = output(question="Is Paris the capital of France, or is it Lyon?")
+    client = ScriptedClient([giveaway, output()])
+    logger = ListCallLogger()
+    make_generator(client, logger).generate(SEED)
+    first, second = client.requests
+    assert "previous attempt was rejected" not in first.user
+    assert second.user.startswith(first.user)
+    assert "previous attempt was rejected: the question contains its own answer" in second.user
+    # The log shows what was actually sent in each attempt.
+    assert logger.records[1].request["user"] == second.user
+
+
+def test_retry_after_a_technical_failure_repeats_the_request() -> None:
+    client = ScriptedClient([LLMError("HTTP 503"), output()])
+    make_generator(client, ListCallLogger()).generate(SEED)
+    assert client.requests[0].user == client.requests[1].user

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api, type ClaimResult, type LeaderboardRow } from '../api/client';
 import { errorMessage } from '../errors';
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 interface Props {
   highlight?: ClaimResult;
@@ -10,15 +10,16 @@ interface Props {
 }
 
 export function LeaderboardScreen({ highlight, onBack }: Props) {
+  const strings = useStrings();
   const [rows, setRows] = useState<LeaderboardRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     api
       .leaderboard()
       .then(setRows)
       .catch((err: unknown) => {
-        setError(errorMessage(err));
+        setError(err);
       });
   }, []);
 
@@ -32,12 +33,12 @@ export function LeaderboardScreen({ highlight, onBack }: Props) {
             : strings.notPersonalBest(highlight.handle, highlight.rank)}
         </p>
       )}
-      {error && (
+      {error !== null && (
         <p className="message message--error" role="alert">
-          {error}
+          {errorMessage(error, strings)}
         </p>
       )}
-      {rows === null && !error && (
+      {rows === null && error === null && (
         <p className="loading">
           <span className="blink">...</span>
         </p>

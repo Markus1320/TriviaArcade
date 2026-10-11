@@ -3,6 +3,7 @@ import random
 from app.llm.generator import parse_generated_question
 from app.llm.generator_prompt import (
     CHOICE_EXAMPLES,
+    CLAIM_HINTS,
     EXAMPLES,
     FALSE_CLAIM_HINT,
     FALSE_CLAIM_SHARE,
@@ -72,3 +73,21 @@ def test_judge_prompt_inserts_player_answer_verbatim() -> None:
     # Values are inserted verbatim: player text cannot pull in other placeholders.
     assert "<player_answer>\n$question ${expected_answer}\n</player_answer>" in user
     assert "untrusted" in JUDGE_PROMPT.system
+
+
+def test_generator_request_exists_in_german() -> None:
+    values = {"facts": "FACTS HERE", "examples": "EXAMPLES HERE", "true_false_hint": "HINT"}
+    german = GENERATOR_PROMPT.render_user("de", **values)
+    assert "auf Deutsch" in german
+    assert "FACTS HERE" in german
+    assert "EXAMPLES HERE" in german
+    assert "in English" in GENERATOR_PROMPT.render_user("en", **values)
+    # Unknown languages fall back to English instead of failing.
+    assert GENERATOR_PROMPT.render_user("xx", **values) == GENERATOR_PROMPT.render_user(**values)
+    # The system prompt stays English and explains the mismatch.
+    assert "language of the game" in GENERATOR_PROMPT.system
+
+
+def test_true_false_hint_follows_the_language() -> None:
+    hints = {pick_true_false_hint(random.Random(seed), language="de") for seed in range(50)}
+    assert hints == set(CLAIM_HINTS["de"])

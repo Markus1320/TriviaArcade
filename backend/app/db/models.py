@@ -58,6 +58,8 @@ class Run(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(10), default=RUN_ACTIVE)
     streak: Mapped[int] = mapped_column(Integer, default=0)
+    # Language of the questions, fixed when the run starts.
+    language: Mapped[str] = mapped_column(String(2), default="en", server_default="en")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     player_id: Mapped[int | None] = mapped_column(ForeignKey("players.id"), index=True)

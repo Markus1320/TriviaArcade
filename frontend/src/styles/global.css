@@ -246,11 +246,17 @@ input {
   color: var(--bg);
 }
 
-.sound-toggle {
+/* Language and sound, shown on every screen. */
+.toggles {
   position: fixed;
   top: 12px;
   right: 12px;
   z-index: 10;
+  display: flex;
+  gap: 8px;
+}
+
+.toggle {
   padding: 8px 10px;
   border: 2px solid var(--dim);
   background: var(--bg);
@@ -259,7 +265,7 @@ input {
   cursor: pointer;
 }
 
-.sound-toggle[aria-pressed='true'] {
+.toggle--sound[aria-pressed='true'] {
   border-color: var(--green);
   color: var(--green);
   box-shadow: 0 0 6px var(--green);

@@ -1,6 +1,6 @@
 import { type RefObject } from 'react';
 
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 // What is shown once a choice question has been judged: all options, with the correct ones
 // and the ones the player picked (both as positions in options).
@@ -31,12 +31,6 @@ function markOf(index: number, reveal: ChoiceReveal): Mark {
   return picked ? 'wrong' : null;
 }
 
-const MARK_TEXT: Record<Exclude<Mark, null>, string> = {
-  right: strings.optionRight,
-  missed: strings.optionMissed,
-  wrong: strings.optionWrong,
-};
-
 export function OptionList({
   options,
   selected,
@@ -46,6 +40,12 @@ export function OptionList({
   reveal,
   buttons,
 }: Props) {
+  const strings = useStrings();
+  const markText: Record<Exclude<Mark, null>, string> = {
+    right: strings.optionRight,
+    missed: strings.optionMissed,
+    wrong: strings.optionWrong,
+  };
   if (reveal) {
     return (
       <ul className="options">
@@ -54,7 +54,7 @@ export function OptionList({
           return (
             <li key={option} className={`option option--revealed option--${mark ?? 'other'}`}>
               <span className="option__text">{option}</span>
-              {mark && <span className="option__mark">{MARK_TEXT[mark]}</span>}
+              {mark && <span className="option__mark">{markText[mark]}</span>}
             </li>
           );
         })}

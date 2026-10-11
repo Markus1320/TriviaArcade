@@ -51,11 +51,15 @@ class FakeGenerator:
     def __init__(self) -> None:
         self.fail = False
         self.run_ids: list[uuid.UUID | None] = []
+        self.languages: list[str] = []
         # Set to hand out this question instead of the default free one.
         self.next: GeneratedQuestion | None = None
 
-    def generate(self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
+    def generate(
+        self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
+    ) -> GeneratedQuestion:
         self.run_ids.append(run_id)
+        self.languages.append(language)
         if self.fail:
             raise QuestionGenerationError("model returned garbage twice")
         if self.next is not None:
@@ -332,12 +336,9 @@ def test_question_failure_keeps_the_run_going(game: Game, failing: str) -> None:
 
 
 def test_question_without_explanation_still_works(game: Game) -> None:
-    def plain(seed: QuestionSeed, *, run_id: uuid.UUID | None = None) -> GeneratedQuestion:
-        return GeneratedQuestion(
-            question="In which country is this place?", expected_answer="Secretland"
-        )
-
-    game.generator.generate = plain  # type: ignore[method-assign]
+    game.generator.next = GeneratedQuestion(
+        question="In which country is this place?", expected_answer="Secretland"
+    )
     run_id = game.start()
     game.question(run_id)
     assert game.answer(run_id, "Secretland").json()["explanation"] is None
@@ -687,3 +688,20 @@ def test_late_choice_times_out(game: Game) -> None:
     assert result["correct"] is False
     assert result["timed_out"] is True
     assert result["correct_options"] == [1]
+
+
+# Language
+
+
+def test_run_language_is_passed_to_the_generator(game: Game) -> None:
+    german = game.client.post("/api/runs", json={"language": "de"}).json()["run_id"]
+    game.question(german)
+    game.answer(german, "Secretland")
+    game.question(german)
+    default = game.start()
+    game.question(default)
+    assert game.generator.languages == ["de", "de", "en"]
+
+
+def test_unknown_language_is_rejected(game: Game) -> None:
+    assert game.client.post("/api/runs", json={"language": "fr"}).status_code == 422

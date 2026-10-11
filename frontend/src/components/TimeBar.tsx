@@ -1,4 +1,4 @@
-import { strings } from '../strings';
+import { useStrings } from '../language/languageState';
 
 // Below this many milliseconds the bar turns red and the countdown ticks.
 export const URGENT_MS = 5000;
@@ -11,6 +11,7 @@ interface Props {
 // A shrinking bar for the time left. The width is set from JavaScript rather than with a CSS
 // transition, so it also works when the player prefers reduced motion.
 export function TimeBar({ remainingMs, limitMs }: Props) {
+  const strings = useStrings();
   const share = limitMs > 0 ? Math.min(1, remainingMs / limitMs) : 0;
   const urgent = remainingMs <= URGENT_MS;
   return (
