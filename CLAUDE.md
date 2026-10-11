@@ -290,7 +290,12 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Code checks on the output (`generator.py`), each counting as invalid output with a retry:
   a free question must not contain its expected or an accepted answer (word for word,
   answers under three characters are not checked); a single choice question must not name
-  only its correct option; option counts and correct options must fit the format.
+  only its correct option; no option may combine or exclude the others ("All of the
+  above", "Both A and B"); option counts and correct options must fit the format. The
+  retry request names the reason for the rejection (`RETRY_NOTE`).
+- The model does not hold a stable mix of formats: depending on small changes in the
+  wording, samples ranged from 15% to 85% choice questions. If the mix matters, let the
+  code set it per request, as it does for true or false claims.
 - The options are shuffled by code, because models tend to put the correct one first.
   True/False (and Yes/No, Wahr/Falsch) keep their order.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
