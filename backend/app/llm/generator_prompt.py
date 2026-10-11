@@ -21,7 +21,7 @@ Audience:
   should have a fair chance.
 - Each entity carries a fame hint: "world famous", "well known" or "known to fans". It
   is computed from Wikipedia coverage, compared with other entities of its kind, and it is
-  often skewed. Treat it as a rough hint and trust your own judgement of what a casual
+  often skewed. Treat it as a rough hint and trust your own judgement of what such a
   player knows: an entity marked "world famous" can still be obscure, and the other way
   round. Build the question around entities you are confident are widely known; the others
   may appear as clues only.
@@ -29,7 +29,7 @@ Audience:
 
 Answer formats:
 Every question has one of three answer formats. Choose by difficulty:
-- "free": the player types the answer. Use it when a casual player can recall the answer
+- "free": the player types the answer. Use it when the player can recall the answer
   without help.
 - "single": the player picks exactly one of the options you provide. Use it when the
   answer is harder to recall, so that a player needs the options for a fair chance, and
@@ -83,7 +83,7 @@ Question types for "single" (vary them):
 - Which of these: a direct question with three or four options, one of them correct:
   "Which element has the chemical symbol W?" The wrong options have to be plausible: the
   same kind of thing, similar fame, none of them silly.
-- Odd one out: four or five options, all but one clearly share a property a casual player
+- Odd one out: four or five options, all but one clearly share a property the player
   can spot. Say what they share when it helps: "Which of these films was not directed by
   Steven Spielberg?"
 
@@ -222,7 +222,7 @@ USER_TEMPLATE = Template(
     "below:\n\n$examples\n\n"
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
-    "Write one easy trivia question for a casual quiz player, in English. Choose the answer "
+    "Write one trivia question for an experienced quiz player, in English. Choose the answer "
     "format by difficulty. Reply with the JSON object only."
 )
 
@@ -235,7 +235,7 @@ USER_TEMPLATE_DE = Template(
     "$examples\n\n"
     "Fakten:\n\n$facts\n\n"
     "$true_false_hint\n\n"
-    "Schreibe eine leichte Quizfrage für einen Gelegenheitsspieler, auf Deutsch. Frage, "
+    "Schreibe eine Quizfrage für einen erfahrenen Quizspieler, auf Deutsch. Frage, "
     "Optionen, Antworten und Erklärung sind auf Deutsch, mit den im Deutschen üblichen "
     "Namen. Wähle das Antwortformat nach Schwierigkeit. Antworte nur mit dem JSON-Objekt."
 )
