@@ -8,8 +8,6 @@ from app.llm.generator_prompt import (
     FALSE_CLAIM_HINT,
     FALSE_CLAIM_SHARE,
     FREE_EXAMPLES,
-    MULTIPLE_EXAMPLES,
-    MULTIPLE_SHARE,
     TRUE_CLAIM_HINT,
     format_example,
     pick_examples,
@@ -29,19 +27,13 @@ def test_generator_prompt_renders_facts_and_examples() -> None:
     assert "trivia" in GENERATOR_PROMPT.system
 
 
-def _blocks(seeds: range, language: str = "en") -> list[str]:
-    return [pick_examples(random.Random(seed), language) for seed in seeds]
-
-
-def test_pick_examples_usually_returns_one_of_each_group() -> None:
+def test_pick_examples_returns_one_of_each_group() -> None:
     free = [format_example(example) for example in FREE_EXAMPLES]
     choice = [format_example(example) for example in CHOICE_EXAMPLES]
     first_is_free = set()
-    mixed = [block for block in _blocks(range(40)) if block.startswith("Two examples")]
-    assert mixed
-    for block in mixed:
-        _intro, first, second = block.split("\n\n")
-        assert "Suggested question type" not in block
+    for seed in range(20):
+        intro, first, second = pick_examples(random.Random(seed)).split("\n\n")
+        assert intro.startswith("Two examples")
         assert sum(example in free for example in (first, second)) == 1
         assert sum(example in choice for example in (first, second)) == 1
         first_is_free.add(first in free)
@@ -49,23 +41,21 @@ def test_pick_examples_usually_returns_one_of_each_group() -> None:
     assert first_is_free == {True, False}
 
 
-def test_pick_examples_sometimes_suggests_multiple_choice() -> None:
-    multiple = [format_example(example) for example in MULTIPLE_EXAMPLES]
-    assert len(multiple) >= 3
-    blocks = _blocks(range(2000))
-    suggested = [block for block in blocks if block.startswith("One example")]
-    assert abs(len(suggested) / len(blocks) - MULTIPLE_SHARE) < 0.03
-    for block in suggested:
-        _intro, example, suggestion = block.split("\n\n")
-        assert example in multiple
-        assert 'Suggested question type for this request: a "multiple" question' in suggestion
-
-
 def test_example_block_follows_the_language() -> None:
-    blocks = _blocks(range(40), "de")
-    assert {block.split(" ")[0] for block in blocks} == {"Zwei", "Ein"}
-    assert all("auf Deutsch" in block for block in blocks)
-    assert any("Vorgeschlagener Fragetyp" in block for block in blocks)
+    block = pick_examples(random.Random(1), "de")
+    assert block.startswith("Zwei Beispiele")
+    assert "auf Deutsch" in block
+    # Unknown languages fall back to English.
+    assert pick_examples(random.Random(1), "xx").startswith("Two examples")
+
+
+def test_system_prompt_lists_the_formats_in_order_of_priority() -> None:
+    system = GENERATOR_PROMPT.system
+    order = [
+        system.index(f'Question types for "{name}"') for name in ("free", "multiple", "single")
+    ]
+    assert order == sorted(order)
+    assert "Suggested question type" not in system
 
 
 def test_example_groups_are_balanced() -> None:

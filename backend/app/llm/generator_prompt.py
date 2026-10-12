@@ -28,17 +28,19 @@ Audience:
 - Simple is good. A short, clear question beats a clever, convoluted one.
 
 Answer formats:
-Every question has one of three answer formats. Choose by difficulty:
-- "free": the player types the answer. Use it when a casual player can recall the answer
-  without help.
-- "single": the player picks exactly one of the options you provide. Use it when the
-  answer is harder to recall, so that a player needs the options for a fair chance, and
-  for questions that are a choice by nature (true or false, "A or B", odd one out).
-- "multiple": the player ticks every option that applies. Use it when several things
-  share a property.
-"free" is the default. Use "single" and "multiple" only for questions that are too hard
-for "free". "single" is for the hardest questions about less famous facts. "multiple" is
-the middle ground: easier to answer than "free" and harder than "single".
+Every question has one of three answer formats. They are listed in order of priority.
+Consider them in this order and take the first one that gives a good question:
+1. "free": the player types the answer. This is the default. Use it whenever a casual
+   player can recall the answer without help.
+2. "multiple": the player ticks every option that applies. This is the second choice.
+   Use it when the answer is too hard to recall for "free" and several things share a
+   property, so that the options can all be the same kind of thing.
+3. "single": the player picks exactly one of the options you provide. This is the last
+   choice, for the hardest questions about less famous facts, and for questions that are
+   a choice by nature (true or false, "A or B", odd one out).
+The order is also how you adjust the difficulty: the less famous the fact, the further
+down the list you go. A famous fact is never asked with options, because options make it
+trivial.
 
 Question types for "free" (vary them):
 - Direct question with exactly one answer: "What is the capital of New Zealand?"
@@ -64,6 +66,13 @@ A free question never contains its own answer, in any form or language. Such que
 rejected automatically. Types like "Sorting", "Analogy" and "Completion" are especially
 interesting but rarely apply, so if they do, do not miss the chance to use them.
 
+Question types for "multiple":
+- Select all that apply: "Which of these countries lie on the equator?"
+- Select all that do not apply: "Which of these countries are not part of Asia?"
+Both need four to six options, at least two correct and at least one wrong. Every option
+is clearly right or clearly wrong; no borderline cases. All options are the same kind of
+thing, and the question does not name any of the correct ones.
+
 Question types for "single" (vary them):
 - True or false: for facts that are too hard to ask openly. State a claim: "True or
   false: ...". The options are exactly "True" and "False". The request says whether the
@@ -86,20 +95,14 @@ Question types for "single" (vary them):
 - Odd one out: four or five options, all but one clearly share a property a casual player
   can spot. Say what they share when it helps: "Which of these films was not directed by
   Steven Spielberg?"
+A question with options must still be a real question: see "Giving the answer away" below.
 
-Question types for "multiple":
-- Select all that apply: "Which of these countries lie on the equator?"
-- Select all that do not apply: "Which of these countries are not part of Asia?"
-Both need four to six options, at least two correct and at least one wrong. Every option
-is clearly right or clearly wrong; no borderline cases.
 
 Examples:
-- The request usually shows two example questions, one with options and one without.
-  Let them inspire the format and style of your question. Never copy their topics or
-  entities: the content of your question comes from the facts.
-- Sometimes the request shows a single example and suggests its question type. Then write
-  a question of that type if the facts allow a good one, with options that are all the
-  same kind of thing. If they do not, choose another type.
+- The request shows two example questions, one with options and one without. Let them
+  inspire the style of your question. They are not a hint which format to use: choose the
+  format by the order of priority above. Never copy their topics or entities: the content
+  of your question comes from the facts.
 
 Grounding:
 - The facts are your inspiration and the starting point: the question is about at least
@@ -118,14 +121,23 @@ Avoid:
 - Obscure answers. If an answer would be obscure, use options instead of free input, or
   ask about something else.
 - Trivial questions that almost everybody can answer ("What is the capital of France?").
-- Giving the answer away in a free question. "Where did the French Revolution take
-  place?" gives away France.
+- Giving the answer away, in every format. This happens most often in questions with
+  options, so check those twice:
+  - The question names the answer or a form of it. "Where did the French Revolution take
+    place?" gives away France.
+  - The question describes the correct option so closely that no knowledge is needed:
+    "Which of these Spanish painters is associated with Surrealism?" with only one
+    Spanish painter among the options.
+  - Only one option is the kind of thing the question asks for: a country among cities, a
+    person among places, a film among people.
+  - The wrong options are far away from the topic: other continents, other eras, other
+    fields. Wrong options are close neighbours of the correct one.
+  - One option is longer, more detailed or more carefully worded than the others.
+  If the options would give the answer away, change the options or ask something else.
 - Birthplaces and places of death, as the answer or as the main clue. They are boring and
   known for very few people (Jesus, Caesar, Napoleon). When the facts contain where
   someone was born or died, ignore that fact and ask about something else the person is
   known for.
-- Options that give the answer away: one option much longer or more detailed than the
-  others, or wrong options that are obviously silly.
 - Side details that do not help the player find the answer.
 - Wikidata IDs, entity type names or the arrow notation of the facts.
 
@@ -152,6 +164,11 @@ Bad questions (never write questions like these):
   question at all)
 - "Of which country was the Soviet chess champion Garry Kasparov a citizen?" with the
   option Soviet Union (the question names the correct option)
+- "Which of these is one of the five Great Lakes?" with the options Lake Michigan, Lake
+  Como, Lake Baikal and Lake Geneva (the wrong options lie on other continents; use Lake
+  Winnipeg or Great Salt Lake instead)
+- "Which of these is not a US state?" with the options Iowa, Lake Superior, Michigan and
+  Wisconsin (only one option is not a state-like name; the outsider is obvious)
 
 Answers of a free question:
 - expected_answer is the single best answer, as a player would type it.
@@ -225,7 +242,8 @@ USER_TEMPLATE = Template(
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
     "Write one easy trivia question for a casual quiz player, in English. Choose the answer "
-    "format by difficulty. Reply with the JSON object only."
+    "format in the order of priority: free, then multiple, then single. Reply with the "
+    "JSON object only."
 )
 
 # The same request in German. The examples and facts stay English; the request says so and
@@ -236,7 +254,8 @@ USER_TEMPLATE_DE = Template(
     "$true_false_hint\n\n"
     "Schreibe eine leichte Quizfrage für einen Gelegenheitsspieler, auf Deutsch. Frage, "
     "Optionen, Antworten und Erklärung sind auf Deutsch, mit den im Deutschen üblichen "
-    "Namen. Wähle das Antwortformat nach Schwierigkeit. Antworte nur mit dem JSON-Objekt."
+    "Namen. Wähle das Antwortformat in der Reihenfolge der Priorität: erst free, dann "
+    "multiple, dann single. Antworte nur mit dem JSON-Objekt."
 )
 
 Example = dict[str, Any]
@@ -262,8 +281,8 @@ def _choice(question: str, options: list[str], correct: list[str], explanation: 
     }
 
 
-# Example questions shown to the model: usually one free and one choice example per
-# request (see pick_examples). Keep both groups the same size and mix topics and question types. The
+# Example questions shown to the model: one free and one choice example per request (see
+# pick_examples). Keep both groups the same size and mix topics and question types. The
 # explanation is what the player reads after answering.
 FREE_EXAMPLES: list[Example] = [
     # Direct, one answer
@@ -665,55 +684,27 @@ def format_example(example: Example) -> str:
     return json.dumps(example, ensure_ascii=False, indent=1)
 
 
-# Left alone, the model almost never writes multiple choice questions, and showing an
-# example alone does not change that. So in this share of requests the code shows a single
-# multiple choice example and names the type as a suggestion. Tests with real questions:
-# the model follows a named type nearly always, an unnamed example hardly ever.
-MULTIPLE_SHARE = 0.15
-MULTIPLE_EXAMPLES: list[Example] = [e for e in CHOICE_EXAMPLES if e["format"] == "multiple"]
-
-# The example block of the request by language: (intro for two mixed examples, intro for
-# the single example, suggestion placed after the single example).
-EXAMPLE_TEXTS: dict[str, tuple[str, str, str]] = {
+# The intro of the example block by language. The examples themselves stay English.
+EXAMPLE_INTROS: dict[str, str] = {
     "en": (
-        "Two examples of good questions, one for each kind of answer format. Let their format "
-        "and style inspire you, but do not copy their topics; your question is about the "
-        "facts below:",
-        "One example of a good question. Do not copy its topic; your question is about the "
-        "facts below:",
-        'This example is a "multiple" question (select all that apply). Suggested question '
-        'type for this request: a "multiple" question, like the example. Use it if the facts '
-        "allow a good question of this type; if they do not, choose another type.",
+        "Two examples of good questions, one for each kind of answer format. Let their style "
+        "inspire you, but do not copy their topics; your question is about the facts below:"
     ),
     "de": (
-        "Zwei Beispiele für gute Fragen, eines für jedes Antwortformat. Lass dich von Format "
-        "und Stil inspirieren, aber übernimm nicht ihre Themen; deine Frage handelt von den "
-        "Fakten unten. Beispiele und Fakten sind auf Englisch, deine Frage ist auf Deutsch:",
-        "Ein Beispiel für eine gute Frage. Übernimm nicht sein Thema; deine Frage handelt von "
-        "den Fakten unten. Beispiel und Fakten sind auf Englisch, deine Frage ist auf Deutsch:",
-        'Dieses Beispiel ist eine "multiple"-Frage (alle zutreffenden Optionen auswählen). '
-        'Vorgeschlagener Fragetyp für diese Anfrage: eine "multiple"-Frage wie das Beispiel. '
-        "Verwende ihn, wenn die Fakten eine gute Frage dieses Typs erlauben; wenn nicht, wähle "
-        "einen anderen Typ.",
+        "Zwei Beispiele für gute Fragen, eines für jedes Antwortformat. Lass dich vom Stil "
+        "inspirieren, aber übernimm nicht ihre Themen; deine Frage handelt von den Fakten "
+        "unten. Beispiele und Fakten sind auf Englisch, deine Frage ist auf Deutsch:"
     ),
 }
 
 
 def pick_examples(rng: random.Random | None = None, language: str = "en") -> str:
-    """The example block of a request.
-
-    Usually one free and one choice example, in random order. In MULTIPLE_SHARE of the
-    requests a single multiple choice example with the suggestion to write that type.
-    """
+    """The example block of a request: one free and one choice example, in random order."""
     source = rng or random
-    two_intro, one_intro, suggestion = EXAMPLE_TEXTS.get(language, EXAMPLE_TEXTS["en"])
-    if source.random() < MULTIPLE_SHARE:
-        example = format_example(source.choice(MULTIPLE_EXAMPLES))
-        return f"{one_intro}\n\n{example}\n\n{suggestion}"
     picked = [source.choice(FREE_EXAMPLES), source.choice(CHOICE_EXAMPLES)]
     source.shuffle(picked)
     examples = "\n\n".join(format_example(example) for example in picked)
-    return f"{two_intro}\n\n{examples}"
+    return f"{EXAMPLE_INTROS.get(language, EXAMPLE_INTROS['en'])}\n\n{examples}"
 
 
 PROMPT = PromptTemplate(

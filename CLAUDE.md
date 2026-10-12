@@ -254,16 +254,19 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
 - Target audience in the prompt: an experienced quiz player who is not an expert; the request itself asks for an easy question for a casual player (see the format mix below for why). One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
-- The generator chooses one of three answer formats by difficulty:
+- The generator chooses one of three answer formats. The prompt lists them in order of
+  priority (free, then multiple, then single) and tells the model to take the first one
+  that gives a good question; going down the list is also the lever for less famous facts:
   - `free`: the player types. For answers a casual player can recall. Question types:
     direct, record or rank ("the first country to...", "the second largest..."), open
     ("Name a country that borders Germany"), name several, rough time (century), sorting
     ("oldest first"), analogy and completion.
-  - `single`: options with exactly one correct. For harder answers and everything that
-    offers alternatives: true or false, comparisons (the two things are the options),
-    "which of these" with three or four options, odd one out.
-  - `multiple`: "select all that apply", four to six options, at least two correct and one
-    wrong.
+  - `multiple`: "select all that apply" (or "that do not apply"), four to six options, at
+    least two correct and one wrong. The second choice, when the answer is too hard to
+    recall.
+  - `single`: options with exactly one correct. The last choice, for the hardest facts and
+    everything that offers alternatives: true or false, comparisons (the two things are
+    the options), "which of these" with three or four options, odd one out.
   Comparisons of size or location pair two entities of the same kind, neither part of the
   other, with a clear but not absurdly obvious answer. Comparisons in time may cross
   domains ("Which was released first: the Disney film Cinderella or the programming
@@ -306,9 +309,12 @@ The walker also labels every node of a seed with its fame relative to its type: 
     model followed the type in 6 of 34 questions. Naming the type in the request works
     (about 30 of 33), but forced sorting, analogy, comparison and odd one out questions
     were weak.
-  - Therefore only multiple choice is steered: in `MULTIPLE_SHARE` (15%) of the requests
-    the example block is one multiple choice example plus a sentence suggesting that type.
-    All other requests carry no suggestion.
+  - Suggesting multiple choice in 15% of the requests was tried and removed again: the
+    share was right, but too many of the forced questions were weak. No type is suggested
+    now; every request shows one free and one choice example.
+  - With the formats listed in order of priority (free, multiple, single), a batch of 40
+    gave 35 free, 2 multiple and 3 single. Two of the three single questions still had
+    giveaway options from other continents or fields, despite the prompt rule.
 - The options are shuffled by code, because models tend to put the correct one first.
   True/False (and Yes/No, Wahr/Falsch) keep their order.
 - Left alone, the model writes mostly true claims for true or false questions. So the code
