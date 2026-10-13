@@ -7,6 +7,7 @@ import pytest
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.llm.client import LLMError
 from app.llm.generator import (
+    NOTE_FIELDS,
     QUESTION_SCHEMA,
     GeneratedQuestion,
     QuestionGenerationError,
@@ -134,7 +135,18 @@ def test_parse_rejects_invalid_output(raw: str, message: str) -> None:
 def test_schema_matches_model_fields() -> None:
     assert set(QUESTION_SCHEMA["properties"]) == set(GeneratedQuestion.model_fields)
     # The other fields depend on the format.
-    assert set(QUESTION_SCHEMA["required"]) == {"format", "question", "explanation"}
+    assert set(QUESTION_SCHEMA["required"]) == {*NOTE_FIELDS, "format", "question", "explanation"}
+    # The notes are written first and in order, so the model works before it decides.
+    assert tuple(QUESTION_SCHEMA["properties"])[:4] == NOTE_FIELDS
+    assert tuple(GeneratedQuestion.model_fields)[:4] == NOTE_FIELDS
+
+
+def test_notes_are_kept_for_the_log_and_optional() -> None:
+    plain = parse_generated_question(output())
+    assert [getattr(plain, name) for name in NOTE_FIELDS] == ["", "", "", ""]
+    question = parse_generated_question(output(topic="Paris.", review="Keep."))
+    assert question.topic == "Paris."
+    assert question.model_dump()["review"] == "Keep."
 
 
 def test_format_defaults_to_free() -> None:

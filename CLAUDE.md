@@ -320,6 +320,19 @@ The walker also labels every node of a seed with its fame relative to its type: 
 - Left alone, the model writes mostly true claims for true or false questions. So the code
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
+- Notes before the question: the reply starts with four note fields, written in this order
+  (`NOTE_FIELDS` in `generator.py`): `topic` (which entity and fact), `format_choice` (free,
+  multiple or single, and why), `draft` (a first version) and `review` (a strict check of
+  the draft, ending in "Keep." or in what changes). They give the model room to work
+  things out inside the one JSON object. They are logged with the call (`llm_calls.parsed`),
+  never stored with the question or shown to the player, and optional when parsing.
+- Measured on the same 30 walks (1 to 4 hops): without notes 1 broken question and 3 rule
+  breaks or giveaways; with one free `reasoning` field none of those but more trivial
+  questions; with the four note fields 4 drafts were corrected by the review, comparisons,
+  true or false and open questions appeared more often (21 free, 9 single), 1 birthplace
+  question slipped through. All three take about 1 second per question. The model's own
+  thinking (`ChatRequest.think`, sent to Ollama as `think`) gave the best questions but
+  took about 8 seconds each, so the generator does not use it.
 - Output is enforced as JSON via Ollama's structured output and validated with Pydantic:
 
 ```json
@@ -342,7 +355,8 @@ The walker also labels every node of a seed with its fame relative to its type: 
 }
 ```
 
-For choice questions `expected_answer` is derived: the correct options, joined.
+Both shapes start with the four note fields (`topic`, `format_choice`, `draft`, `review`),
+left out here. For choice questions `expected_answer` is derived: the correct options, joined.
 
 `explanation` is what the player reads after answering: one or two short sentences that state the answer and add a fact worth knowing ("False: Ankara is the capital of Turkey. Istanbul is its largest city."). It is optional when parsing: a question without one is still used, and nothing is shown. It is only sent to the browser together with a verdict, because it names the answer.
 

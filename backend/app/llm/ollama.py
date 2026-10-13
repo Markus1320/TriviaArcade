@@ -35,6 +35,8 @@ class OllamaClient:
             body["format"] = request.json_schema
         if request.temperature is not None:
             body["options"] = {"temperature": request.temperature}
+        if request.think is not None:
+            body["think"] = request.think
 
         try:
             response = self._http.post(self._chat_url, json=body)

@@ -38,6 +38,9 @@ QuestionFormat = Literal["free", "single", "multiple"]
 OPTION_LIMITS: dict[str, tuple[int, int]] = {"single": (2, 5), "multiple": (3, 6)}
 MAX_OPTION_LENGTH = 80
 MAX_EXPECTED_ANSWER_LENGTH = 200
+# The note fields of the output, in the order the model writes them.
+NOTE_FIELDS = ("topic", "format_choice", "draft", "review")
+NOTE_LENGTH = 1500
 # Answers shorter than this are not checked by the giveaway check ("UN", "No", "5").
 MIN_GIVEAWAY_LENGTH = 3
 # Options that refer to the other options instead of being an answer themselves (English
@@ -82,6 +85,13 @@ class GeneratedQuestion(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Four note fields the model fills in before the question itself, one per step, in
+    # this order. They give it room to work things out, since the reply is one JSON
+    # object. Logged with the call, never shown to the player, and optional when parsing.
+    topic: str = Field(default="", max_length=NOTE_LENGTH)
+    format_choice: str = Field(default="", max_length=NOTE_LENGTH)
+    draft: str = Field(default="", max_length=NOTE_LENGTH)
+    review: str = Field(default="", max_length=NOTE_LENGTH)
     format: QuestionFormat = "free"
     question: str = Field(min_length=10, max_length=300)
     options: list[str] = Field(default_factory=list, max_length=10)
@@ -107,6 +117,7 @@ class GeneratedQuestion(BaseModel):
 QUESTION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        **{name: {"type": "string"} for name in NOTE_FIELDS},
         "format": {"type": "string", "enum": ["free", "single", "multiple"]},
         "question": {"type": "string"},
         "options": {"type": "array", "items": {"type": "string"}},
@@ -115,7 +126,7 @@ QUESTION_SCHEMA: dict[str, Any] = {
         "accepted_answers": {"type": "array", "items": {"type": "string"}},
         "explanation": {"type": "string"},
     },
-    "required": ["format", "question", "explanation"],
+    "required": [*NOTE_FIELDS, "format", "question", "explanation"],
 }
 
 

@@ -55,6 +55,21 @@ def test_optional_fields_are_omitted() -> None:
     body = json.loads(seen[0].content)
     assert "format" not in body
     assert "options" not in body
+    assert "think" not in body
+
+
+def test_think_is_sent_and_only_the_answer_is_returned() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        message = {"content": "{}", "thinking": "Let me think about this."}
+        return httpx2.Response(200, json={"message": message})
+
+    request = ChatRequest(model="m", system="s", user="u", think=True)
+    assert make_client(handler).chat(request) == "{}"
+    assert json.loads(seen[0].content)["think"] is True
+    assert request.to_log()["think"] is True
 
 
 def test_api_key_is_sent_as_bearer_token() -> None:

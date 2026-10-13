@@ -18,6 +18,9 @@ class ChatRequest:
     # JSON schema the provider must enforce on the output (structured output).
     json_schema: dict[str, Any] | None = None
     temperature: float | None = None
+    # Let the model reason before it answers, for models that support it. The reasoning
+    # is returned apart from the answer and not used. None leaves the provider's default.
+    think: bool | None = None
 
     def to_log(self) -> dict[str, Any]:
         """Everything needed to replay the call; contains no credentials."""
@@ -26,6 +29,7 @@ class ChatRequest:
             "user": self.user,
             "json_schema": self.json_schema,
             "temperature": self.temperature,
+            "think": self.think,
         }
 
 

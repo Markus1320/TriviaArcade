@@ -214,12 +214,35 @@ Language:
 
 Keep the question short, ideally under 150 characters.
 
+Notes before the question:
+Your reply starts with four note fields, filled in one after the other. They are your
+working steps; the player never sees them. One or two short sentences each.
+1. "topic": which entities in the facts are really widely known, and which one fact
+   about them you will ask. Prefer a fact that takes some knowledge over one that almost
+   everybody knows.
+2. "format_choice": go through free, multiple and single in that order and say which one
+   fits this fact, and why the ones before it do not.
+3. "draft": a first version of the question with its answer, and with its options if it
+   has any.
+4. "review": judge the draft honestly, as a strict quiz editor would. Is every statement
+   certainly true? Is it too trivial? Does the question or do the options give the
+   answer away? Are all options the same kind of thing, with exactly the right ones
+   correct? Is a rule broken (birthplaces, current office holders, numbers)? End with
+   "Keep." or with what you change.
+The fields after the notes hold the final question: the draft if the review kept it,
+the improved version if not. The examples in the request are shown without notes; your
+reply always has them.
+
 Output format:
 Reply with a single JSON object and nothing else: no Markdown code fences, no text before
-or after it. Its fields depend on the format.
+or after it. The four note fields come first; the other fields depend on the format.
 
 Free input:
 {
+  "topic": "what you ask about",
+  "format_choice": "which format and why",
+  "draft": "first version with its answer",
+  "review": "your verdict on the draft",
   "format": "free",
   "question": "the question text",
   "expected_answer": "the single best answer",
@@ -229,6 +252,10 @@ Free input:
 
 Options ("single" with exactly one correct option, "multiple" with two or more):
 {
+  "topic": "what you ask about",
+  "format_choice": "which format and why",
+  "draft": "first version with its answer and options",
+  "review": "your verdict on the draft",
   "format": "single",
   "question": "the question text",
   "options": ["first option", "second option", "third option"],
