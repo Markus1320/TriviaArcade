@@ -49,7 +49,9 @@ Question types for "free" (vary them):
   largest country by area?" Only when the ranking is undisputed.
 - Open question with several correct answers: phrase it so that any one of them counts,
   e.g. "Name a country that borders Germany", never "Which country borders Germany?".
-  List every correct answer in accepted_answers.
+  List every correct answer in accepted_answers. Only when at least three different
+  answers are correct: "Name the country where Cluedo was invented" has one answer, so
+  it is a direct question in other words, not an open one.
 - Name several: "Name three countries the Danube flows through." Only if clearly more
   correct answers exist than are asked for. expected_answer holds one valid set,
   accepted_answers lists every valid single item.
@@ -216,22 +218,34 @@ Keep the question short, ideally under 150 characters.
 
 Notes before the question:
 Your reply starts with four note fields, filled in one after the other. They are your
-working steps; the player never sees them. One or two short sentences each.
-1. "topic": which entities in the facts are really widely known, and which one fact
-   about them you will ask. Prefer a fact that takes some knowledge over one that almost
-   everybody knows.
-2. "format_choice": go through free, multiple and single in that order and say which one
-   fits this fact, and why the ones before it do not.
-3. "draft": a first version of the question with its answer, and with its options if it
-   has any.
-4. "review": judge the draft honestly, as a strict quiz editor would. Is every statement
-   certainly true? Is it too trivial? Does the question or do the options give the
-   answer away? Are all options the same kind of thing, with exactly the right ones
+working steps; the player never sees them. Keep them short.
+1. "topic": which entities in the facts are really widely known, and which fact or facts
+   about them are worth asking. Prefer a fact that takes some knowledge over one that
+   almost everybody knows.
+2. "candidates": a list of three draft questions for this topic that are neither plain
+   direct questions nor completions (a completion is a direct question in other words).
+   Each entry is one line: the type, the question, and the answer in brackets, e.g.
+   "comparison (single): Which river is longer, the Danube or the Rhine? [Danube]".
+   Choose three different types from: record or rank, open, name several, rough time,
+   sorting, analogy (all free), select all that apply (multiple), true or false,
+   comparison, odd one out (all single). The three must differ in substance, not only in
+   wording. Look for what these facts really offer: two things to compare, a group that
+   shares a property, an order in time, a record. You may add your own knowledge to make
+   them work.
+3. "choice": which candidate you take and why. Take one only if it is a really good
+   question: clear, fair, certainly true, not forced and not trivial. The order of
+   priority (free, multiple, single) only decides between candidates of equal quality.
+   Often none of the three is good enough; that is a normal outcome, expect it for about
+   half of the questions. Then write "none" with the reason for each, and ask a plain
+   direct question or a completion instead.
+4. "review": judge the chosen candidate honestly, as a strict quiz editor would. Is every
+   statement certainly true? Is it too trivial? Does the question or do the options give
+   the answer away? Are all options the same kind of thing, with exactly the right ones
    correct? Is a rule broken (birthplaces, current office holders, numbers)? End with
    "Keep." or with what you change.
-The fields after the notes hold the final question: the draft if the review kept it,
-the improved version if not. The examples in the request are shown without notes; your
-reply always has them.
+The fields after the notes hold the final question: the chosen candidate if the review
+kept it, the improved version or another candidate if not. The examples in the request
+are shown without notes; your reply always has them.
 
 Output format:
 Reply with a single JSON object and nothing else: no Markdown code fences, no text before
@@ -240,9 +254,9 @@ or after it. The four note fields come first; the other fields depend on the for
 Free input:
 {
   "topic": "what you ask about",
-  "format_choice": "which format and why",
-  "draft": "first version with its answer",
-  "review": "your verdict on the draft",
+  "candidates": ["type: question [answer]", "type: question [answer]", "type: question [answer]"],
+  "choice": "which candidate and why",
+  "review": "your verdict on the chosen candidate",
   "format": "free",
   "question": "the question text",
   "expected_answer": "the single best answer",
@@ -253,9 +267,9 @@ Free input:
 Options ("single" with exactly one correct option, "multiple" with two or more):
 {
   "topic": "what you ask about",
-  "format_choice": "which format and why",
-  "draft": "first version with its answer and options",
-  "review": "your verdict on the draft",
+  "candidates": ["type: question [answer]", "type: question [answer]", "type: question [answer]"],
+  "choice": "which candidate and why",
+  "review": "your verdict on the chosen candidate",
   "format": "single",
   "question": "the question text",
   "options": ["first option", "second option", "third option"],

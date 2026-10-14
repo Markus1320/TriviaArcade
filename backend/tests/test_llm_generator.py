@@ -137,15 +137,19 @@ def test_schema_matches_model_fields() -> None:
     # The other fields depend on the format.
     assert set(QUESTION_SCHEMA["required"]) == {*NOTE_FIELDS, "format", "question", "explanation"}
     # The notes are written first and in order, so the model works before it decides.
-    assert tuple(QUESTION_SCHEMA["properties"])[:4] == NOTE_FIELDS
-    assert tuple(GeneratedQuestion.model_fields)[:4] == NOTE_FIELDS
+    assert tuple(QUESTION_SCHEMA["properties"])[: len(NOTE_FIELDS)] == NOTE_FIELDS
+    assert tuple(GeneratedQuestion.model_fields)[: len(NOTE_FIELDS)] == NOTE_FIELDS
 
 
 def test_notes_are_kept_for_the_log_and_optional() -> None:
     plain = parse_generated_question(output())
-    assert [getattr(plain, name) for name in NOTE_FIELDS] == ["", "", "", ""]
-    question = parse_generated_question(output(topic="Paris.", review="Keep."))
+    assert [getattr(plain, name) for name in NOTE_FIELDS] == ["", [], "", ""]
+    candidates = ["direct: What is the capital of France? [Paris]", "completion: ... [Paris]"]
+    question = parse_generated_question(
+        output(topic="Paris.", candidates=candidates, choice="The first.", review="Keep.")
+    )
     assert question.topic == "Paris."
+    assert question.candidates == candidates
     assert question.model_dump()["review"] == "Keep."
 
 

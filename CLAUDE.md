@@ -321,18 +321,35 @@ The walker also labels every node of a seed with its fame relative to its type: 
   decides per request whether a true or false claim must be false (`FALSE_CLAIM_SHARE`,
   default 0.7) or true, and adds that hint to the user message.
 - Notes before the question: the reply starts with four note fields, written in this order
-  (`NOTE_FIELDS` in `generator.py`): `topic` (which entity and fact), `format_choice` (free,
-  multiple or single, and why), `draft` (a first version) and `review` (a strict check of
-  the draft, ending in "Keep." or in what changes). They give the model room to work
-  things out inside the one JSON object. They are logged with the call (`llm_calls.parsed`),
-  never stored with the question or shown to the player, and optional when parsing.
-- Measured on the same 30 walks (1 to 4 hops): without notes 1 broken question and 3 rule
-  breaks or giveaways; with one free `reasoning` field none of those but more trivial
-  questions; with the four note fields 4 drafts were corrected by the review, comparisons,
-  true or false and open questions appeared more often (21 free, 9 single), 1 birthplace
-  question slipped through. All three take about 1 second per question. The model's own
-  thinking (`ChatRequest.think`, sent to Ollama as `think`) gave the best questions but
-  took about 8 seconds each, so the generator does not use it.
+  (`NOTE_FIELDS` in `generator.py`):
+  - `topic`: which widely known entity and which fact to ask about.
+  - `candidates`: three draft questions about that topic, each of a different type and
+    none of them a plain direct question or a completion (a completion is a direct
+    question in other words).
+  - `choice`: the best candidate, or "none" when all are weak, forced or unfair; then the
+    model writes a plain direct question or a completion instead. The prompt calls "none"
+    a normal outcome for about half of the questions.
+  - `review`: a strict check of the chosen question, ending in "Keep." or in what changes.
+  They give the model room to work things out inside the one JSON object. They are logged
+  with the call (`llm_calls.parsed`), never stored with the question or shown to the
+  player, and optional when parsing.
+- How the note fields were found, each measured on the same 30 walks (1 to 4 hops, about
+  1.3 to 1.6 seconds per question in every variant):
+  - No notes: 1 broken question, 3 rule breaks or giveaways.
+  - One free `reasoning` field: those were gone, but more trivial questions.
+  - `topic`, `format_choice`, `draft`, `review`: 4 drafts corrected by the review, 21 free
+    and 9 single, mostly direct questions with some comparisons and true or false.
+  - Candidates with a direct question allowed: the model picked the direct one 24 times.
+  - Candidates that must not be direct: 19 completions, mostly direct questions reworded.
+  - Candidates that are neither direct nor completions, with "none" allowed (current):
+    12 plain questions, 7 open, 4 analogies, 2 comparisons, 2 multiple choice, 1 other
+    single. Three open questions had only one answer, so the prompt now requires at least
+    three correct answers for an open question.
+  - The same without `topic`: the candidates spread over weak corners of the facts, the
+    model fell back to a plain question 21 times and picked the most famous entity
+    ("What is the capital city of Russia?"). The topic step stays.
+  - The model's own thinking (`ChatRequest.think`, sent to Ollama as `think`) gave the
+    best questions but took about 8 seconds each, so the generator does not use it.
 - Output is enforced as JSON via Ollama's structured output and validated with Pydantic:
 
 ```json
@@ -355,7 +372,7 @@ The walker also labels every node of a seed with its fame relative to its type: 
 }
 ```
 
-Both shapes start with the four note fields (`topic`, `format_choice`, `draft`, `review`),
+Both shapes start with the four note fields (`topic`, `candidates`, `choice`, `review`),
 left out here. For choice questions `expected_answer` is derived: the correct options, joined.
 
 `explanation` is what the player reads after answering: one or two short sentences that state the answer and add a fact worth knowing ("False: Ankara is the capital of Turkey. Istanbul is its largest city."). It is optional when parsing: a question without one is still used, and nothing is shown. It is only sent to the browser together with a verdict, because it names the answer.
