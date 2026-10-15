@@ -46,6 +46,9 @@ class EntityTypeConfig(_Strict):
     # Entities that match the selection but do not belong here, e.g. a politician who is
     # also listed as a painter. They stay available for later types.
     exclude: frozenset[Qid] = frozenset()
+    # Entities added by hand that the selection does not catch, e.g. the horse, which
+    # Wikidata files as a subspecies. They still need the type's fame threshold.
+    include: frozenset[Qid] = frozenset()
 
 
 class RelatedTypeConfig(_Strict):
@@ -61,6 +64,9 @@ class RelationConfig(_Strict):
     # Keep only the statements Wikidata ranks best (preferred, else normal), i.e. the
     # current value. Without it, historical values such as former capitals are kept too.
     best_rank_only: bool = False
+    # A subject with more targets than this keeps none of them: a long list (the forty
+    # countries a wolf lives in) makes no question, a short one (kangaroo: Australia) does.
+    max_targets: int | None = Field(default=None, gt=0)
 
 
 class NumericPropertyConfig(_Strict):

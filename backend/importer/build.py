@@ -91,10 +91,15 @@ class GraphBuilder:
         for type_name, type_config in self._config.entity_types.items():
             threshold = self._config.type_fame_threshold(type_name)
             candidates: dict[str, int] = {}
-            for class_qid in type_config.classes:
-                query = queries.entities_of_class(
+            selections = [
+                queries.entities_of_class(
                     class_qid, threshold, type_config.select_by, type_config.include_subclasses
                 )
+                for class_qid in type_config.classes
+            ]
+            if type_config.include:
+                selections.append(queries.entities_by_id(type_config.include, threshold))
+            for query in selections:
                 for row in self._select(query):
                     qid = entity_id(row["item"])
                     if qid not in claimed and qid not in type_config.exclude:
@@ -130,7 +135,7 @@ class GraphBuilder:
                         year=parse_year(row.get("pit")),
                     )
                 )
-        return _keep_best_rank(result)
+        return _drop_long_lists(_keep_best_rank(result))
 
     # 3. Reached entities
 
@@ -271,6 +276,18 @@ def _keep_best_rank(statements: list[_Statement]) -> list[_Statement]:
         or not s.relation.best_rank_only
         or (s.subject, s.relation.property) not in has_preferred
     ]
+
+
+def _drop_long_lists(statements: list[_Statement]) -> list[_Statement]:
+    """Apply max_targets: drop all statements of a subject whose list is too long."""
+    targets: dict[tuple[str, str], set[str]] = {}
+    limits: dict[str, int] = {}
+    for s in statements:
+        if s.relation.max_targets is not None:
+            targets.setdefault((s.subject, s.relation.property), set()).add(s.target)
+            limits[s.relation.property] = s.relation.max_targets
+    too_long = {key for key, values in targets.items() if len(values) > limits[key[1]]}
+    return [s for s in statements if (s.subject, s.relation.property) not in too_long]
 
 
 def _better_date(candidate: tuple[bool, int], current: tuple[bool, int]) -> bool:

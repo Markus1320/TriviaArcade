@@ -107,6 +107,11 @@ class FakeWikidata:
                 {"item": E + "Q10", "sitelinks": "500"},
                 {"item": E + "Q11", "sitelinks": "150"},
             ]
+        if kind == "included-entities":
+            return [
+                {"item": E + "Q20", "sitelinks": "150"},
+                {"item": E + "Q1", "sitelinks": "300"},
+            ]
         if kind == "statements" and '"P36"' in query:
             return [
                 statement("Q1", "P36", "Q10", 500, rank=PREFERRED_RANK),
@@ -289,3 +294,39 @@ def test_types_can_be_selected_by_another_property_and_with_subclasses() -> None
     assert "?item wdt:P39 wd:Q30185" in entity_queries[2]
     # Classes of types selected by another property do not classify reached entities.
     assert config.class_to_type() == {"Q6256": "country", "Q515": "city", "Q5": "person"}
+
+
+def test_type_include_adds_entities_the_selection_misses() -> None:
+    fake = FakeWikidata()
+    config = make_config(
+        entity_types={
+            "country": {"classes": ["Q6256"]},
+            "city": {"classes": ["Q515"], "fame_threshold": 100, "include": ["Q20", "Q1"]},
+        }
+    )
+    types = {n.wikidata_id: n.entity_type for n in GraphBuilder(config, fake.select).build().nodes}
+    assert types["Q20"] == "city"
+    # Q1 was already claimed by the earlier type.
+    assert types["Q1"] == "country"
+    included = next(q for q in fake.queries if query_kind(q) == "included-entities")
+    assert "VALUES ?item { wd:Q1 wd:Q20 }" in included
+    assert "FILTER(?sitelinks >= 100)" in included
+
+
+def test_max_targets_drops_long_lists_of_a_subject() -> None:
+    fake = FakeWikidata()
+    relations = [
+        {
+            "property": "P36",
+            "name": "CAPITAL",
+            "target_fame_threshold": 0,
+            "fallback_target_type": "city",
+            "max_targets": 1,
+        },
+        {"property": "P35", "name": "HEAD_OF_STATE"},
+    ]
+    graph = GraphBuilder(make_config(relations=relations), fake.select).build()
+    # Q1 lists two capitals (current and former), more than allowed: both are dropped.
+    assert not [r for r in graph.relations if r.name == "CAPITAL"]
+    # Q2 lists only one, so Q12 is still reached through it.
+    assert "Q12" in {node.wikidata_id for node in graph.nodes}

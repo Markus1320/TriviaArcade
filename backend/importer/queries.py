@@ -42,6 +42,16 @@ SELECT {distinct}?item ?sitelinks WHERE {{
 }}"""
 
 
+def entities_by_id(ids: Iterable[str], min_sitelinks: int) -> str:
+    """The given entities that reach the fame threshold, with their sitelinks."""
+    return f"""# kind: included-entities
+SELECT ?item ?sitelinks WHERE {{
+  VALUES ?item {{ {_values(sorted(ids))} }}
+  ?item wikibase:sitelinks ?sitelinks .
+  FILTER(?sitelinks >= {min_sitelinks})
+}}"""
+
+
 def names(ids: list[str]) -> str:
     """English (or language independent) labels of entities or properties."""
     return f"""# kind: names
