@@ -73,7 +73,10 @@ def main(argv: list[str] | None = None) -> int:
             continue
         formats[question.format] += 1
         print(f"\nQ ({question.format}): {question.question}")
-        if question.is_choice:
+        if question.format == "order":
+            for option in question.options:
+                print(f"   [{question.correct_options.index(option) + 1}] {option}")
+        elif question.is_choice:
             for option in question.options:
                 mark = "x" if option in question.correct_options else " "
                 print(f"   [{mark}] {option}")

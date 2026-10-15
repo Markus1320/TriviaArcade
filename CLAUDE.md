@@ -181,7 +181,9 @@ Before filling in model names, check which model tags are actually available for
 - One wrong answer ends the run. No lives, no skips.
 - A question is answered by typing (`free`) or by picking from options: exactly one
   (`single`) or every one that applies (`multiple`: all correct options and no wrong one).
-  When the time is up, picked options are judged like a typed answer.
+  Sorting questions (`order`) are answered by tapping all three or four items in the
+  correct order; only the exact order counts. When the time is up, picked options are
+  judged like a typed answer (an incomplete order is wrong).
 - The game is played in English or German. A run keeps the language it was started in;
   both languages share one leaderboard.
 - The streak is the score.
@@ -268,14 +270,17 @@ The walker does not label how famous an entity is; the generator judges that its
   that gives a good question; going down the list is also the lever for less famous facts:
   - `free`: the player types. For answers a casual player can recall. Question types:
     direct, record or rank ("the first country to...", "the second largest..."), open
-    ("Name a country that borders Germany"), name several, rough time (century), sorting
-    ("oldest first"), analogy and completion.
+    ("Name a country that borders Germany"), name several, rough time (century), analogy
+    and completion.
   - `multiple`: "select all that apply" (or "that do not apply"), four to six options, at
     least two correct and one wrong. The second choice, when the answer is too hard to
     recall.
   - `single`: options with exactly one correct. The last choice, for the hardest facts and
     everything that offers alternatives: true or false, comparisons (the two things are
     the options), "which of these" with three or four options, odd one out.
+  - `order`: outside that order, the only format for sorting questions ("oldest first").
+    Three or four items as options; `correct_options` lists every option in the correct
+    order. The code checks that, and shuffles until the shown order is not already sorted.
   Comparisons of size or location pair two entities of the same kind, neither part of the
   other, with a clear but not absurdly obvious answer. Comparisons in time may cross
   domains ("Which was released first: the Disney film Cinderella or the programming
@@ -298,8 +303,11 @@ The walker does not label how famous an entity is; the generator judges that its
   real questions.
 - The facts carry no fame labels; the prompt tells the model to judge itself how well
   known each entity is and to build the question around entities a casual player knows.
-  Sorting questions need three or four items; with two
-  they are just "pick one" and belong in a comparison.
+  Sorting questions need three or four items; with two they are just "pick one" and
+  belong in a comparison.
+- Sorting share: with sorting as its own format, one sorting example among the choice
+  examples and no push, a batch of 40 had no sorting question, and only 1 of 120
+  candidate drafts was a sorting question (with two items).
 - Repetition: the start entity is blocked within a run and for the last 300 questions of
   all runs (`GameService._recent_starts`); hops avoid hubs (see the random walk). Different walks reach the
   same entities, and the model then tends to ask the same famous fact (twice "Earth is to
@@ -406,7 +414,6 @@ The expected answer, accepted answers, options, correct options and explanation 
   - Vague answers are rejected (e.g. "in Europe" for a country).
   - Years must be exact unless the question asks for a decade or century.
   - "Name three" questions need at least that many distinct, correct items.
-  - Sorting questions need all items in the correct order.
   - If a question allows several correct answers, any answer that is certainly correct for the question as asked is accepted, even if not listed. Ambiguous questions are therefore acceptable.
 - **Prompt injection defense:** the player answer is wrapped in clear delimiters and the prompt states that it is untrusted data, never instructions.
 - **Strict parsing:** any output other than `true` or `false` triggers one retry. If the retry fails too, the run is paused with an error, not ended.
@@ -440,9 +447,11 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
   default `en`) and passed to the generator for every question.
 - `POST /answer` takes `{"answer": "..."}` for free questions and `{"selected": [positions]}`
   for choice questions; the wrong kind for the open question is a 422 and the question
-  stays open. Choice verdicts carry `correct_options`; once the run is over,
-  `GET /runs/{id}` returns `last_options`, `last_correct_options` and
-  `last_selected_options` so the game over screen survives a reload.
+  stays open. For order questions `selected` is the tapped order and `correct_options` the
+  correct order (`order_correct` in `rules.py`). Choice verdicts carry `correct_options`;
+  once the run is over, `GET /runs/{id}` returns `last_format`, `last_options`,
+  `last_correct_options` and `last_selected_options` so the game over screen survives a
+  reload.
 - Every verdict (`POST /answer`, `POST /timeout`) carries the question's `explanation`; `GET /runs/{id}` returns `last_explanation` once the run is over. The frontend shows it in the question box after a correct answer and under the answer on the game over screen.
 - `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay. A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
 - Question log: `GET /api/question-log?offset=N` lists the questions of finished runs,
@@ -481,7 +490,10 @@ Current implementation:
 - `components/OptionList.tsx` shows the options of a choice question: buttons while asking
   (digits pick, arrow keys move, Enter confirms; the keyboard handling is in
   `QuestionScreen.tsx`), and after the verdict a list marked right, missing (a correct option not picked, red like a wrong pick) or wrong, on the
-  question screen and on the game over screen.
+  question screen and on the game over screen. For order questions a tap gives the next
+  place (shown as a badge; tapping a numbered item takes it back and the later ones move
+  up), ENTER needs every item, and the reveal lists the items in the correct order with
+  "YOU: n" where the player put one elsewhere.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.
 - `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
@@ -570,7 +582,6 @@ These are planned for later. Keep the design open for them, but do not build the
 
 - Lives or skips
 - Player accounts and handle protection
-- Sorting questions answered by tapping the items in order
 - Per category leaderboards, stats, achievements
 - Production hosting outside the home network
 

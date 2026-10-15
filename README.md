@@ -135,7 +135,8 @@ Very large classes and queries over the taxon tree time out on the public endpoi
 Open <http://localhost:8080> (or `http://<host-ip>:8080` on a phone, see below) and press
 START. Some questions are answered by typing, others by picking from options: one option,
 or every option that applies ("select all that apply", all correct ones and no wrong one).
-On a keyboard the digits and arrow keys pick options and Enter confirms. Pasting into the
+Sorting questions are answered by tapping the items in the right order (tap a numbered item
+again to take its number back). On a keyboard the digits and arrow keys pick options and Enter confirms. Pasting into the
 answer box is blocked.
 
 You have 30 seconds per question (a bar shows the time left); when the time is up, whatever
@@ -171,7 +172,7 @@ All endpoints live under `/api`:
 | `GET` | `/runs/{run_id}` | run state, including the open question (for reloads) |
 | `POST` | `/runs/{run_id}/question` | next question; returns the open one if unanswered |
 | `POST` | `/runs/{run_id}/question/start` | starts the time limit of the open question when it is shown; returns `seconds_left` |
-| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters) for a typed answer or `{"selected": [0, 2]}` (option positions) for a choice question; returns the verdict (`timed_out` if too late) and, for choice questions, `correct_options` |
+| `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters) for a typed answer or `{"selected": [0, 2]}` (option positions; for sorting questions in the tapped order) for a choice question; returns the verdict (`timed_out` if too late) and, for choice questions, `correct_options` |
 | `POST` | `/runs/{run_id}/timeout` | ends the run when the time ran out with no answer |
 | `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
 | `GET` | `/leaderboard` | top 10 players, each with their best run |

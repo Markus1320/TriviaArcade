@@ -53,6 +53,7 @@ export function App() {
                     options: run.last_options,
                     correct: run.last_correct_options,
                     selected: run.last_selected_options ?? [],
+                    ordered: run.last_format === 'order',
                   }
                 : null,
           });

@@ -62,7 +62,7 @@ def test_example_groups_are_balanced() -> None:
     assert len(FREE_EXAMPLES) == len(CHOICE_EXAMPLES)
     assert all(example["format"] == "free" for example in FREE_EXAMPLES)
     formats = [example["format"] for example in CHOICE_EXAMPLES]
-    assert set(formats) == {"single", "multiple"}
+    assert set(formats) == {"single", "multiple", "order"}
 
 
 def test_true_false_hint_prefers_false_claims() -> None:

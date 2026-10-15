@@ -3,13 +3,14 @@
 
 import type { Language } from '../strings';
 
-export type QuestionFormat = 'free' | 'single' | 'multiple';
+export type QuestionFormat = 'free' | 'single' | 'multiple' | 'order';
 
 export interface Question {
   question_id: number;
   number: number;
   text: string;
   // free: the player types the answer. single, multiple: the player picks from options.
+  // order: the player taps every option in the correct order.
   format: QuestionFormat;
   // Empty for free questions.
   options: string[];
@@ -27,7 +28,9 @@ export interface RunState {
   open_question: Question | null;
   last_expected_answer: string | null;
   last_explanation: string | null;
-  // Set when the run is over and the last question was a choice question.
+  // Set when the run is over and the last question was a choice question. For order
+  // questions both position lists are in order (correct order, tapped order).
+  last_format: QuestionFormat | null;
   last_options: string[] | null;
   last_correct_options: number[] | null;
   last_selected_options: number[] | null;
@@ -44,7 +47,8 @@ export interface AnswerResult {
   expected_answer: string | null;
   // A sentence or two about the answer, shown after every verdict. null for old questions.
   explanation: string | null;
-  // Choice questions: positions of the correct options. null for free questions.
+  // Choice questions: positions of the correct options (order questions: in the correct
+  // order). null for free questions.
   correct_options: number[] | null;
 }
 

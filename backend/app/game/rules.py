@@ -8,7 +8,7 @@
   plus a short grace for network delay. A late answer ends the run like a wrong one.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -38,6 +38,11 @@ def apply_verdict(progress: Progress, correct: bool) -> Progress:
 def choice_correct(selected: Collection[int], correct: Collection[int]) -> bool:
     """All correct options selected and no wrong one. Holds for single and multiple choice."""
     return set(selected) == set(correct)
+
+
+def order_correct(tapped: Sequence[int], correct: Sequence[int]) -> bool:
+    """Every option tapped, in exactly the correct order. No partial credit."""
+    return list(tapped) == list(correct)
 
 
 def seconds_left(shown_at: datetime, now: datetime, limit_seconds: float) -> float:

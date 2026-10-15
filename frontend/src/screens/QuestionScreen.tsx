@@ -121,12 +121,21 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
 
   const question = 'question' in phase ? phase.question : null;
   const isChoice = question !== null && question.format !== 'free';
-  const canSubmit = isChoice ? selected.length > 0 : answer.trim() !== '';
+  const ordered = question?.format === 'order';
+  // Something to judge when the time is up. ENTER also needs every item of an order
+  // question tapped.
+  const hasAnswer = isChoice ? selected.length > 0 : answer.trim() !== '';
+  const canSubmit = ordered ? selected.length === question.options.length : hasAnswer;
 
   const revealOf = (shown: Question, result: AnswerResult): ChoiceReveal | null =>
     result.correct_options === null
       ? null
-      : { options: shown.options, correct: result.correct_options, selected };
+      : {
+          options: shown.options,
+          correct: result.correct_options,
+          selected,
+          ordered: shown.format === 'order',
+        };
 
   const endRun = (shown: Question, result: AnswerResult) => {
     play('wrong');
@@ -140,9 +149,10 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     });
   };
 
-  // Sends the typed answer or the picked options, whichever the question asks for.
-  const sendAnswer = () => {
-    if (phase.kind !== 'asking' || !canSubmit) return;
+  // Sends the typed answer or the picked options, whichever the question asks for. When the
+  // time is up (force) an incomplete order is sent too; it counts as wrong.
+  const sendAnswer = (force = false) => {
+    if (phase.kind !== 'asking' || !(canSubmit || (force && hasAnswer))) return;
     const shown = phase.question;
     setPhase({ kind: 'judging', question: shown });
     const request = isChoice ? api.select(runId, selected) : api.answer(runId, answer);
@@ -182,8 +192,8 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
   // Time is up: whatever the player typed or picked is sent; with nothing the run ends.
   const expire = () => {
     if (phase.kind !== 'asking') return;
-    if (canSubmit) {
-      sendAnswer();
+    if (hasAnswer) {
+      sendAnswer(true);
       return;
     }
     const shown = phase.question;
@@ -197,7 +207,9 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
   };
 
   const toggleOption = (index: number) => {
-    if (question?.format === 'multiple') {
+    // Order: a tap gives the next number, tapping a numbered item takes it back and the
+    // later items move up.
+    if (question?.format === 'multiple' || question?.format === 'order') {
       setSelected((current) =>
         current.includes(index) ? current.filter((item) => item !== index) : [...current, index],
       );
@@ -326,12 +338,17 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           {isChoice ? (
             <>
               <p className="field-label">
-                {question.format === 'multiple' ? strings.pickAll : strings.pickOne}
+                {ordered
+                  ? strings.tapInOrder
+                  : question.format === 'multiple'
+                    ? strings.pickAll
+                    : strings.pickOne}
               </p>
               <OptionList
                 options={question.options}
                 selected={selected}
                 multiple={question.format === 'multiple'}
+                ordered={ordered}
                 disabled={judging}
                 onToggle={toggleOption}
                 buttons={optionButtons}

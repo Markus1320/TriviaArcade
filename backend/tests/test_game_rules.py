@@ -9,6 +9,7 @@ from app.game.rules import (
     answer_in_time,
     apply_verdict,
     choice_correct,
+    order_correct,
     seconds_left,
 )
 
@@ -73,3 +74,11 @@ def test_choice_needs_exactly_the_correct_options(
     selected: list[int], correct: list[int], expected: bool
 ) -> None:
     assert choice_correct(selected, correct) is expected
+
+
+@pytest.mark.parametrize(
+    ("tapped", "correct"),
+    [([2, 0, 1], True), ([0, 2, 1], False), ([2, 0], False), ([2, 0, 1, 3], False)],
+)
+def test_order_needs_every_option_in_the_correct_order(tapped: list[int], correct: bool) -> None:
+    assert order_correct(tapped, [2, 0, 1]) is correct

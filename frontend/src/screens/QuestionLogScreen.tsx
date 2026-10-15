@@ -126,7 +126,15 @@ function LogEntry({ question, strings }: { question: LoggedQuestion; strings: St
       <dl className="log-detail">
         <Field label={strings.logFormat}>{strings.formatNames[question.format]}</Field>
         <Field label={strings.logLanguage}>{question.language.toUpperCase()}</Field>
-        {question.options.length > 0 ? (
+        {question.format === 'order' ? (
+          <Field label={strings.logOptions}>
+            <ol className="log-detail__order">
+              {question.correct_options.map((index) => (
+                <li key={index}>{question.options[index]}</li>
+              ))}
+            </ol>
+          </Field>
+        ) : question.options.length > 0 ? (
           <Field label={strings.logOptions}>
             <ul className="log-detail__options">
               {question.options.map((option, index) => {

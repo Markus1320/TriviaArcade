@@ -30,12 +30,12 @@ class QuestionGenerationError(RuntimeError):
     """The generator produced no valid question within the allowed attempts."""
 
 
-QuestionFormat = Literal["free", "single", "multiple"]
+QuestionFormat = Literal["free", "single", "multiple", "order"]
 
 # Options per choice format. A single choice needs at least one wrong option; a multiple
 # choice needs at least two correct ones and one wrong one, so "all of them" and "just
 # one" are never the answer.
-OPTION_LIMITS: dict[str, tuple[int, int]] = {"single": (2, 5), "multiple": (3, 6)}
+OPTION_LIMITS: dict[str, tuple[int, int]] = {"single": (2, 5), "multiple": (3, 6), "order": (3, 4)}
 MAX_OPTION_LENGTH = 80
 MAX_EXPECTED_ANSWER_LENGTH = 200
 # The note fields of the output, in the order the model writes them.
@@ -81,6 +81,8 @@ class GeneratedQuestion(BaseModel):
       by the judge.
     - single, multiple: the player picks from options; correct_options is checked by
       code. expected_answer is derived (the correct options, joined) for display and logs.
+    - order: the player taps all options in order; correct_options lists every option in
+      the correct order.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -110,7 +112,10 @@ class GeneratedQuestion(BaseModel):
 
     @property
     def correct_indices(self) -> list[int]:
-        """Positions of the correct options within options."""
+        """Positions of the correct options within options; for order questions in the
+        correct order."""
+        if self.format == "order":
+            return [self.options.index(option) for option in self.correct_options]
         return [i for i, option in enumerate(self.options) if option in self.correct_options]
 
 
@@ -123,7 +128,7 @@ QUESTION_SCHEMA: dict[str, Any] = {
         "candidates": {"type": "array", "items": {"type": "string"}},
         "choice": {"type": "string"},
         "review": {"type": "string"},
-        "format": {"type": "string", "enum": ["free", "single", "multiple"]},
+        "format": {"type": "string", "enum": ["free", "single", "multiple", "order"]},
         "question": {"type": "string"},
         "options": {"type": "array", "items": {"type": "string"}},
         "correct_options": {"type": "array", "items": {"type": "string"}},
@@ -212,6 +217,8 @@ def _clean_choice(question: GeneratedQuestion) -> GeneratedQuestion:
     unknown = correct_keys - set(by_key)
     if unknown:
         raise ValueError(f"correct_options are not among the options: {sorted(unknown)}")
+    if question.format == "order":
+        return _clean_order(question, options, by_key)
     correct = [option for option in options if option.casefold() in correct_keys]
     if question.format == "single" and len(correct) != 1:
         raise ValueError("a single choice question needs exactly one correct option")
@@ -229,6 +236,27 @@ def _clean_choice(question: GeneratedQuestion) -> GeneratedQuestion:
         and find_giveaway(question.question, wrong) is None
     ):
         raise ValueError(f"the question names only the correct option: {correct[0]!r}")
+    expected = ", ".join(correct)
+    if len(expected) > MAX_EXPECTED_ANSWER_LENGTH:
+        raise ValueError("the correct options are too long")
+    return question.model_copy(
+        update={
+            "options": options,
+            "correct_options": correct,
+            "expected_answer": expected,
+            "accepted_answers": [],
+        }
+    )
+
+
+def _clean_order(
+    question: GeneratedQuestion, options: list[str], by_key: dict[str, str]
+) -> GeneratedQuestion:
+    """correct_options must list every option once, in the correct order."""
+    keys = [option.strip().casefold() for option in question.correct_options]
+    if len(keys) != len(options) or len(set(keys)) != len(keys):
+        raise ValueError("an order question lists every option once in correct_options")
+    correct = [by_key[key] for key in keys]
     expected = ", ".join(correct)
     if len(expected) > MAX_EXPECTED_ANSWER_LENGTH:
         raise ValueError("the correct options are too long")
@@ -281,6 +309,9 @@ def shuffle_options(question: GeneratedQuestion, rng: random.Random) -> Generate
             return question.model_copy(update={"options": ordered})
     options = list(question.options)
     rng.shuffle(options)
+    # An order question must not be shown already sorted.
+    while question.format == "order" and options == question.correct_options:
+        rng.shuffle(options)
     return question.model_copy(update={"options": options})
 
 

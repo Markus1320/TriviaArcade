@@ -37,6 +37,8 @@ Consider them in this order and take the first one that gives a good question:
 The order is also how you adjust the difficulty: the less famous the fact, the further
 down the list you go. A famous fact is never asked with options, because options make it
 trivial.
+A fourth format stands apart from this order: "order", the player taps your items in the
+correct order. It is the only format for sorting questions (see below).
 
 Question types for "free" (vary them):
 - Direct question with exactly one answer: "What is the capital of New Zealand?"
@@ -52,18 +54,13 @@ Question types for "free" (vary them):
   correct answers exist than are asked for. expected_answer holds one valid set,
   accepted_answers lists every valid single item.
 - Rough time: ask for the century or decade instead of an exact year.
-- Sorting: "Sort these by founding year, oldest first: A, B, C." Three or four items of
-  the same kind, with clear gaps between them; never only two, because with two items a
-  sorting is just "pick one" and belongs in a comparison with options. Say which end
-  comes first. expected_answer lists the items in the correct order, separated by
-  commas; accepted_answers stays empty.
 - Analogy: "Ottawa is to Canada as Canberra is to ...?" Both pairs share the same relation.
   expected_answer is the missing item.
 - Completion: an unfinished statement that the player completes, ending in "...":
   "King Solomon appears in the collection of stories known as ...". Only one completion
   may fit.
 A free question never contains its own answer, in any form or language. Such questions are
-rejected automatically. Types like "Sorting", "Analogy" and "Completion" are especially
+rejected automatically. Types like "Analogy" and "Completion" are especially
 interesting but rarely apply, so if they do, do not miss the chance to use them.
 
 Question types for "multiple":
@@ -96,6 +93,15 @@ Question types for "single" (vary them):
   can spot. Say what they share when it helps: "Which of these films was not directed by
   Steven Spielberg?"
 A question with options must still be a real question: see "Giving the answer away" below.
+
+Question type for "order":
+- Sorting: "Sort these by founding year, oldest first." options lists three or four items
+  of the same kind, with clear gaps between them; never only two, because with two items a
+  sorting is just "pick one" and belongs in a comparison. The question says which end
+  comes first and does not list the items (the player sees them as options).
+  correct_options lists every option once, in the correct order. Sort by time, size,
+  length, height, distance or a ranking; the order must be certain. Sorting is especially
+  interesting but rarely applies, so if it does, do not miss the chance to use it.
 
 
 Examples:
@@ -221,8 +227,8 @@ working steps; the player never sees them. Keep them short.
    Each entry is one line: the type, the question, and the answer in brackets, e.g.
    "comparison (single): Which river is longer, the Danube or the Rhine? [Danube]".
    Choose three different types from: record or rank, open, name several, rough time,
-   sorting, analogy (all free), select all that apply (multiple), true or false,
-   comparison, odd one out (all single). The three must differ in substance, not only in
+   analogy (all free), select all that apply (multiple), true or false, comparison, odd
+   one out (all single), sorting (order). The three must differ in substance, not only in
    wording. Look for what these facts really offer: two things to compare, a group that
    shares a property, an order in time, a record. You may add your own knowledge to make
    them work.
@@ -269,6 +275,19 @@ Options ("single" with exactly one correct option, "multiple" with two or more):
   "options": ["first option", "second option", "third option"],
   "correct_options": ["second option"],
   "explanation": "one short sentence with the answer and a fact worth knowing"
+}
+
+Sorting ("order"; correct_options repeats every option, in the correct order):
+{
+  "topic": "what you ask about",
+  "candidates": ["type: question [answer]", "type: question [answer]", "type: question [answer]"],
+  "choice": "which candidate and why",
+  "review": "your verdict on the chosen candidate",
+  "format": "order",
+  "question": "the question text, saying which end comes first",
+  "options": ["first item", "second item", "third item"],
+  "correct_options": ["second item", "third item", "first item"],
+  "explanation": "one short sentence with the correct order and a fact worth knowing"
 }"""
 
 # $examples is the whole example block of the request, see pick_examples.
@@ -302,6 +321,16 @@ def _free(question: str, expected: str, accepted: list[str], explanation: str) -
         "question": question,
         "expected_answer": expected,
         "accepted_answers": accepted,
+        "explanation": explanation,
+    }
+
+
+def _order(question: str, options: list[str], correct: list[str], explanation: str) -> Example:
+    return {
+        "format": "order",
+        "question": question,
+        "options": options,
+        "correct_options": correct,
         "explanation": explanation,
     }
 
@@ -482,18 +511,19 @@ FREE_EXAMPLES: list[Example] = [
         ["15th", "fifteenth century", "1400s"],
         "Columbus first reached the Americas in 1492, in the 15th century.",
     ),
-    # Sorting
+    # Record or rank
     _free(
-        "Sort these companies by founding year, oldest first: Google, Apple, Microsoft.",
-        "Microsoft, Apple, Google",
+        "What is the largest planet in the solar system?",
+        "Jupiter",
         [],
-        "Microsoft was founded in 1975, Apple in 1976 and Google in 1998.",
+        "Jupiter is more than twice as massive as all the other planets combined.",
     ),
+    # Completion
     _free(
-        "Sort these by the year they began, earliest first: World War I, French Revolution, Cold War.",
-        "French Revolution, World War I, Cold War",
-        [],
-        "The French Revolution began in 1789, World War I in 1914 and the Cold War after 1945.",
+        "The largest land animal living today is the ...",
+        "African bush elephant",
+        ["African elephant", "elephant"],
+        "African bush elephants weigh up to six tonnes; the blue whale is larger, but lives in the sea.",
     ),
     # Analogy
     _free(
@@ -514,6 +544,20 @@ FREE_EXAMPLES: list[Example] = [
         "Lambs",
         ["The Silence of the Lambs"],
         "The Silence of the Lambs (1991), with Jodie Foster and Anthony Hopkins, won the five main Academy Awards.",
+    ),
+    # Open
+    _free(
+        "Name a planet in the solar system that has rings.",
+        "Saturn",
+        ["Jupiter", "Uranus", "Neptune"],
+        "All four giant planets have rings, but only Saturn's are bright enough to see with a small telescope.",
+    ),
+    # Rough time
+    _free(
+        "In which century was the printing press with movable type invented in Europe?",
+        "15th century",
+        ["15th", "fifteenth century", "1400s"],
+        "Johannes Gutenberg built his printing press in Mainz around 1450.",
     ),
 ]
 
@@ -687,6 +731,19 @@ CHOICE_EXAMPLES: list[Example] = [
         ["Sydney", "Ottawa", "Istanbul", "Wellington", "Rio de Janeiro"],
         ["Ottawa", "Wellington"],
         "Ottawa is the capital of Canada and Wellington of New Zealand. The other three are famous, but not capitals.",
+    ),
+    # Sorting (order)
+    _order(
+        "Sort these companies by founding year, oldest first.",
+        ["Google", "Microsoft", "Apple"],
+        ["Microsoft", "Apple", "Google"],
+        "Microsoft was founded in 1975, Apple in 1976 and Google in 1998.",
+    ),
+    _order(
+        "Sort these by the year they began, earliest first.",
+        ["World War I", "Cold War", "French Revolution"],
+        ["French Revolution", "World War I", "Cold War"],
+        "The French Revolution began in 1789, World War I in 1914 and the Cold War after 1945.",
     ),
 ]
 

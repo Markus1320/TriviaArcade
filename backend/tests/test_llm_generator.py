@@ -336,3 +336,41 @@ def test_retry_after_a_technical_failure_repeats_the_request() -> None:
     client = ScriptedClient([LLMError("HTTP 503"), output()])
     make_generator(client, ListCallLogger()).generate(SEED)
     assert client.requests[0].user == client.requests[1].user
+
+
+ORDER = {
+    "format": "order",
+    "question": "Sort these planets by their distance from the Sun, closest first.",
+    "options": ["Earth", "Mercury", "Mars"],
+    "correct_options": ["Mercury", " earth", "Mars"],
+    "explanation": "Mercury is closest to the Sun, then Venus, Earth and Mars.",
+}
+
+
+def test_parse_order_keeps_the_correct_sequence() -> None:
+    question = parse_generated_question(choice(**ORDER))
+    assert question.correct_options == ["Mercury", "Earth", "Mars"]
+    assert question.correct_indices == [1, 0, 2]
+    assert question.expected_answer == "Mercury, Earth, Mars"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"correct_options": ["Mercury", "Earth"]}, "every option once"),
+        ({"correct_options": ["Mercury", "Earth", "Earth"]}, "every option once"),
+        ({"options": ["Earth", "Mars"], "correct_options": ["Earth", "Mars"]}, "3 to 4"),
+    ],
+)
+def test_invalid_order_is_rejected(overrides: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        parse_generated_question(choice(**{**ORDER, **overrides}))
+
+
+def test_shuffled_order_question_is_never_already_sorted() -> None:
+    question = parse_generated_question(choice(**ORDER))
+    for seed in range(30):
+        shuffled = shuffle_options(question, random.Random(seed))
+        assert shuffled.options != shuffled.correct_options
+        assert sorted(shuffled.options) == sorted(question.options)
+        assert [shuffled.options[i] for i in shuffled.correct_indices] == question.correct_options

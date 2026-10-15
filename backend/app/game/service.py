@@ -29,6 +29,7 @@ from app.game.rules import (
     answer_in_time,
     apply_verdict,
     choice_correct,
+    order_correct,
     seconds_left,
 )
 from app.graph.model import QuestionSeed
@@ -121,7 +122,9 @@ class RunView:
     open_question: QuestionView | None
     last_expected_answer: str | None
     last_explanation: str | None
-    # Filled when the run is over and the last question was a choice question.
+    # Filled when the run is over and the last question was a choice question. For order
+    # questions both position lists are in order (correct order, tapped order).
+    last_format: str | None
     last_options: tuple[str, ...] | None
     last_correct_options: tuple[int, ...] | None
     last_selected_options: tuple[int, ...] | None
@@ -185,6 +188,7 @@ class GameService:
                 open_question=self._view(open_question, run) if open_question else None,
                 last_expected_answer=last.expected_answer if last else None,
                 last_explanation=last.explanation if last else None,
+                last_format=last_choice.format if last_choice else None,
                 last_options=tuple(last_choice.options or ()) if last_choice else None,
                 last_correct_options=tuple(last_choice.correct_options or ())
                 if last_choice
@@ -287,7 +291,8 @@ class GameService:
                     run, question, answer, correct=False, timed_out=True, selected=picked
                 )
             if picked is not None:
-                correct = choice_correct(picked, question.correct_options or ())
+                check = order_correct if question.format == "order" else choice_correct
+                correct = check(picked, question.correct_options or ())
                 return self._finish(
                     run, question, answer, correct=correct, timed_out=False, selected=picked
                 )
@@ -392,11 +397,17 @@ class GameService:
 
 def _valid_selection(question: Question, selected: Sequence[int] | None) -> list[int]:
     options = question.options or []
-    picked = sorted(set(selected or ()))
+    picked = list(selected or ())
     if not picked:
         raise InvalidAnswerError("no option is selected")
-    if picked[0] < 0 or picked[-1] >= len(options):
+    if len(set(picked)) != len(picked):
+        raise InvalidAnswerError("an option is selected twice")
+    if min(picked) < 0 or max(picked) >= len(options):
         raise InvalidAnswerError("unknown option")
+    # Order questions keep the tapped order (it may be incomplete when the time ran out);
+    # for the others only the set counts.
+    if question.format != "order":
+        picked.sort()
     if question.format == "single" and len(picked) != 1:
         raise InvalidAnswerError("select exactly one option")
     return picked

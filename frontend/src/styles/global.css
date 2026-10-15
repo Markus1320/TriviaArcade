@@ -452,6 +452,16 @@ button.option:disabled {
   overflow-wrap: anywhere;
 }
 
+/* The place an item of an order question got when tapped. */
+.option__position {
+  flex: none;
+  min-width: 2em;
+  padding: 4px 6px;
+  border: 2px solid currentColor;
+  font-size: 12px;
+  text-align: center;
+}
+
 .option__mark {
   flex: none;
   font-size: 9px;
@@ -753,6 +763,12 @@ button.option:disabled {
 
 .log-detail__options {
   list-style: none;
+}
+
+.log-detail__order {
+  margin: 0;
+  padding-left: 2em;
+  color: var(--green);
 }
 
 .log-detail__option--right {

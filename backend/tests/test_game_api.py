@@ -785,3 +785,47 @@ def test_recent_starts_of_other_runs_are_not_reused(game: Game) -> None:
     game.question(run_id)
     # The two latest starts of any run are blocked, the older N1 is free again.
     assert game.seeds.excluded[-1] == {"N2", "N3"}
+
+
+ORDER = GeneratedQuestion(
+    format="order",
+    question="Sort these cities of Secretland from north to south.",
+    options=["Gamma", "Alpha", "Beta"],
+    correct_options=["Alpha", "Beta", "Gamma"],
+    expected_answer="Alpha, Beta, Gamma",
+    explanation=EXPLANATION,
+)
+
+
+@pytest.mark.parametrize(
+    ("tapped", "correct"), [((1, 2, 0), True), ((2, 1, 0), False), ((1, 2), False)]
+)
+def test_order_question_needs_the_exact_order(
+    game: Game, tapped: tuple[int, ...], correct: bool
+) -> None:
+    game.generator.next = ORDER
+    run_id = game.start()
+    assert game.question(run_id).json()["format"] == "order"
+    result = game.select(run_id, *tapped).json()
+    assert result["correct"] is correct
+    # Positions of the options in the correct order.
+    assert result["correct_options"] == [1, 2, 0]
+    assert game.judge.calls == []
+
+
+def test_order_answer_keeps_the_tapped_order(game: Game) -> None:
+    game.generator.next = ORDER
+    run_id = game.start()
+    game.question(run_id)
+    game.select(run_id, 2, 1, 0)
+    state = game.client.get(f"/api/runs/{run_id}").json()
+    assert state["last_format"] == "order"
+    assert state["last_selected_options"] == [2, 1, 0]
+    assert state["last_correct_options"] == [1, 2, 0]
+
+
+def test_tapping_an_option_twice_is_rejected(game: Game) -> None:
+    game.generator.next = ORDER
+    run_id = game.start()
+    game.question(run_id)
+    assert game.select(run_id, 1, 1, 0).status_code == 422

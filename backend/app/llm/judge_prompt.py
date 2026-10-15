@@ -31,8 +31,6 @@ Rules:
 - Reject answers that list several options, unless the question asks for several items.
 - When the question asks for several items, every item named in the answer needs to be
   correct.
-- Sorting questions ("Sort these ..., oldest first"): the player must name all items in the
-  correct order. Separators and filler words do not matter.
 - Years must be exact. If the question asks for a century or decade, accept equivalent
   forms (e.g. "15th century", "1400s", "fifteenth").
 

@@ -57,6 +57,7 @@ class RunState(BaseModel):
     open_question: QuestionOut | None
     last_expected_answer: str | None
     last_explanation: str | None
+    last_format: str | None
     last_options: list[str] | None
     last_correct_options: list[int] | None
     last_selected_options: list[int] | None
@@ -128,6 +129,7 @@ def get_run(run_id: uuid.UUID, game: GameDep) -> RunState:
         open_question=QuestionOut.from_view(view.open_question) if view.open_question else None,
         last_expected_answer=view.last_expected_answer,
         last_explanation=view.last_explanation,
+        last_format=view.last_format,
         last_options=_as_list(view.last_options),
         last_correct_options=_as_list(view.last_correct_options),
         last_selected_options=_as_list(view.last_selected_options),
