@@ -55,8 +55,14 @@ def get_game_service(
     generator: Annotated[QuestionSource, Depends(get_question_source)],
     judge: Annotated[AnswerChecker, Depends(get_answer_checker)],
 ) -> GameService:
+    settings = get_settings()
     return GameService(
-        session, seeds, generator, judge, answer_time_seconds=get_settings().answer_time_seconds
+        session,
+        seeds,
+        generator,
+        judge,
+        answer_time_seconds=settings.answer_time_seconds,
+        recent_starts_blocked=settings.recent_starts_blocked,
     )
 
 

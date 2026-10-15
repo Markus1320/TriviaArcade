@@ -107,6 +107,7 @@ class Game:
         self.judge = FakeJudge()
         self.clock = Clock()
         self.answer_time_seconds = 45
+        self.recent_starts_blocked = 0
 
     def start(self) -> str:
         response = self.client.post("/api/runs")
@@ -166,6 +167,7 @@ def game() -> Iterator[Game]:
                     game.judge,
                     game.clock,
                     answer_time_seconds=game.answer_time_seconds,
+                    recent_starts_blocked=game.recent_starts_blocked,
                 )
 
         def leaderboard_service() -> Iterator[LeaderboardService]:
@@ -774,3 +776,12 @@ def test_question_log_skips_questions_from_before_the_log(game: Game) -> None:
         for question in session.scalars(select(Question)):
             question.prompt = None
     assert game.client.get("/api/question-log").json()["questions"] == []
+
+
+def test_recent_starts_of_other_runs_are_not_reused(game: Game) -> None:
+    game.recent_starts_blocked = 2
+    game.play(correct_answers=2)  # starts N1, N2, N3
+    run_id = game.start()
+    game.question(run_id)
+    # The two latest starts of any run are blocked, the older N1 is free again.
+    assert game.seeds.excluded[-1] == {"N2", "N3"}

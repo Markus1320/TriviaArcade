@@ -162,6 +162,7 @@ LLM_TIMEOUT_SECONDS=      # optional, default 120
 WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
 WALK_HUB_PENALTY=         # optional, default 0.5, how strongly hops avoid hubs
+RECENT_STARTS_BLOCKED=    # optional, default 300, start entities of the last N questions are not reused
 ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
 ```
 
@@ -184,7 +185,8 @@ Before filling in model names, check which model tags are actually available for
 - The game is played in English or German. A run keeps the language it was started in;
   both languages share one leaderboard.
 - The streak is the score.
-- Within a run, the same starting node is never used twice.
+- Within a run, the same starting node is never used twice, and neither is the start of any
+  of the last `RECENT_STARTS_BLOCKED` (300) questions of all runs.
 - After every answer the player sees a short explanation (one or two sentences with the
   answer and a fact worth knowing), so there is something to learn whether the answer was
   right or wrong. After game over the correct answer is shown with it.
@@ -298,7 +300,8 @@ The walker does not label how famous an entity is; the generator judges that its
   known each entity is and to build the question around entities a casual player knows.
   Sorting questions need three or four items; with two
   they are just "pick one" and belong in a comparison.
-- Repetition: within a run only the start entity is blocked. Different walks reach the
+- Repetition: the start entity is blocked within a run and for the last 300 questions of
+  all runs (`GameService._recent_starts`); hops avoid hubs (see the random walk). Different walks reach the
   same entities, and the model then tends to ask the same famous fact (twice "Earth is to
   the Moon as Neptune is to ...?" in one batch of 30). Passing the run's earlier topics to
   the generator would be the direct fix; not built yet.

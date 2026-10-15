@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     walk_max_hops: int = 2
     # How strongly a hop avoids entities with many relations (0 = not at all).
     walk_hub_penalty: float = Field(default=0.5, ge=0)
+    # Start entities of the last this many questions (of all runs) are not used again.
+    recent_starts_blocked: int = Field(default=300, ge=0)
 
     # Time limit per question in seconds, counted from when the question is shown. 0 = off.
     answer_time_seconds: int = Field(default=30, ge=0)

@@ -150,6 +150,7 @@ class GameService:
         judge: AnswerChecker,
         clock: Callable[[], datetime] = utc_now,
         answer_time_seconds: int = 30,
+        recent_starts_blocked: int = 0,
     ) -> None:
         self._session = session
         self._seeds = seeds
@@ -158,6 +159,8 @@ class GameService:
         self._clock = clock
         # 0 turns the time limit off.
         self._time_limit = answer_time_seconds or None
+        # Start entities of the last this many questions, of any run, are not used again.
+        self._recent_starts_blocked = recent_starts_blocked
 
     def start_run(self, language: str = DEFAULT_LANGUAGE) -> uuid.UUID:
         """Start a run. Its questions are written in the given language until it ends."""
@@ -207,6 +210,7 @@ class GameService:
                 return self._view(open_question, run)
 
             used_starts = {question.start_node_id for question in run.questions}
+            used_starts |= self._recent_starts()
             try:
                 seed = self._seeds.walk(exclude_start_ids=used_starts)
                 result = self._generator.generate(seed, run_id=run.id, language=run.language)
@@ -234,6 +238,18 @@ class GameService:
             self._session.add(question)
             self._session.flush()
             return self._view(question, run)
+
+    def _recent_starts(self) -> set[str]:
+        """Start entities of the latest questions of all runs, so that players who play
+        often do not get the same entity again soon."""
+        if not self._recent_starts_blocked:
+            return set()
+        latest = (
+            select(Question.start_node_id)
+            .order_by(Question.id.desc())
+            .limit(self._recent_starts_blocked)
+        )
+        return set(self._session.scalars(latest))
 
     def start_question(self, run_id: uuid.UUID) -> QuestionView:
         """Start the clock on the open question. Calling it again keeps the running clock."""

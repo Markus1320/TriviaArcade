@@ -242,6 +242,9 @@ random walk picks:
 - `WALK_HUB_PENALTY` (default `0.5`): how strongly each hop avoids entities with many
   relations, so that walks do not keep ending at the United States or France. `0` picks
   every neighbour alike, `1` makes hubs no more likely than anything else.
+- `RECENT_STARTS_BLOCKED` (default `300`): the start entities of the last 300 questions, of
+  all runs, are not used again, so frequent players meet new topics. `0` only avoids
+  repeats within a run.
 - `ANSWER_TIME_SECONDS` (default `30`): seconds per question, counted from when it is
   shown. `0` turns the timer off.
 
