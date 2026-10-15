@@ -547,25 +547,12 @@ A task is only finished when:
 4. README and this file are updated if setup, commands or architecture changed.
 5. The work is committed following the rules above.
 
-## Milestones
-
-Work through these in order. **Stop after each milestone** and report: what was built, how to test it manually, and any open decisions. Do not start the next milestone until told to.
-
-1. **Skeleton:** Docker Compose with Caddy, frontend, backend, Neo4j and PostgreSQL talking to each other; uv venv; linters; CI; MIT license; README with setup steps. Result: a placeholder page reachable from a phone on the home network, and a backend health endpoint that checks both databases.
-2. **Knowledge graph:** Wikidata importer with fame filter, relation allowlist, numeric tier, aliases and `config/import.yaml`. Result: a browsable graph in the Neo4j browser with balanced content.
-3. **LLM core:** random walk, question generator, judge, prompt modules, structured output, call logging, and the sample question script. Alembic is introduced here, with the LLM call log table as the first migration. Result: printed sample questions that can be reviewed for quality.
-4. **Game loop and leaderboard:** server side runs, PostgreSQL schema for players and runs (further Alembic migrations), API endpoints, handle entry, top 10 leaderboard. Result: the full game playable in a plain, unstyled UI.
-5. **Arcade look:** pixel font, neon styling, scanlines, all classic screens, Web Audio sound effects. Result: tagged as `v0.1.0`.
-
-## Out of Scope for Version One
+## Possible Extensions for later
 
 These are planned for later. Keep the design open for them, but do not build them yet:
 
-- Difficulty ramp based on streak (via fame score and hop count)
 - Lives or skips
 - Player accounts and handle protection
-- Deterministic or fuzzy answer matching before the LLM judge
-- Hallucination checks against the graph
 - Sorting questions answered by tapping the items in order
 - Per category leaderboards, stats, achievements
 - Production hosting outside the home network
