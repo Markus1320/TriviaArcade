@@ -35,7 +35,7 @@ from app.graph.model import QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.languages import DEFAULT_LANGUAGE
 from app.llm.facts import format_seed
-from app.llm.generator import GeneratedQuestion, QuestionGenerationError
+from app.llm.generator import NOTE_FIELDS, GenerationResult, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError, sanitize_answer
 
 
@@ -46,7 +46,7 @@ class SeedSource(Protocol):
 class QuestionSource(Protocol):
     def generate(
         self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
-    ) -> GeneratedQuestion: ...
+    ) -> GenerationResult: ...
 
 
 class AnswerChecker(Protocol):
@@ -209,9 +209,10 @@ class GameService:
             used_starts = {question.start_node_id for question in run.questions}
             try:
                 seed = self._seeds.walk(exclude_start_ids=used_starts)
-                generated = self._generator.generate(seed, run_id=run.id, language=run.language)
+                result = self._generator.generate(seed, run_id=run.id, language=run.language)
             except (NoQuestionSeedError, QuestionGenerationError) as error:
                 raise QuestionUnavailableError(str(error)) from error
+            generated = result.question
 
             question = Question(
                 run=run,
@@ -225,6 +226,9 @@ class GameService:
                 expected_answer=generated.expected_answer,
                 accepted_answers=generated.accepted_answers,
                 explanation=generated.explanation or None,
+                generator_model=result.model,
+                prompt=result.prompt,
+                notes={field: getattr(generated, field) for field in NOTE_FIELDS},
                 asked_at=self._clock(),
             )
             self._session.add(question)

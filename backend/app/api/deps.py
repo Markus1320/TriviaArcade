@@ -14,6 +14,7 @@ from app.graph.factory import build_walker
 from app.leaderboard.service import LeaderboardService
 from app.llm.call_log import SqlCallLogger
 from app.llm.factory import LLMComponents, LLMNotConfiguredError, build_llm_components
+from app.questionlog.service import QuestionLogService
 
 
 def get_session() -> Iterator[Session]:
@@ -63,3 +64,9 @@ def get_leaderboard_service(
     session: Annotated[Session, Depends(get_session)],
 ) -> LeaderboardService:
     return LeaderboardService(session)
+
+
+def get_question_log_service(
+    session: Annotated[Session, Depends(get_session)],
+) -> QuestionLogService:
+    return QuestionLogService(session)

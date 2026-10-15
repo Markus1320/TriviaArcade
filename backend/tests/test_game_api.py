@@ -15,15 +15,16 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api.deps import get_game_service, get_leaderboard_service
+from app.api.deps import get_game_service, get_leaderboard_service, get_question_log_service
 from app.db.models import Base, Question
 from app.game.service import GameService
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.leaderboard.service import LeaderboardService
-from app.llm.generator import GeneratedQuestion, QuestionGenerationError
+from app.llm.generator import GeneratedQuestion, GenerationResult, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError
 from app.main import app
+from app.questionlog.service import QuestionLogService
 
 EXPLANATION = "Secretland is where every place in these tests lies."
 
@@ -57,19 +58,19 @@ class FakeGenerator:
 
     def generate(
         self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
-    ) -> GeneratedQuestion:
+    ) -> GenerationResult:
         self.run_ids.append(run_id)
         self.languages.append(language)
         if self.fail:
             raise QuestionGenerationError("model returned garbage twice")
-        if self.next is not None:
-            return self.next
-        return GeneratedQuestion(
+        question = self.next or GeneratedQuestion(
+            topic=f"{seed.start.label}: its country",
             question=f"In which country is {seed.start.label}?",
             expected_answer="Secretland",
             accepted_answers=["Hiddenland"],
             explanation=EXPLANATION,
         )
+        return GenerationResult(question, "fake-model", f"Facts about {seed.start.label}")
 
 
 class FakeJudge:
@@ -172,7 +173,13 @@ def game() -> Iterator[Game]:
                 yield LeaderboardService(session, game.clock)
 
         app.dependency_overrides[get_game_service] = game_service
+
+        def question_log_service() -> Iterator[QuestionLogService]:
+            with sessions() as session:
+                yield QuestionLogService(session)
+
         app.dependency_overrides[get_leaderboard_service] = leaderboard_service
+        app.dependency_overrides[get_question_log_service] = question_log_service
         yield game
     app.dependency_overrides.clear()
 
@@ -705,3 +712,65 @@ def test_run_language_is_passed_to_the_generator(game: Game) -> None:
 
 def test_unknown_language_is_rejected(game: Game) -> None:
     assert game.client.post("/api/runs", json={"language": "fr"}).status_code == 422
+
+
+# Question log
+
+
+def test_question_log_shows_finished_runs_without_player_data(game: Game) -> None:
+    finished = game.play(correct_answers=1)
+    game.claim(finished, "ACE")
+    running = game.start()
+    game.question(running)
+    game.answer(running, "Secretland")
+    game.question(running)
+
+    response = game.client.get("/api/question-log")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_more"] is False
+    questions = body["questions"]
+    # Only the finished run, last question first; the running game stays hidden.
+    assert [(q["number"], q["correct"]) for q in questions] == [(2, False), (1, True)]
+    first = questions[0]
+    assert first["question"] == "In which country is Place 2?"
+    assert first["expected_answer"] == "Secretland"
+    assert first["explanation"] == EXPLANATION
+    assert first["notes"]["topic"] == "Place 2: its country"
+    assert first["model"] == "fake-model"
+    assert first["prompt"] == "Facts about Place 2"
+    assert first["run_ended_at"] == questions[1]["run_ended_at"]
+    # Neither the player's answer nor the handle or run are part of the log.
+    assert "Nowhere" not in response.text
+    assert "ACE" not in response.text
+    assert finished not in response.text
+    assert running not in response.text
+
+
+def test_question_log_pages_through_the_last_fifty(game: Game) -> None:
+    for _ in range(6):
+        game.play(correct_answers=9)
+
+    seen: list[int] = []
+    offset = 0
+    while True:
+        body = game.client.get("/api/question-log", params={"offset": offset}).json()
+        assert len(body["questions"]) == 10
+        seen += [q["id"] for q in body["questions"]]
+        offset += 10
+        if not body["has_more"]:
+            break
+    assert len(seen) == len(set(seen)) == 50
+    assert game.client.get("/api/question-log", params={"offset": 50}).json() == {
+        "questions": [],
+        "has_more": False,
+    }
+    assert game.client.get("/api/question-log", params={"offset": 51}).status_code == 422
+
+
+def test_question_log_skips_questions_from_before_the_log(game: Game) -> None:
+    game.play(correct_answers=0)
+    with game.sessions.begin() as session:
+        for question in session.scalars(select(Question)):
+            question.prompt = None
+    assert game.client.get("/api/question-log").json()["questions"] == []

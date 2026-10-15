@@ -95,6 +95,11 @@ class Question(Base):
     accepted_answers: Mapped[list[str]] = mapped_column(JSONType)
     # One or two sentences shown to the player after answering; null for older questions.
     explanation: Mapped[str | None] = mapped_column(Text)
+    # For the question log: the generator model, the user message it got and its note
+    # fields (topic, candidates, choice, review). Null for questions from before the log.
+    generator_model: Mapped[str | None] = mapped_column(String(200))
+    prompt: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     # asked_at: when the question was generated (possibly prefetched). shown_at: when the
     # player first saw it, which starts the time limit.
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

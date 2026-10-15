@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n=== Question {number} ({seed.start.entity_type}, {len(seed.edges)} hops) ===")
         print(format_seed(seed))
         try:
-            question = llm.generator.generate(seed, language=args.language)
+            question = llm.generator.generate(seed, language=args.language).question
         except QuestionGenerationError as error:
             failures += 1
             print(f"\n!! Generation failed: {error}")

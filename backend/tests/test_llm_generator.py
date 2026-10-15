@@ -87,7 +87,7 @@ def test_parse_tolerates_code_fences_and_surrounding_text(wrap: str) -> None:
 def test_generate_accepts_fenced_output() -> None:
     logger = ListCallLogger()
     raw = f"```json\n{output()}\n```"
-    question = make_generator(ScriptedClient([raw]), logger).generate(SEED)
+    question = make_generator(ScriptedClient([raw]), logger).generate(SEED).question
     assert question.expected_answer == "Paris"
     assert logger.records[0].raw_output == raw  # logged unchanged
 
@@ -244,7 +244,7 @@ def test_shuffle_leaves_free_questions_alone() -> None:
 def test_generate_sends_facts_and_schema_and_logs_call() -> None:
     client = ScriptedClient([output()])
     logger = ListCallLogger()
-    question = make_generator(client, logger).generate(SEED)
+    question = make_generator(client, logger).generate(SEED).question
 
     assert question.expected_answer == "Paris"
     request = client.requests[0]
@@ -261,7 +261,7 @@ def test_generate_sends_facts_and_schema_and_logs_call() -> None:
 def test_generate_retries_once_after_invalid_output() -> None:
     client = ScriptedClient(["{broken", output()])
     logger = ListCallLogger()
-    question = make_generator(client, logger).generate(SEED)
+    question = make_generator(client, logger).generate(SEED).question
 
     assert question.expected_answer == "Paris"
     assert [r.attempt for r in logger.records] == [1, 2]
@@ -321,13 +321,15 @@ def test_retry_tells_the_model_why_it_was_rejected() -> None:
     giveaway = output(question="Is Paris the capital of France, or is it Lyon?")
     client = ScriptedClient([giveaway, output()])
     logger = ListCallLogger()
-    make_generator(client, logger).generate(SEED)
+    result = make_generator(client, logger).generate(SEED)
     first, second = client.requests
     assert "previous attempt was rejected" not in first.user
     assert second.user.startswith(first.user)
     assert "previous attempt was rejected: the question contains its own answer" in second.user
     # The log shows what was actually sent in each attempt.
     assert logger.records[1].request["user"] == second.user
+    # The question log keeps the model and the prompt of the accepted attempt.
+    assert (result.model, result.prompt) == ("gen-model", second.user)
 
 
 def test_retry_after_a_technical_failure_repeats_the_request() -> None:

@@ -150,6 +150,11 @@ save your score under a handle (3 to 8 letters or digits) or pick one used befor
 leaderboard shows the top 10 players with their best streak; ties go to the run that
 finished first.
 
+QUESTION LOG on the title screen lists the questions of the last finished games, grouped
+by game with its end time, each marked right or wrong. Tap a question to see everything
+about it: options, answers, explanation, the model's notes, the model and the prompt.
+Who played and what they answered is never shown.
+
 If the judge is not reachable, the run is paused instead of ended: send the answer again.
 Reloading the page resumes the current run with the same question; the clock keeps running.
 
@@ -168,6 +173,7 @@ All endpoints live under `/api`:
 | `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
 | `GET` | `/leaderboard` | top 10 players, each with their best run |
 | `GET` | `/players` | existing handles, most recently used first |
+| `GET` | `/question-log` | questions of finished runs, newest first, 10 per request (`?offset=10` for more, at most the last 50) |
 
 To empty the leaderboard (runs and handles are kept, everybody starts from zero):
 

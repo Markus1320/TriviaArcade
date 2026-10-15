@@ -64,6 +64,35 @@ export interface LeaderboardRow {
   finished_at: string;
 }
 
+// A question of a finished run in the public question log. It says whether the answer was
+// right, never what was answered or by whom.
+export interface LoggedQuestion {
+  id: number;
+  // Questions of one run share this and are shown as a group.
+  run_ended_at: string;
+  language: Language;
+  number: number;
+  correct: boolean;
+  format: QuestionFormat;
+  question: string;
+  // Choice questions: options in the shown order, correct_options as positions in it.
+  options: string[];
+  correct_options: number[];
+  expected_answer: string;
+  accepted_answers: string[];
+  explanation: string | null;
+  // The generator's notes before the question.
+  notes: { topic?: string; candidates?: string[]; choice?: string; review?: string };
+  model: string;
+  // The user message sent to the generator.
+  prompt: string;
+}
+
+export interface QuestionLogPage {
+  questions: LoggedQuestion[];
+  has_more: boolean;
+}
+
 // Error codes sent by the backend, see backend/app/api/errors.py.
 export type ErrorCode =
   | 'run_not_found'
@@ -142,4 +171,7 @@ export const api = {
     request<ClaimResult>('POST', `/runs/${runId}/claim`, { handle }),
   leaderboard: () => request<LeaderboardRow[]>('GET', '/leaderboard'),
   players: () => request<string[]>('GET', '/players'),
+  // Ten questions per page, newest run first; the server shows at most the last 50.
+  questionLog: (offset: number) =>
+    request<QuestionLogPage>('GET', `/question-log?offset=${String(offset)}`),
 };

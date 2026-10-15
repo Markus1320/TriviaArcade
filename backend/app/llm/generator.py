@@ -284,6 +284,16 @@ def shuffle_options(question: GeneratedQuestion, rng: random.Random) -> Generate
     return question.model_copy(update={"options": options})
 
 
+@dataclasses.dataclass(frozen=True)
+class GenerationResult:
+    """A valid question with what produced it, kept with the question for the question log."""
+
+    question: GeneratedQuestion
+    model: str
+    # The user message of the accepted attempt (the system prompt is the same every time).
+    prompt: str
+
+
 class QuestionGenerator:
     def __init__(
         self,
@@ -303,7 +313,7 @@ class QuestionGenerator:
 
     def generate(
         self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
-    ) -> GeneratedQuestion:
+    ) -> GenerationResult:
         """Write a question in the given language (a code from app.languages)."""
         request = ChatRequest(
             model=self._model,
@@ -345,7 +355,7 @@ class QuestionGenerator:
                 )
             )
             if question is not None:
-                return question
+                return GenerationResult(question, self._model, request.user)
             errors.append(error or "unknown error")
             # Tell the model why its output was rejected. Technical failures are retried as is.
             retry_user = first_user + RETRY_NOTE.format(error=rejected) if rejected else first_user

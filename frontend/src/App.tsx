@@ -6,6 +6,7 @@ import { runStorage } from './runStorage';
 import { GameOverScreen } from './screens/GameOverScreen';
 import { HandleScreen } from './screens/HandleScreen';
 import { LeaderboardScreen } from './screens/LeaderboardScreen';
+import { QuestionLogScreen } from './screens/QuestionLogScreen';
 import { QuestionScreen } from './screens/QuestionScreen';
 import { TitleScreen } from './screens/TitleScreen';
 
@@ -23,7 +24,8 @@ export type Screen =
       choice: ChoiceReveal | null;
     }
   | { name: 'handle'; runId: string; streak: number }
-  | { name: 'leaderboard'; highlight?: ClaimResult };
+  | { name: 'leaderboard'; highlight?: ClaimResult }
+  | { name: 'questionLog' };
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'title' });
@@ -79,6 +81,9 @@ export function App() {
           onShowLeaderboard={() => {
             setScreen({ name: 'leaderboard' });
           }}
+          onShowQuestionLog={() => {
+            setScreen({ name: 'questionLog' });
+          }}
         />
       );
     case 'question':
@@ -117,5 +122,7 @@ export function App() {
       );
     case 'leaderboard':
       return <LeaderboardScreen highlight={screen.highlight} onBack={toTitle} />;
+    case 'questionLog':
+      return <QuestionLogScreen onBack={toTitle} />;
   }
 }

@@ -82,7 +82,7 @@ Key principles:
 │   │   ├── main.py
 │   │   ├── config.py           # settings from environment
 │   │   ├── languages.py        # languages the game can be played in
-│   │   ├── api/                # routers (health, runs, leaderboard), deps.py, errors.py
+│   │   ├── api/                # routers (health, runs, leaderboard, question_log), deps.py, errors.py
 │   │   ├── game/               # rules.py (streak, game over), service.py (run lifecycle)
 │   │   ├── graph/              # Neo4j driver, repository, random walk (walk.py)
 │   │   ├── llm/                # LLMClient protocol, Ollama client, generator, judge, prompts
@@ -90,6 +90,7 @@ Key principles:
 │   │   │   └── judge_prompt.py       # system prompt, user template
 │   │   │                       # facts formatting, call logging, factory
 │   │   ├── leaderboard/        # handles.py, ranking.py, service.py (claim, top 10)
+│   │   ├── questionlog/        # service.py (public log of finished runs)
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
 │   ├── importer/               # Wikidata import into Neo4j (python -m importer)
 │   │   ├── config.py           # typed model of config/import.yaml
@@ -106,7 +107,8 @@ Key principles:
     ├── Dockerfile              # builds static files into the Caddy image
     └── src/
         ├── App.tsx             # screen switching, resumes a run after reload
-        ├── screens/            # title, question, game over, handle entry, leaderboard
+        ├── screens/            # title, question, game over, handle entry, leaderboard,
+        │                       # question log
         ├── components/         # option list, time bar, language and sound toggles
         ├── language/           # LanguageProvider, useStrings()
         ├── api/                # typed API client
@@ -419,7 +421,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 ## Game Loop (Current Implementation)
 
-- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, the `format`, expected and accepted answers, for choice questions `options` in the shown order with `correct_options` and `selected_options` as positions in it, the explanation, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
+- PostgreSQL tables: `players` (unique handle), `runs` (UUID, status `active` or `over`, streak, start and end time, claiming player), `questions` (one row per question with the walk facts, the `format`, expected and accepted answers, for choice questions `options` in the shown order with `correct_options` and `selected_options` as positions in it, the explanation, the generator model, prompt and notes for the question log, `asked_at` (generated), `shown_at` (clock started), player answer, verdict and `timed_out`). `llm_calls.run_id` links calls to runs.
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
@@ -436,6 +438,14 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
   `last_selected_options` so the game over screen survives a reload.
 - Every verdict (`POST /answer`, `POST /timeout`) carries the question's `explanation`; `GET /runs/{id}` returns `last_explanation` once the run is over. The frontend shows it in the question box after a correct answer and under the answer on the game over screen.
 - `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay. A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
+- Question log: `GET /api/question-log?offset=N` lists the questions of finished runs,
+  newest run first and within a run the last question first, 10 per request and at most
+  the last 50 (`app/questionlog/service.py`). It shows whether each answer was right and
+  every field of the question: format, options, answers, explanation, the generator's
+  notes, the model and the user message sent to the generator (`questions.generator_model`,
+  `prompt`, `notes`; the system prompt is the same for all and left out). Never the
+  player's answer, the handle or the run ID. Runs are grouped by their end time. Questions
+  from before the log (no `prompt`) are left out. The title screen links to it.
 - Domain errors map to HTTP responses in `app/api/errors.py` as `{"code", "detail"}`; the frontend shows `detail`.
 
 ## Frontend and Styling

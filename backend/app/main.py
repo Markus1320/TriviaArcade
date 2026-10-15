@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import health, leaderboard, runs
+from app.api import health, leaderboard, question_log, runs
 from app.api.errors import install_error_handlers
 from app.db.engine import get_engine
 from app.graph.driver import get_driver
@@ -28,4 +28,5 @@ app = FastAPI(title="TriviaArcade", lifespan=lifespan)
 app.include_router(health.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(leaderboard.router, prefix="/api")
+app.include_router(question_log.router, prefix="/api")
 install_error_handlers(app)

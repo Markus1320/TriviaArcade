@@ -637,6 +637,139 @@ button.option:disabled {
   animation: flash 1s steps(2) 3;
 }
 
+/* Question log */
+
+.link-button {
+  padding: 8px;
+  border: none;
+  background: none;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 10px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--cyan);
+}
+
+.log-run {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.log-run__time {
+  color: var(--magenta);
+  font-size: 11px;
+  font-weight: normal;
+  text-align: left;
+  text-shadow: 0 0 6px var(--magenta);
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-entry {
+  border: 2px solid var(--dim);
+  text-align: left;
+}
+
+.log-entry[open] {
+  border-color: var(--cyan);
+}
+
+.log-entry__summary {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  font-size: clamp(10px, 3vw, 12px);
+  line-height: 1.8;
+  cursor: pointer;
+  list-style: none;
+}
+
+.log-entry__summary::-webkit-details-marker {
+  display: none;
+}
+
+.log-entry__mark {
+  flex: none;
+}
+
+.log-entry--right .log-entry__mark {
+  color: var(--green);
+  text-shadow: 0 0 6px var(--green);
+}
+
+.log-entry--wrong .log-entry__mark {
+  color: var(--red);
+  text-shadow: 0 0 6px var(--red);
+}
+
+.log-entry__question {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+/* Long texts (notes, prompt) in a plain monospace font, which reads better than pixels. */
+.log-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 14px 16px;
+}
+
+.log-detail__label {
+  margin-top: 8px;
+  color: var(--dim);
+  font-size: 9px;
+}
+
+.log-detail__value {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.log-detail__options,
+.log-detail__candidates {
+  margin: 0;
+  padding: 0 0 0 4px;
+  list-style-position: inside;
+}
+
+.log-detail__options {
+  list-style: none;
+}
+
+.log-detail__option--right {
+  color: var(--green);
+}
+
+.log-detail__prompt {
+  max-height: 320px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  border: 1px dashed var(--dim);
+  font-family: inherit;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 /* Messages */
 
 .message {

@@ -8,9 +8,10 @@ import { useLanguage } from '../language/languageState';
 interface Props {
   onStarted: (runId: string) => void;
   onShowLeaderboard: () => void;
+  onShowQuestionLog: () => void;
 }
 
-export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
+export function TitleScreen({ onStarted, onShowLeaderboard, onShowQuestionLog }: Props) {
   const { play } = useSound();
   const { language, strings } = useLanguage();
   const [starting, setStarting] = useState(false);
@@ -44,6 +45,9 @@ export function TitleScreen({ onStarted, onShowLeaderboard }: Props) {
       <p className="hint">{strings.rules}</p>
       <button type="button" className="button button--secondary" onClick={onShowLeaderboard}>
         {strings.showLeaderboard}
+      </button>
+      <button type="button" className="link-button" onClick={onShowQuestionLog}>
+        {strings.showQuestionLog}
       </button>
       {error !== null && (
         <p className="message message--error" role="alert">
