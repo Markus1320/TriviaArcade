@@ -319,7 +319,12 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     <main className="screen screen--question">
       <header className="hud">
         <p className="hud__item">{strings.questionNumber(question.number)}</p>
-        <LifeMeter lives={lives} combo={combo} />
+        <LifeMeter
+          lives={lives}
+          combo={combo}
+          lifeCombo={question.life_combo}
+          maxLives={question.max_lives}
+        />
         <p className="hud__item hud__item--streak">
           {strings.streakLabel}{' '}
           {/* The key restarts the pop animation whenever the streak changes. */}

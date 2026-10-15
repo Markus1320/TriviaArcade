@@ -17,7 +17,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_game_service, get_leaderboard_service, get_question_log_service
 from app.db.models import Base, Question
-from app.game.rules import LIFE_COMBO
+from app.game.rules import LifeRules
 from app.game.service import GameService
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.walk import NoQuestionSeedError
@@ -109,6 +109,7 @@ class Game:
         self.clock = Clock()
         self.answer_time_seconds = 45
         self.recent_starts_blocked = 0
+        self.life_rules = LifeRules(combo=5, max_lives=3, start_lives=0)
 
     def start(self) -> str:
         response = self.client.post("/api/runs")
@@ -171,6 +172,7 @@ def game() -> Iterator[Game]:
                     game.clock,
                     answer_time_seconds=game.answer_time_seconds,
                     recent_starts_blocked=game.recent_starts_blocked,
+                    life_rules=game.life_rules,
                 )
 
         def leaderboard_service() -> Iterator[LeaderboardService]:
@@ -206,6 +208,8 @@ def test_question_does_not_reveal_the_answer(game: Game) -> None:
         "streak": 0,
         "lives": 0,
         "combo": 0,
+        "life_combo": 5,
+        "max_lives": 3,
         "time_limit_seconds": 45,
         "seconds_left": None,
     }
@@ -855,10 +859,10 @@ def test_tapping_an_option_twice_is_rejected(game: Game) -> None:
 
 
 def earn_a_1up(game: Game, run_id: str) -> None:
-    for number in range(1, LIFE_COMBO + 1):
+    for number in range(1, game.life_rules.combo + 1):
         game.question(run_id)
         result = game.answer(run_id, "Secretland").json()
-        assert result["life_earned"] is (number == LIFE_COMBO)
+        assert result["life_earned"] is (number == game.life_rules.combo)
     assert result["lives"] == 1
     assert result["combo"] == 0
 
@@ -871,7 +875,7 @@ def test_a_full_combo_earns_a_1up_that_saves_the_run(game: Game) -> None:
     assert result["saved"] is True
     assert result["game_over"] is False
     assert result["lives"] == 0
-    assert result["streak"] == LIFE_COMBO
+    assert result["streak"] == game.life_rules.combo
     # The player learns the answer although the run goes on.
     assert result["expected_answer"] == "Secretland"
     assert game.question(run_id).json()["lives"] == 0
@@ -900,7 +904,7 @@ def test_skip_costs_a_1up_and_keeps_score_and_combo(game: Game) -> None:
     assert result["game_over"] is False
     assert result["lives"] == 0
     assert result["combo"] == 1
-    assert result["streak"] == LIFE_COMBO + 1
+    assert result["streak"] == game.life_rules.combo + 1
     assert result["expected_answer"] == "Secretland"
     assert game.judge.calls[-1][1] == "Secretland"  # the skipped question was not judged
     with game.sessions() as session:
@@ -908,7 +912,7 @@ def test_skip_costs_a_1up_and_keeps_score_and_combo(game: Game) -> None:
         assert skipped is not None
         assert skipped.skipped is True
     # The next question comes as usual.
-    assert game.question(run_id).json()["number"] == LIFE_COMBO + 3
+    assert game.question(run_id).json()["number"] == game.life_rules.combo + 3
 
 
 def test_skip_without_a_1up_is_refused(game: Game) -> None:
@@ -953,3 +957,13 @@ def test_reset_can_remove_the_handles_too(game: Game) -> None:
         assert LeaderboardService(session, game.clock).reset(remove_handles=True) == 1
     assert game.client.get("/api/players").json() == []
     assert game.claim(game.play(1), "ALICE").json()["rank"] == 1
+
+
+def test_default_life_rules_start_with_a_1up(game: Game) -> None:
+    game.life_rules = LifeRules()
+    run_id = game.start()
+    question = game.question(run_id).json()
+    assert (question["lives"], question["life_combo"], question["max_lives"]) == (1, 3, 3)
+    result = game.answer(run_id, "Nowhere").json()
+    assert result["saved"] is True
+    assert result["lives"] == 0

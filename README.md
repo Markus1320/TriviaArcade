@@ -141,8 +141,8 @@ answer box is blocked.
 
 You have 30 seconds per question (a bar shows the time left); when the time is up, whatever
 you typed or picked is judged, and with nothing the run ends. Each correct answer adds one
-to your score; the first wrong answer ends the run, unless you have a 1UP. Every 5 correct
-answers in a row earn a 1UP (hearts at the top, at most 3). A 1UP takes the hit of a wrong
+to your score; the first wrong answer ends the run, unless you have a 1UP. You start with one
+1UP, and every 3 correct answers in a row earn another (hearts at the top, at most 3). A 1UP takes the hit of a wrong
 answer, or you spend it on SKIP to pass a question you do not know. After every answer you see a short
 explanation with the correct answer and a fact worth knowing, and for options which ones
 were right, missing or wrong.
@@ -248,6 +248,9 @@ random walk picks:
 - `WALK_HUB_PENALTY` (default `0.5`): how strongly each hop avoids entities with many
   relations, so that walks do not keep ending at the United States or France. `0` picks
   every neighbour alike, `1` makes hubs no more likely than anything else.
+- `LIFE_COMBO`, `MAX_LIVES`, `START_LIVES` (defaults `3`, `3`, `1`): correct answers in a
+  row for a 1UP, the most 1UPs a player can hold, and how many a new run starts with.
+  Changing them makes old scores hard to compare; consider resetting the leaderboard.
 - `RECENT_STARTS_BLOCKED` (default `300`): the start entities of the last 300 questions, of
   all runs, are not used again, so frequent players meet new topics. `0` only avoids
   repeats within a run.

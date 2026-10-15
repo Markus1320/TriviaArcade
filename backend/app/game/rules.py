@@ -1,7 +1,8 @@
 """Score, 1UP and game over rules.
 
 - The score (stored as the run's streak) is the number of correct answers in the run.
-- Every LIFE_COMBO correct answers in a row earn a 1UP, up to MAX_LIVES in stock.
+- A run starts with LifeRules.start_lives 1UPs. Every LifeRules.combo correct answers in a
+  row earn one more, up to LifeRules.max_lives in stock (all set in the environment).
 - A wrong answer costs a 1UP if there is one, resets the combo and the run goes on;
   without a 1UP it ends the run.
 - A 1UP can also be spent to skip a question. A skip adds nothing to the score and keeps
@@ -21,9 +22,20 @@ from datetime import datetime, timedelta
 ANSWER_GRACE_SECONDS = 3.0
 
 
-# Correct answers in a row that earn a 1UP, and the most 1UPs a player can hold.
-LIFE_COMBO = 5
-MAX_LIVES = 3
+@dataclass(frozen=True)
+class LifeRules:
+    # Correct answers in a row that earn a 1UP.
+    combo: int = 3
+    # The most 1UPs a player can hold.
+    max_lives: int = 3
+    # 1UPs a new run starts with.
+    start_lives: int = 1
+
+    def __post_init__(self) -> None:
+        if self.combo < 1:
+            raise ValueError("combo must be at least 1")
+        if not 0 <= self.start_lives <= self.max_lives:
+            raise ValueError("start_lives must be between 0 and max_lives")
 
 
 class RunAlreadyOverError(RuntimeError):
@@ -43,16 +55,17 @@ class Progress:
     combo: int = 0
 
 
-def apply_verdict(progress: Progress, correct: bool) -> Progress:
+def apply_verdict(progress: Progress, correct: bool, rules: LifeRules | None = None) -> Progress:
+    rules = rules or LifeRules()
     if progress.over:
         raise RunAlreadyOverError("the run is already over")
     if correct:
         combo = progress.combo + 1
         lives = progress.lives
-        if combo >= LIFE_COMBO:
+        if combo >= rules.combo:
             # A full combo starts again; with a full stock the 1UP is lost.
             combo = 0
-            lives = min(lives + 1, MAX_LIVES)
+            lives = min(lives + 1, rules.max_lives)
         return replace(progress, streak=progress.streak + 1, lives=lives, combo=combo)
     if progress.lives > 0:
         return replace(progress, lives=progress.lives - 1, combo=0)

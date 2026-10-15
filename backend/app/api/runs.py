@@ -35,6 +35,9 @@ class QuestionOut(BaseModel):
     streak: int
     lives: int
     combo: int
+    # Correct answers in a row for a 1UP, and the most 1UPs a player can hold.
+    life_combo: int
+    max_lives: int
     time_limit_seconds: int | None
     seconds_left: float | None
 
@@ -49,6 +52,8 @@ class QuestionOut(BaseModel):
             streak=view.streak,
             lives=view.lives,
             combo=view.combo,
+            life_combo=view.life_combo,
+            max_lives=view.max_lives,
             time_limit_seconds=view.time_limit_seconds,
             seconds_left=view.seconds_left,
         )

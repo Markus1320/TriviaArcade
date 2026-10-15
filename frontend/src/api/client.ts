@@ -18,6 +18,9 @@ export interface Question {
   // 1UPs in stock and correct answers in a row towards the next one.
   lives: number;
   combo: number;
+  // Correct answers in a row for a 1UP, and the most 1UPs a player can hold.
+  life_combo: number;
+  max_lives: number;
   // null when the server runs without a time limit.
   time_limit_seconds: number | null;
   // null until the question has been started (shown), see api.startQuestion.

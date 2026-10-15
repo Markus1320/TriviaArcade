@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Question, Run
 from app.game.rules import (
+    LifeRules,
     Progress,
     answer_in_time,
     apply_skip,
@@ -98,9 +99,12 @@ class QuestionView:
     format: str
     options: tuple[str, ...]
     streak: int
-    # 1UPs in stock and correct answers in a row towards the next one.
+    # 1UPs in stock and correct answers in a row towards the next one, with the rules the
+    # browser needs to draw them.
     lives: int
     combo: int
+    life_combo: int
+    max_lives: int
     # None when the time limit is off.
     time_limit_seconds: int | None
     # None until the question has been started (shown), or when the time limit is off.
@@ -172,6 +176,7 @@ class GameService:
         clock: Callable[[], datetime] = utc_now,
         answer_time_seconds: int = 30,
         recent_starts_blocked: int = 0,
+        life_rules: LifeRules | None = None,
     ) -> None:
         self._session = session
         self._seeds = seeds
@@ -182,11 +187,19 @@ class GameService:
         self._time_limit = answer_time_seconds or None
         # Start entities of the last this many questions, of any run, are not used again.
         self._recent_starts_blocked = recent_starts_blocked
+        self._life_rules = life_rules or LifeRules()
 
     def start_run(self, language: str = DEFAULT_LANGUAGE) -> uuid.UUID:
         """Start a run. Its questions are written in the given language until it ends."""
         with self._session.begin():
-            run = Run(started_at=self._clock(), status="active", streak=0, language=language)
+            run = Run(
+                started_at=self._clock(),
+                status="active",
+                streak=0,
+                lives=self._life_rules.start_lives,
+                combo=0,
+                language=language,
+            )
             self._session.add(run)
             self._session.flush()
             return run.id
@@ -378,7 +391,7 @@ class GameService:
         selected: list[int] | None = None,
     ) -> AnswerResult:
         before = self._progress(run)
-        progress = apply_verdict(before, correct)
+        progress = apply_verdict(before, correct, self._life_rules)
         now = self._clock()
         question.player_answer = answer[:MAX_STORED_ANSWER_LENGTH] if answer else answer
         question.selected_options = selected
@@ -447,6 +460,8 @@ class GameService:
             streak=run.streak,
             lives=run.lives,
             combo=run.combo,
+            life_combo=self._life_rules.combo,
+            max_lives=self._life_rules.max_lives,
             time_limit_seconds=self._time_limit,
             seconds_left=left,
         )

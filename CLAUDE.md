@@ -163,6 +163,9 @@ WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
 WALK_HUB_PENALTY=         # optional, default 0.5, how strongly hops avoid hubs
 RECENT_STARTS_BLOCKED=    # optional, default 300, start entities of the last N questions are not reused
+LIFE_COMBO=               # optional, default 3, correct answers in a row for a 1UP
+MAX_LIVES=                # optional, default 3, most 1UPs in stock
+START_LIVES=              # optional, default 1, 1UPs a new run starts with
 ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
 ```
 
@@ -178,12 +181,15 @@ Before filling in model names, check which model tags are actually available for
 - 30 seconds per question (`ANSWER_TIME_SECONDS`), enforced server side and counted from
   when the question is shown. When the time is up, whatever the player typed is judged;
   with nothing typed the run ends. A late answer ends the run like a wrong one.
-- One wrong answer ends the run, unless the player has a 1UP: every 5 correct answers in
-  a row (the combo) earn one, at most 3 in stock. A wrong or late answer, or running out
+- One wrong answer ends the run, unless the player has a 1UP: a run starts with one
+  (`START_LIVES`), every 3 correct answers in a row (the combo, `LIFE_COMBO`) earn one more,
+  at most 3 in stock (`MAX_LIVES`). A wrong or late answer, or running out
   of time, then costs a 1UP and resets the combo, and the run goes on with the correct
   answer shown. A 1UP can also be spent to skip a question (SKIP button); a skip adds
-  nothing to the score and keeps the combo. Rules in `app/game/rules.py` (`LIFE_COMBO`,
-  `MAX_LIVES`, `apply_verdict`, `apply_skip`).
+  nothing to the score and keeps the combo. Rules in `app/game/rules.py` (`LifeRules`,
+  `apply_verdict`, `apply_skip`); the values come from the environment, and every question
+  sends `life_combo` and `max_lives` to the browser so the hearts match. Started with 5
+  for a 1UP and none at the start; changed to 3 and one at the start after playing.
 - A question is answered by typing (`free`) or by picking from options: exactly one
   (`single`) or every one that applies (`multiple`: all correct options and no wrong one).
   Sorting questions (`order`) are answered by tapping all three or four items in the
@@ -520,7 +526,7 @@ Current implementation:
   "YOU: n" where the player put one elsewhere.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.
-- `components/LifeMeter.tsx` shows the 1UPs as three hearts in the HUD between question number and score; the next empty heart fills from the bottom with the combo (a CSS gradient on the glyph, `--fill`). The constants mirror `rules.py`. After a correct answer that completes the combo "1UP!" flashes with its own sound (`oneUp` in `sfx.ts`); a saved or skipped question shows the answer and the explanation in a yellow box with SAVED BY 1UP / SKIPPED, then NEXT QUESTION.
+- `components/LifeMeter.tsx` shows the 1UPs as hearts in the HUD between question number and score; the next empty heart fills from the bottom with the combo (a CSS gradient on the glyph, `--fill`). The numbers (`life_combo`, `max_lives`) come with each question. After a correct answer that completes the combo "1UP!" flashes with its own sound (`oneUp` in `sfx.ts`); a saved or skipped question shows the answer and the explanation in a yellow box with SAVED BY 1UP / SKIPPED, then NEXT QUESTION.
 - `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
 
 ## Code Quality and Testing

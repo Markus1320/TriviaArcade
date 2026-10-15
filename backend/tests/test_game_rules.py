@@ -4,8 +4,7 @@ import pytest
 
 from app.game.rules import (
     ANSWER_GRACE_SECONDS,
-    LIFE_COMBO,
-    MAX_LIVES,
+    LifeRules,
     NoLifeLeftError,
     Progress,
     RunAlreadyOverError,
@@ -17,6 +16,7 @@ from app.game.rules import (
     seconds_left,
 )
 
+RULES = LifeRules()
 SHOWN = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)
 
 
@@ -36,14 +36,14 @@ def test_wrong_first_answer_scores_zero() -> None:
 
 def test_full_combo_earns_a_1up_and_starts_again() -> None:
     progress = Progress()
-    for _ in range(LIFE_COMBO):
+    for _ in range(RULES.combo):
         progress = apply_verdict(progress, correct=True)
-    assert progress == Progress(streak=LIFE_COMBO, lives=1, combo=0)
+    assert progress == Progress(streak=RULES.combo, lives=1, combo=0)
 
 
 def test_1ups_stop_at_the_maximum() -> None:
-    progress = Progress(streak=20, lives=MAX_LIVES, combo=LIFE_COMBO - 1)
-    assert apply_verdict(progress, correct=True) == Progress(streak=21, lives=MAX_LIVES)
+    progress = Progress(streak=20, lives=RULES.max_lives, combo=RULES.combo - 1)
+    assert apply_verdict(progress, correct=True) == Progress(streak=21, lives=RULES.max_lives)
 
 
 def test_wrong_answer_costs_a_1up_and_resets_the_combo() -> None:
@@ -109,3 +109,17 @@ def test_choice_needs_exactly_the_correct_options(
 )
 def test_order_needs_every_option_in_the_correct_order(tapped: list[int], correct: bool) -> None:
     assert order_correct(tapped, [2, 0, 1]) is correct
+
+
+def test_life_rules_are_configurable() -> None:
+    rules = LifeRules(combo=2, max_lives=1, start_lives=0)
+    progress = apply_verdict(Progress(combo=1), correct=True, rules=rules)
+    assert progress == Progress(streak=1, lives=1, combo=0)
+
+
+@pytest.mark.parametrize(
+    "values", [{"combo": 0}, {"start_lives": 4, "max_lives": 3}, {"start_lives": -1}]
+)
+def test_invalid_life_rules_are_rejected(values: dict[str, int]) -> None:
+    with pytest.raises(ValueError):
+        LifeRules(**values)

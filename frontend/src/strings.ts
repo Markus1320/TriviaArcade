@@ -65,8 +65,8 @@ const en = {
   skipQuestion: 'SKIP (1UP)',
   skipped: 'SKIPPED',
   savedBy1up: 'SAVED BY 1UP!',
-  lifeMeterLabel: (lives: number, combo: number) =>
-    `${String(lives)} 1UP. ${String(combo)} of 5 correct answers in a row towards the next.`,
+  lifeMeterLabel: (lives: number, combo: number, needed: number) =>
+    `${String(lives)} 1UP. ${String(combo)} of ${String(needed)} correct answers in a row towards the next.`,
   nextQuestion: 'NEXT QUESTION',
   retry: 'TRY AGAIN',
   timeLeftLabel: 'TIME LEFT',
@@ -162,8 +162,8 @@ const de: Strings = {
   skipQuestion: 'ÜBERSPRINGEN (1UP)',
   skipped: 'ÜBERSPRUNGEN',
   savedBy1up: 'GERETTET DURCH 1UP!',
-  lifeMeterLabel: (lives: number, combo: number) =>
-    `${String(lives)} 1UP. ${String(combo)} von 5 richtigen Antworten in Folge bis zum nächsten.`,
+  lifeMeterLabel: (lives: number, combo: number, needed: number) =>
+    `${String(lives)} 1UP. ${String(combo)} von ${String(needed)} richtigen Antworten in Folge bis zum nächsten.`,
   nextQuestion: 'NÄCHSTE FRAGE',
   retry: 'NOCHMAL',
   timeLeftLabel: 'VERBLEIBENDE ZEIT',

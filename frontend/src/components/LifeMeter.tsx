@@ -2,25 +2,28 @@ import { type CSSProperties } from 'react';
 
 import { useStrings } from '../language/languageState';
 
-// The same numbers as LIFE_COMBO and MAX_LIVES in backend/app/game/rules.py.
-export const LIFE_COMBO = 5;
-export const MAX_LIVES = 3;
-
 interface Props {
   lives: number;
   // Correct answers in a row towards the next 1UP.
   combo: number;
+  // From the server's settings: correct answers in a row for a 1UP, most 1UPs in stock.
+  lifeCombo: number;
+  maxLives: number;
 }
 
 // The 1UPs in stock as hearts. The next empty heart fills from the bottom with every
 // correct answer in a row, so stock and progress fit into one small row.
-export function LifeMeter({ lives, combo }: Props) {
+export function LifeMeter({ lives, combo, lifeCombo, maxLives }: Props) {
   const strings = useStrings();
   return (
-    <span className="life-meter" role="img" aria-label={strings.lifeMeterLabel(lives, combo)}>
-      {Array.from({ length: MAX_LIVES }, (_, index) => {
+    <span
+      className="life-meter"
+      role="img"
+      aria-label={strings.lifeMeterLabel(lives, combo, lifeCombo)}
+    >
+      {Array.from({ length: maxLives }, (_, index) => {
         if (index < lives) return <Heart key={index} fill={1} />;
-        return <Heart key={index} fill={index === lives ? combo / LIFE_COMBO : 0} />;
+        return <Heart key={index} fill={index === lives ? combo / lifeCombo : 0} />;
       })}
     </span>
   );

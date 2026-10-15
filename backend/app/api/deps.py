@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.engine import get_session_factory
+from app.game.rules import LifeRules
 from app.game.service import AnswerChecker, GameService, QuestionSource, SeedSource
 from app.graph.factory import build_walker
 from app.leaderboard.service import LeaderboardService
@@ -63,6 +64,17 @@ def get_game_service(
         judge,
         answer_time_seconds=settings.answer_time_seconds,
         recent_starts_blocked=settings.recent_starts_blocked,
+        life_rules=_life_rules(),
+    )
+
+
+@lru_cache
+def _life_rules() -> LifeRules:
+    settings = get_settings()
+    return LifeRules(
+        combo=settings.life_combo,
+        max_lives=settings.max_lives,
+        start_lives=min(settings.start_lives, settings.max_lives),
     )
 
 
