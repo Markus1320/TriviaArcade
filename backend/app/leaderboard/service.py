@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import Select, func, select, update
+from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Player, Run
@@ -76,16 +76,19 @@ class LeaderboardService:
                 personal_best=entry.run_id == run.id,
             )
 
-    def reset(self) -> int:
+    def reset(self, *, remove_handles: bool = False) -> int:
         """Empty the leaderboard and return how many runs were on it.
 
         Runs are detached from their players but kept, with their questions, for review.
-        Handles stay available. Detached runs keep claimed_at and cannot be claimed again.
+        Handles stay available unless remove_handles is set. Detached runs keep claimed_at
+        and cannot be claimed again.
         """
         with self._session.begin():
             on_board = Run.player_id.is_not(None)
             count = self._session.scalar(select(func.count()).select_from(Run).where(on_board))
             self._session.execute(update(Run).where(on_board).values(player_id=None))
+            if remove_handles:
+                self._session.execute(delete(Player))
             return count or 0
 
     def top(self, limit: int = LEADERBOARD_SIZE) -> list[LeaderboardEntry]:
