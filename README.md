@@ -122,10 +122,13 @@ Find a class by opening the Wikidata page of a typical example and reading its
 (put the class numbers before `--thresholds`). `--subclasses` also counts entities of
 subclasses, which some classes need (planets, moons, paintings).
 
-In `config/import.yaml`, a type can set `select_by` (P39 or P106 for kinds of people),
-`include_subclasses`, `max_entities` and an `exclude` list for entities that match but do
-not belong. Review the result with `--dry-run --names` before importing.
-Very large classes can time out on the public endpoint.
+In `config/import.yaml`, a type can set `select_by` (P39 or P106 for kinds of people, or
+any other property such as P141 conservation status for wild species),
+`include_subclasses`, `max_entities`, an `exclude` list for entities that match but do
+not belong and an `include` list for famous entities the selection misses (the horse is a
+subspecies on Wikidata). A relation can set `max_targets` to skip long lists (all
+countries a wolf lives in). Review the result with `--dry-run --names` before importing.
+Very large classes and queries over the taxon tree time out on the public endpoint.
 
 ## Playing
 
@@ -253,7 +256,8 @@ docker compose run --rm backend python -m scripts.sample_questions --count 10 --
 
 `--judge` also runs the judge on the expected answer (should be `true`), a wrong answer and
 a prompt injection attempt (both should be `false`). `--seed 42` makes the walks
-reproducible, `--no-log` skips the call log, `--language de` asks for German questions.
+reproducible, `--no-log` skips the call log, `--language de` asks for German questions,
+`--types animal,plant` only starts walks from those entity types (to review new types).
 The last line counts the questions per answer format.
 
 To look at logged calls, open a database prompt (`-x` prints each row as a list, which

@@ -134,10 +134,9 @@ Avoid:
     fields. Wrong options are close neighbours of the correct one.
   - One option is longer, more detailed or more carefully worded than the others.
   If the options would give the answer away, change the options or ask something else.
-- Birthplaces and places of death, as the answer or as the main clue. They are boring and
-  known for very few people (Jesus, Caesar, Napoleon). When the facts contain where
-  someone was born or died, ignore that fact and ask about something else the person is
-  known for.
+- Scientific (Latin) names of animals and plants, in the question or as the answer. The
+  facts often name a species or group by its Latin name (Strigiformes, Ficus carica); use
+  the common name instead (owls, fig).
 - Side details that do not help the player find the answer.
 - Wikidata IDs, entity type names or the arrow notation of the facts.
 
@@ -154,9 +153,6 @@ Bad questions (never write questions like these):
 - "What was the official language of the First French Empire?" (the question already
   contains the answer)
 - "True or false: Ukraine is part of Europe." (too easy for a true or false question)
-- "In which Indian city did the filmmaker Satyajit Ray pass away?" (too obscure; where
-  someone died is not general knowledge)
-- "In which city was the composer Antonio Vivaldi born?" (a birthplace as the answer)
 - "What is the third largest country in the world?" (disputed: China or the United States,
   depending on how area is counted)
 - "Which of these countries borders Georgia?" with the options Russia, Kuril Islands and
@@ -239,7 +235,7 @@ working steps; the player never sees them. Keep them short.
 4. "review": judge the chosen candidate honestly, as a strict quiz editor would. Is every
    statement certainly true? Is it too trivial? Does the question or do the options give
    the answer away? Are all options the same kind of thing, with exactly the right ones
-   correct? Is a rule broken (birthplaces, current office holders, numbers)? End with
+   correct? Is a rule broken (current office holders, numbers)? End with
    "Keep." or with what you change.
 The fields after the notes hold the final question: the chosen candidate if the review
 kept it, the improved version or another candidate if not. The examples in the request

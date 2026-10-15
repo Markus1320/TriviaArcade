@@ -221,6 +221,10 @@ Current implementation:
 - Seed entities come from the configured classes and fame thresholds. Relation targets outside the seeds (people, languages, currencies, obscure capitals) are added if they pass the target threshold and can be classified into a configured type. Direct queries for all famous humans time out on the public endpoint, so people only enter the graph through relations. `exclude_entities` removes ambiguous items (e.g. Afro-Eurasia); the order of `entity_types` decides the type of entities matching several types, and an entity cut by one type's `max_entities` is not picked up by a later type.
 - Kinds of people cannot be selected by class, because every person is just "human" on Wikidata. A type can therefore set `select_by: P39` (position held: exact lists such as US presidents) or `select_by: P106` (occupation: loose, every occupation a person ever had counts). The first matching type wins, so positions come before occupations, and a per-type `exclude` list removes people whose listed occupation is not what they are known for (they stay available for later types). People not claimed by any type still enter as `person` when a relation reaches them.
 - `include_subclasses: true` also accepts entities of subclasses (the planets are filed as "inner planet" etc.). It is slower and can pull in junk, so check the result with `--names`.
+- `include` adds hand picked entities to a type that its selection misses (the horse is a subspecies on Wikidata, the potato only a plant species); they still need the type's fame threshold and an earlier type still wins.
+- Plants and animals: queries over the taxon tree ("everything below Mammalia") time out on the public endpoint, so the nature types use handles that do work. `plant` is selected by fruit type (`select_by: P4000`, only plants carry it), `animal` by the class "organism known by a particular common name" (dog, cat, elephant), `species` by IUCN conservation status (`select_by: P141`), `animal_group` by taxon rank order or family (`select_by: P105`), `prehistoric_animal` by "fossil taxon". Food plants come first as `fruit_and_vegetable`. Many taxa have Latin English labels (Strigiformes); the aliases hold the common names. Everyday things (organs, diseases, instruments, food) are filed under newer "type of ..." classes on Wikidata.
+- A relation can set `max_targets`: a subject with a longer list keeps none of it (the forty countries a wolf lives in make no question, kangaroo → Australia does). Used for the range and the food of animals.
+- Birthplaces and places of death are not imported (they made boring, obscure questions).
 - Small or obscure types are kept tight with a high `fame_threshold` and `max_entities`; since every type is an equal slice of the question starts, a type should only contain entities a casual player may know.
 - Targets of some relations get their type from `fallback_target_type` (positions, awards, game platforms, sports); overly generic targets ("professor", "mobile phone") are in `exclude_entities`.
 - Each import replaces the whole graph and writes an `ImportMeta` node with the import time and counts.
@@ -291,8 +295,7 @@ The walker does not label how famous an entity is; the generator judges that its
   real questions.
 - The facts carry no fame labels; the prompt tells the model to judge itself how well
   known each entity is and to build the question around entities a casual player knows.
-  Birthplaces and places of death are ruled out as question targets (prompt rule only;
-  the relations stay in the graph). Sorting questions need three or four items; with two
+  Sorting questions need three or four items; with two
   they are just "pick one" and belong in a comparison.
 - Repetition: within a run only the start entity is blocked. Different walks reach the
   same entities, and the model then tends to ask the same famous fact (twice "Earth is to
@@ -504,7 +507,7 @@ This project uses a deliberately light testing setup for version one.
 
 ### Manual quality check
 
-`backend/scripts/` contains a script that runs real LLM calls to print a batch of sample questions, so question quality can be reviewed by a human. It is never part of CI.
+`backend/scripts/` contains a script that runs real LLM calls to print a batch of sample questions, so question quality can be reviewed by a human. It is never part of CI. `--types` limits the start types (`WalkSettings.start_types`), to review a new type after an import.
 
 ### CI
 

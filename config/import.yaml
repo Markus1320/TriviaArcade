@@ -55,6 +55,25 @@ exclude_entities:
   - Q484876 # chief executive officer
   - Q121998 # ambassador
   - Q190353 # Sovereign Military Order of Malta (reached as an "award")
+  # Not animals, but filed as "organism known by a common name" like dog and cat; they
+  # would be typed as animals when reached through a relation.
+  - Q729 # animal (the concept)
+  - Q5 # human (the class, not a person)
+  - Q10884 # tree
+  - Q37868 # algae
+  - Q15787 # HIV
+  - Q45422 # yeast
+  - Q159341 # mold
+  - Q80005 # fern
+  - Q643352 # grass
+  - Q189939 # succulent plant
+  - Q184755 # phytoplankton
+  - Q22708 # Pterygota
+  # Too generic when reached as an ingredient or part
+  - Q41500 # root
+  - Q11004 # vegetable
+  - Q3314483 # fruit
+  - Q25851 # Poponejo (a doubtful species)
 
 # Seed entity types. Every entity whose "instance of" (P31) is one of the classes and whose
 # fame reaches the threshold is imported. The first matching type in this list wins.
@@ -359,6 +378,78 @@ entity_types:
   dog_breed:
     classes: [Q39367]
     fame_threshold: 60
+  # Human body and health. Wikidata files organs and diseases as "organ type" and
+  # "type of disease".
+  body_part:
+    classes: [Q103812529] # organ type
+    fame_threshold: 90
+    # Sexual organs; root (a plant organ)
+    exclude: [Q58, Q5880, Q9384, Q873072, Q174471, Q41500]
+  disease:
+    classes: [Q112193867] # type of disease
+    fame_threshold: 110
+
+  # --- Nature: plants and animals. Food plants come first, so that tomato or maize are
+  # asked about as food and not as a plant species.
+  fruit_and_vegetable:
+    # type of fruit, type of vegetable, food crop, grain crop, fruit, common name, spice
+    classes: [Q140646522, Q140358161, Q31839438, Q113976623, Q3314483, Q502895, Q42527]
+    fame_threshold: 60
+    # fat hen (a weed), bread wheat (wheat is there)
+    exclude: [Q158610, Q161098]
+    # Famous fruits, vegetables, nuts and spices that Wikidata files only as plant species:
+    # potato, onion, garlic, watermelon, strawberry, lemon, coconut, avocado, olive, peanut,
+    # soybean, broccoli, cabbage, aubergine, cucumber, peach, pineapple, pea, spinach,
+    # lettuce, cocoa, kiwi, apricot, plum, walnut, hazelnut, cashew, pistachio, rice, wheat,
+    # chili pepper, cinnamon, vanilla, saffron, black pepper, ginger, fig, pomegranate, pear
+    include: [Q10998, Q23485, Q23400, Q17507129, Q13158, Q500, Q13187, Q37153, Q37083, Q37383,
+              Q11006, Q47722, Q146212, Q7540, Q23425, Q13189, Q1493, Q25237, Q81464, Q83193,
+              Q42385, Q13194, Q3733836, Q12372598, Q208021, Q578307, Q34007, Q36071, Q5090,
+              Q15645384, Q165199, Q28165, Q13241, Q25434, Q43084, Q35625, Q36146, Q13188, Q434]
+  plant:
+    # Only plants have a "fruit type" (P4000), so it selects plants of every kind: capsule,
+    # berry, drupe, achene, nucule, nut, silique, caryopsis, pome, follicle, samara,
+    # hesperidium
+    classes: [Q147768, Q13184, Q14712, Q14714, Q5118786, Q11009, Q148529, Q506139, Q41274,
+              Q147807, Q475697, Q1429336]
+    select_by: P4000
+    fame_threshold: 90
+    # Duplicates of other entries (apricot, banana, cannabis, nettle, dandelion, aspen) and
+    # obscure ones (Oryza molida, sweet flag, black nightshade)
+    exclude: [Q37453, Q8666090, Q26726, Q155909, Q30024, Q146110, Q161426, Q158008, Q146400]
+    # Trees without fruit type data: oak, pine, maple, lime tree, beech, spruce, fir, cedar,
+    # larch, yew, bamboo, ginkgo; Venus flytrap, lavender, coffee plant, tobacco; plant
+    # families: cacti, palms, legumes, daisies
+    include: [Q12004, Q12024, Q42292, Q127849, Q25403, Q26782, Q25350, Q128550, Q25618,
+              Q27355, Q670887, Q43284, Q155825, Q171892, Q156354, Q181095, Q14560, Q14080,
+              Q44448, Q25400]
+  animal:
+    classes: [Q55983715] # organisms known by a particular common name: dog, cat, elephant
+    fame_threshold: 70
+    # Domestic animals that Wikidata files as subspecies: horse, pig, goat, donkey
+    include: [Q726, Q787, Q2934, Q19707]
+    # calf, bull, ox (cattle is there), poultry, marine mammal, bird of prey, Cro-Magnon,
+    # wheat, chili pepper, leek, sugarcane, cardamom, kumquat
+    exclude: [Q2935, Q693690, Q473194, Q178559, Q382441, Q48428, Q179234, Q15645384, Q165199,
+              Q1807269, Q36940, Q14625808, Q5122903]
+  species:
+    # Wild species with a conservation status: least concern, near threatened, vulnerable,
+    # endangered, critically endangered, extinct in the wild, extinct
+    classes: [Q211005, Q719675, Q278113, Q96377276, Q219127, Q239509, Q237350]
+    select_by: P141
+    # Lower thresholds fill this type with European songbirds.
+    fame_threshold: 105
+    # Common bean (bean is there), Poponejo (not a known species), little known birds:
+    # common quail, golden oriole, white wagtail, greylag goose, rock dove
+    exclude: [Q42339, Q25851, Q28358, Q25388, Q25399, Q25882, Q42326]
+  animal_group:
+    # Orders and families (bears, owls, ants, penguins); plant families went to plant.
+    classes: [Q36602, Q35409]
+    select_by: P105
+    fame_threshold: 110
+  prehistoric_animal:
+    classes: [Q23038290] # fossil taxon: dinosaurs, mammoth, early humans
+    fame_threshold: 65
 
   # --- Technology and business ---
   programming_language:
@@ -442,6 +533,9 @@ entity_types:
     fame_threshold: 50
 
   # --- Music ---
+  musical_instrument:
+    classes: [Q110295396] # type of musical instrument
+    fame_threshold: 75
   band:
     classes: [Q215380, Q5741069] # musical group, rock band
     fame_threshold: 90
@@ -482,6 +576,13 @@ entity_types:
     classes: [Q31629] # type of sport
     fame_threshold: 100
     max_entities: 20
+  olympic_games:
+    classes: [Q135976384, Q137592217] # Summer and Winter Olympic Games edition
+    fame_threshold: 80
+  world_cup:
+    classes: [Q19317] # FIFA World Cup
+    select_by: P3450 # season of league or competition
+    fame_threshold: 80
   football_club:
     classes: [Q476028]
     fame_threshold: 100
@@ -492,6 +593,15 @@ entity_types:
   dish:
     classes: [Q746549, Q2095] # dish, food
     fame_threshold: 60
+  food:
+    classes: [Q19861951, Q25403900] # type of food or dish, food ingredient
+    fame_threshold: 70
+    # Coffee, tea, beer, wine and chocolate have no class of their own on Wikidata.
+    include: [Q8486, Q6097, Q44, Q282, Q195]
+    # Too generic: drink, vegetable, fruit, fast food, seafood, grain, starch, yeast, red
+    # algae, egg yolk, whey, agar, semolina
+    exclude: [Q40050, Q11004, Q3314483, Q81799, Q192935, Q2995529, Q41534, Q45422, Q103169,
+              Q181409, Q185009, Q177998, Q381350]
   fast_food_chain:
     classes: [Q18509232]
     fame_threshold: 55
@@ -523,6 +633,19 @@ related_types:
     classes: [Q483394, Q201658, Q223393] # genre, film genre, literary genre
   platform:
     classes: [Q8076] # video game console
+  # Parent taxa (genus, family) of animals and plants, e.g. Panthera for the lion.
+  taxon:
+    classes: [Q16521]
+  conservation_status:
+    classes: [Q82673]
+  botanical_term:
+    classes: [Q27494256] # fruit types such as capsule or achene
+  symptom:
+    classes: [Q130753312] # symptom type
+  field_of_study:
+    classes: [Q11862829, Q1047113] # academic discipline, field of study
+  geologic_period:
+    classes: [Q392928] # geologic period (Cretaceous, Jurassic)
 
 # Relation allowlist. Relations are read from seed entities; relations marked
 # from_related are also read from reached entities, but only towards entities that are
@@ -530,6 +653,7 @@ related_types:
 #   target_fame_threshold: overrides related_fame_threshold for targets of this relation
 #   fallback_target_type:  type for reached targets whose P31 matches no configured type
 #   best_rank_only:        only the current value (Wikidata's best rank), no historical ones
+#   max_targets:           a subject with a longer list of targets keeps none of them
 relations:
   - { property: P36, name: CAPITAL, target_fame_threshold: 120, fallback_target_type: city, best_rank_only: true }
   - { property: P47, name: SHARES_BORDER_WITH }
@@ -550,8 +674,6 @@ relations:
   - { property: P1365, name: REPLACES }
   - { property: P1366, name: REPLACED_BY }
   - { property: P138, name: NAMED_AFTER }
-  - { property: P19, name: PLACE_OF_BIRTH, from_related: true }
-  - { property: P20, name: PLACE_OF_DEATH, from_related: true }
   - { property: P607, name: PARTICIPATED_IN_CONFLICT, from_related: true }
   # People
   - { property: P27, name: COUNTRY_OF_CITIZENSHIP, from_related: true }
@@ -588,6 +710,27 @@ relations:
   - { property: P61, name: DISCOVERER_OR_INVENTOR }
   - { property: P397, name: PARENT_ASTRONOMICAL_BODY }
   - { property: P641, name: SPORT, target_fame_threshold: 80, fallback_target_type: sport }
+  - { property: P155, name: FOLLOWS } # e.g. the previous Olympic Games
+  - { property: P1303, name: INSTRUMENT, from_related: true } # instrument a musician plays
+  # Animals and plants
+  - { property: P171, name: PARENT_TAXON, target_fame_threshold: 50, fallback_target_type: taxon }
+  - { property: P9714, name: TAXON_RANGE, max_targets: 5 }
+  - { property: P183, name: ENDEMIC_TO }
+  - { property: P141, name: CONSERVATION_STATUS, target_fame_threshold: 0, fallback_target_type: conservation_status, best_rank_only: true }
+  - { property: P1034, name: MAIN_FOOD_SOURCE, max_targets: 5 }
+  - { property: P523, name: TEMPORAL_RANGE_START, target_fame_threshold: 30, fallback_target_type: geologic_period } # T. rex -> Late Cretaceous
+  - { property: P279, name: SUBCLASS_OF, target_fame_threshold: 80 } # dog -> mammal, piano -> keyboard instrument
+  - { property: P1672, name: SOURCE_OF } # cattle -> milk, cocoa -> chocolate
+  - { property: P1582, name: NATURAL_PRODUCT_OF } # apple -> apple tree
+  - { property: P4000, name: FRUIT_TYPE, target_fame_threshold: 40, fallback_target_type: botanical_term }
+  - { property: P186, name: MADE_FROM_MATERIAL } # food -> ingredients
+  # Body and health
+  - { property: P2579, name: STUDIED_BY, target_fame_threshold: 50, fallback_target_type: field_of_study }
+  - { property: P689, name: AFFLICTS } # disease -> organ
+  - { property: P2789, name: CONNECTS_WITH, target_fame_threshold: 50 } # stomach -> oesophagus
+  - { property: P1995, name: HEALTH_SPECIALTY, target_fame_threshold: 80, fallback_target_type: field_of_study }
+  - { property: P828, name: HAS_CAUSE }
+  - { property: P780, name: SYMPTOMS, target_fame_threshold: 80, fallback_target_type: symptom }
 
 # Numeric facts, only for entities at or above numeric_fame_threshold.
 # unit refers to unit_conversions below; null means unitless (e.g. population).
