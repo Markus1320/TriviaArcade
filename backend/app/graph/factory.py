@@ -19,6 +19,7 @@ def build_walker(
         WalkSettings(
             min_hops=settings.walk_min_hops,
             max_hops=settings.walk_max_hops,
+            hub_penalty=settings.walk_hub_penalty,
             start_types=start_types,
         ),
     )

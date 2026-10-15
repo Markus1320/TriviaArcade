@@ -161,6 +161,7 @@ POSTGRES_DEBUG_PORT=      # optional, only for compose.debug.yml, default 5432
 LLM_TIMEOUT_SECONDS=      # optional, default 120
 WALK_MIN_HOPS=            # optional, default 1
 WALK_MAX_HOPS=            # optional, default 2
+WALK_HUB_PENALTY=         # optional, default 0.5, how strongly hops avoid hubs
 ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
 ```
 
@@ -241,7 +242,7 @@ All randomness comes from code. The graph access lives behind a clear interface 
 
 Current implementation (`app/graph/walk.py`): the start is chosen by picking an entity type uniformly, then a random entity of that type. Every type is one equal slice of the question starts, however many entities it has; within a type every entity is equally likely. There are no weights per type: how the types are cut in `config/import.yaml` decides the mix. Every imported entity can take part, for the start and for every step. The import thresholds in `config/import.yaml` are the only fame filter (an earlier second filter, `WALK_TOP_SHARE`, was removed); to make a type less obscure, raise its threshold and re-import. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2), the natural base for a later difficulty ramp.
 
-The walker does not label how famous an entity is; the generator judges that itself. (Labels relative to the type, "world famous" / "well known" / "known to fans", were removed: on the same 30 walks they changed little, questions without them were slightly easier, and they did not cause or prevent repetition.) Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
+The walker does not label how famous an entity is; the generator judges that itself. (Labels relative to the type, "world famous" / "well known" / "known to fans", were removed: on the same 30 walks they changed little, questions without them were slightly easier, and they did not cause or prevent repetition.) Starts without neighbors are skipped. Each hop goes to a neighbor (either direction) not visited yet, picked with weight 1 / degree ^ `WALK_HUB_PENALTY` (default 0.5); every neighboring entity counts once, however many relations lead to it. Without the penalty, walks drifted to a few hubs (the United States was in 9% of 2,000 simulated walks, 20 entities in 28%) and the generator then asked about the hub; with 0.5 it is 4% and 18%, and 30 sample questions named a top hub 12 instead of 16 times. A penalty of 1 gained little more and favoured odd leaf entities. A dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
 
 ## LLM Integration
 

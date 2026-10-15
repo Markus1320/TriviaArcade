@@ -16,7 +16,7 @@ import random
 from collections.abc import Collection
 from dataclasses import dataclass
 
-from app.graph.model import GraphEdge, GraphNode, QuestionSeed
+from app.graph.model import GraphEdge, GraphNode, Neighbor, QuestionSeed
 from app.graph.repository import GraphRepository
 
 
@@ -30,6 +30,10 @@ class WalkSettings:
     max_hops: int = 2
     # Attempts to find an unused starting node that has at least one neighbor.
     max_start_attempts: int = 50
+    # Each hop picks a neighbour with weight 1 / degree ** hub_penalty. Without it, walks
+    # end up at a few hubs (the United States has hundreds of relations), and the
+    # generator then asks about the hub instead of the start.
+    hub_penalty: float = 0.5
     # Only start from these entity types; empty means all. For reviewing new types with
     # the sample script, never set by the game.
     start_types: frozenset[str] = frozenset()
@@ -37,6 +41,8 @@ class WalkSettings:
     def __post_init__(self) -> None:
         if not 1 <= self.min_hops <= self.max_hops:
             raise ValueError("hops must satisfy 1 <= min_hops <= max_hops")
+        if self.hub_penalty < 0:
+            raise ValueError("hub_penalty must not be negative")
 
 
 class RandomWalker:
@@ -89,9 +95,15 @@ class RandomWalker:
             ]
             if not candidates:
                 break
-            # Sort before choosing so the result does not depend on database order.
-            candidates.sort(key=lambda n: (n.node.wikidata_id, n.edge.relation))
-            step = self._rng.choice(candidates)
+            # Every neighbouring entity counts once, however many relations lead to it
+            # (a film made in and set in the United States). Sorted, so the result does
+            # not depend on database order.
+            by_node: dict[str, list[Neighbor]] = {}
+            for neighbor in sorted(candidates, key=lambda n: (n.node.wikidata_id, n.edge.relation)):
+                by_node.setdefault(neighbor.node.wikidata_id, []).append(neighbor)
+            options = list(by_node.values())
+            weights = [max(o[0].degree, 1) ** -self._settings.hub_penalty for o in options]
+            step = self._rng.choice(self._rng.choices(options, weights)[0])
             edges.append(step.edge)
             nodes.append(step.node)
             visited.add(step.node.wikidata_id)

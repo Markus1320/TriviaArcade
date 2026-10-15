@@ -48,7 +48,7 @@ class Neo4jGraphRepository:
         records, _, _ = self._driver.execute_query(
             "MATCH (a:Entity {wikidata_id: $id})-[r]-(b:Entity) "
             "RETURN type(r) AS relation, startNode(r) = a AS outgoing, "
-            "properties(r) AS props, b",
+            "properties(r) AS props, b, COUNT { (b)--() } AS degree",
             id=wikidata_id,
         )
         neighbors = []
@@ -68,7 +68,7 @@ class Neo4jGraphRepository:
                 end_year=props.get("end_year"),
                 year=props.get("year"),
             )
-            neighbors.append(Neighbor(edge=edge, node=node))
+            neighbors.append(Neighbor(edge=edge, node=node, degree=record["degree"]))
         return neighbors
 
 

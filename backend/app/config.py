@@ -27,9 +27,10 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 120.0
 
     # Random walk for question seeds, see app/graph/walk.py.
-    # each entity type, most famous first, that walks may visit (1.0 = all).
     walk_min_hops: int = 1
     walk_max_hops: int = 2
+    # How strongly a hop avoids entities with many relations (0 = not at all).
+    walk_hub_penalty: float = Field(default=0.5, ge=0)
 
     # Time limit per question in seconds, counted from when the question is shown. 0 = off.
     answer_time_seconds: int = Field(default=30, ge=0)

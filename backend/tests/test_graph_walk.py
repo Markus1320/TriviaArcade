@@ -64,7 +64,10 @@ class FakeRepository:
         for source, relation, target in self.edges:
             if wikidata_id in (source, target):
                 other = target if source == wikidata_id else source
-                result.append(Neighbor(GraphEdge(source, relation, target), self.nodes[other]))
+                degree = sum(1 for edge in self.edges if other in (edge[0], edge[2]))
+                result.append(
+                    Neighbor(GraphEdge(source, relation, target), self.nodes[other], degree)
+                )
         return result
 
 
@@ -166,3 +169,17 @@ def test_start_types_limit_where_walks_start() -> None:
     walker = RandomWalker(FakeRepository(), random.Random(3), settings)
     starts = {walker.walk().start.entity_type for _ in range(50)}
     assert starts == {"river", "sea"}
+
+
+def test_hub_penalty_makes_hops_avoid_hubs() -> None:
+    # From C the walk can go to B (two relations), D or O2 (one relation each).
+    def share_of_hops_to_hub(penalty: float) -> float:
+        settings = WalkSettings(min_hops=1, max_hops=1, hub_penalty=penalty)
+        walker = RandomWalker(FakeRepository(), random.Random(2), settings)
+        start = FakeRepository().nodes["C"]
+        hops = [walker._walk_from(start).nodes[1] for _ in range(3000)]
+        return sum(1 for node in hops if node.wikidata_id == "B") / len(hops)
+
+    assert 0.29 < share_of_hops_to_hub(0) < 0.37
+    # Weights 1/2, 1 and 1: the hub gets a fifth instead of a third.
+    assert 0.17 < share_of_hops_to_hub(1) < 0.23

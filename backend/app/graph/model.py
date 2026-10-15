@@ -30,6 +30,8 @@ class GraphEdge:
 class Neighbor:
     edge: GraphEdge
     node: GraphNode
+    # Number of relations of the neighbouring node; high for hubs such as countries.
+    degree: int = 1
 
 
 @dataclass(frozen=True)

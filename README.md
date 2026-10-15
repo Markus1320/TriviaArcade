@@ -239,6 +239,9 @@ random walk picks:
   itself.
 - `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
   connect. Fewer hops give simpler questions.
+- `WALK_HUB_PENALTY` (default `0.5`): how strongly each hop avoids entities with many
+  relations, so that walks do not keep ending at the United States or France. `0` picks
+  every neighbour alike, `1` makes hubs no more likely than anything else.
 - `ANSWER_TIME_SECONDS` (default `30`): seconds per question, counted from when it is
   shown. `0` turns the timer off.
 
