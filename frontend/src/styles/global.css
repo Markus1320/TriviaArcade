@@ -317,56 +317,25 @@ input {
   animation: pop 0.4s ease-out;
 }
 
-/* 1UPs in stock and the combo towards the next one */
+/* 1UPs in the HUD. The next empty heart fills from the bottom (--fill) with the combo. */
 .life-meter {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  width: 100%;
-  font-size: 9px;
-}
-
-.life-meter__hearts {
-  display: flex;
-  gap: 6px;
+  gap: 4px;
+  align-self: center;
   font-family: ui-monospace, monospace;
   font-size: 18px;
+  line-height: 1;
+}
+
+.heart {
+  background: linear-gradient(to top, var(--red) var(--fill), var(--shadow-3d) var(--fill));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 .heart--full {
-  color: var(--red);
-  text-shadow: 0 0 6px var(--red);
-}
-
-.heart--empty {
-  color: var(--dim);
-  opacity: 0.4;
-}
-
-.life-meter__combo {
-  display: flex;
-  flex: 1;
-  gap: 4px;
-  min-width: 90px;
-}
-
-.combo-cell {
-  flex: 1;
-  height: 10px;
-  border: 2px solid var(--yellow);
-  opacity: 0.5;
-}
-
-.combo-cell--on {
-  background: var(--yellow);
-  box-shadow: 0 0 6px var(--yellow);
-  opacity: 1;
-}
-
-.life-meter__hint {
-  color: var(--dim);
+  filter: drop-shadow(0 0 4px var(--red));
 }
 
 .time-bar {

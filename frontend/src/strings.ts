@@ -65,8 +65,6 @@ const en = {
   skipQuestion: 'SKIP (1UP)',
   skipped: 'SKIPPED',
   savedBy1up: 'SAVED BY 1UP!',
-  livesFull: '1UPS FULL',
-  comboToNext: (left: number) => `${String(left)} MORE FOR 1UP`,
   lifeMeterLabel: (lives: number, combo: number) =>
     `${String(lives)} 1UP. ${String(combo)} of 5 correct answers in a row towards the next.`,
   nextQuestion: 'NEXT QUESTION',
@@ -164,8 +162,6 @@ const de: Strings = {
   skipQuestion: 'ÜBERSPRINGEN (1UP)',
   skipped: 'ÜBERSPRUNGEN',
   savedBy1up: 'GERETTET DURCH 1UP!',
-  livesFull: '1UPS VOLL',
-  comboToNext: (left: number) => `NOCH ${String(left)} BIS 1UP`,
   lifeMeterLabel: (lives: number, combo: number) =>
     `${String(lives)} 1UP. ${String(combo)} von 5 richtigen Antworten in Folge bis zum nächsten.`,
   nextQuestion: 'NÄCHSTE FRAGE',
