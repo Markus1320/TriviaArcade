@@ -33,6 +33,8 @@ class QuestionOut(BaseModel):
     format: str
     options: list[str]
     streak: int
+    lives: int
+    combo: int
     time_limit_seconds: int | None
     seconds_left: float | None
 
@@ -45,6 +47,8 @@ class QuestionOut(BaseModel):
             format=view.format,
             options=list(view.options),
             streak=view.streak,
+            lives=view.lives,
+            combo=view.combo,
             time_limit_seconds=view.time_limit_seconds,
             seconds_left=view.seconds_left,
         )
@@ -54,6 +58,8 @@ class RunState(BaseModel):
     run_id: uuid.UUID
     over: bool
     streak: int
+    lives: int
+    combo: int
     open_question: QuestionOut | None
     last_expected_answer: str | None
     last_explanation: str | None
@@ -82,6 +88,11 @@ class AnswerOut(BaseModel):
     streak: int
     game_over: bool
     timed_out: bool
+    lives: int
+    combo: int
+    life_earned: bool
+    saved: bool
+    skipped: bool
     expected_answer: str | None
     explanation: str | None
     correct_options: list[int] | None
@@ -93,6 +104,11 @@ class AnswerOut(BaseModel):
             streak=result.streak,
             game_over=result.game_over,
             timed_out=result.timed_out,
+            lives=result.lives,
+            combo=result.combo,
+            life_earned=result.life_earned,
+            saved=result.saved,
+            skipped=result.skipped,
             expected_answer=result.expected_answer,
             explanation=result.explanation,
             correct_options=_as_list(result.correct_options),
@@ -126,6 +142,8 @@ def get_run(run_id: uuid.UUID, game: GameDep) -> RunState:
         run_id=view.run_id,
         over=view.over,
         streak=view.streak,
+        lives=view.lives,
+        combo=view.combo,
         open_question=QuestionOut.from_view(view.open_question) if view.open_question else None,
         last_expected_answer=view.last_expected_answer,
         last_explanation=view.last_explanation,
@@ -150,6 +168,11 @@ def start_question(run_id: uuid.UUID, game: GameDep) -> QuestionOut:
 @router.post("/{run_id}/answer")
 def answer(run_id: uuid.UUID, body: AnswerIn, game: GameDep) -> AnswerOut:
     return AnswerOut.from_result(game.answer(run_id, body.answer, body.selected))
+
+
+@router.post("/{run_id}/skip")
+def skip(run_id: uuid.UUID, game: GameDep) -> AnswerOut:
+    return AnswerOut.from_result(game.skip(run_id))
 
 
 @router.post("/{run_id}/timeout")

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'reac
 
 import { api, type AnswerResult, type Question } from '../api/client';
 import { useSound } from '../audio/soundState';
+import { LifeMeter } from '../components/LifeMeter';
 import { OptionList, type ChoiceReveal } from '../components/OptionList';
 import { TimeBar, URGENT_MS } from '../components/TimeBar';
 import { errorMessage } from '../errors';
@@ -29,11 +30,11 @@ type Phase =
   | { kind: 'loadFailed'; error: unknown }
   | { kind: 'asking'; question: Question; error: unknown; deadline: number | null }
   | { kind: 'judging'; question: Question }
+  // The run goes on: the answer was correct, a 1UP saved the run, or the question was skipped.
   | {
-      kind: 'correct';
+      kind: 'verdict';
       question: Question;
-      streak: number;
-      explanation: string | null;
+      result: AnswerResult;
       choice: ChoiceReveal | null;
     };
 
@@ -133,7 +134,8 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       : {
           options: shown.options,
           correct: result.correct_options,
-          selected,
+          // A skipped question was not answered, whatever was picked before.
+          selected: result.skipped ? [] : selected,
           ordered: shown.format === 'order',
         };
 
@@ -149,6 +151,21 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     });
   };
 
+  // Shows what happened; unless the run is over, the next question is prepared meanwhile.
+  const showResult = (shown: Question, result: AnswerResult) => {
+    if (result.game_over) {
+      endRun(shown, result);
+      return;
+    }
+    if (result.correct) {
+      play(result.life_earned ? 'oneUp' : 'correct');
+    } else if (result.saved) {
+      play('wrong');
+    }
+    setPhase({ kind: 'verdict', question: shown, result, choice: revealOf(shown, result) });
+    startPrefetch();
+  };
+
   // Sends the typed answer or the picked options, whichever the question asks for. When the
   // time is up (force) an incomplete order is sent too; it counts as wrong.
   const sendAnswer = (force = false) => {
@@ -158,19 +175,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     const request = isChoice ? api.select(runId, selected) : api.answer(runId, answer);
     request
       .then((result) => {
-        if (result.game_over) {
-          endRun(shown, result);
-        } else {
-          play('correct');
-          setPhase({
-            kind: 'correct',
-            question: shown,
-            streak: result.streak,
-            explanation: result.explanation,
-            choice: revealOf(shown, result),
-          });
-          startPrefetch();
-        }
+        showResult(shown, result);
       })
       .catch((err: unknown) => {
         // A judge failure pauses the run: the question stays open and can be answered again.
@@ -184,12 +189,28 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
       });
   };
 
+  // Spends a 1UP on the open question. Errors (e.g. no 1UP left) keep the question open.
+  const skipQuestion = () => {
+    if (phase.kind !== 'asking') return;
+    const shown = phase.question;
+    setPhase({ kind: 'judging', question: shown });
+    api
+      .skip(runId)
+      .then((result) => {
+        showResult(shown, result);
+      })
+      .catch((err: unknown) => {
+        setPhase({ kind: 'asking', question: shown, error: err, deadline: phase.deadline });
+      });
+  };
+
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     sendAnswer();
   };
 
-  // Time is up: whatever the player typed or picked is sent; with nothing the run ends.
+  // Time is up: whatever the player typed or picked is sent; with nothing the run ends,
+  // unless a 1UP saves it.
   const expire = () => {
     if (phase.kind !== 'asking') return;
     if (hasAnswer) {
@@ -201,7 +222,7 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     api
       .timeOut(runId)
       .then((result) => {
-        endRun(shown, result);
+        showResult(shown, result);
       })
       .catch(fail);
   };
@@ -287,8 +308,11 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     );
   }
 
-  const correct = phase.kind === 'correct';
-  const streak = correct ? phase.streak : question.streak;
+  const verdict = phase.kind === 'verdict' ? phase.result : null;
+  const correct = verdict?.correct === true;
+  const streak = verdict ? verdict.streak : question.streak;
+  const lives = verdict ? verdict.lives : question.lives;
+  const combo = verdict ? verdict.combo : question.combo;
   const limit = question.time_limit_seconds;
   const judging = phase.kind === 'judging';
   return (
@@ -306,29 +330,56 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           </strong>
         </p>
       </header>
-      {!correct && limit !== null && remainingMs !== null && (
+      <LifeMeter lives={lives} combo={combo} />
+      {verdict === null && limit !== null && remainingMs !== null && (
         <TimeBar remainingMs={remainingMs} limitMs={limit * 1000} />
       )}
-      {/* After a correct answer the box shows what there is to learn, not the question again. */}
-      <section className={correct ? 'question-box question-box--correct' : 'question-box'}>
-        {correct && phase.explanation ? (
-          <p className="question-text">{phase.explanation}</p>
+      {/* After a verdict the box shows what there is to learn, not the question again. */}
+      <section
+        className={
+          verdict === null
+            ? 'question-box'
+            : correct
+              ? 'question-box question-box--correct'
+              : 'question-box question-box--saved'
+        }
+      >
+        {verdict?.explanation ? (
+          <p className="question-text">{verdict.explanation}</p>
         ) : (
           <h2 className="question-text question-text--locked">{question.text}</h2>
         )}
       </section>
-      {correct ? (
+      {phase.kind === 'verdict' && verdict !== null ? (
         <>
-          {phase.choice && (
+          {phase.choice ? (
             <OptionList
               options={phase.choice.options}
               selected={phase.choice.selected}
               reveal={phase.choice}
             />
+          ) : (
+            !correct &&
+            verdict.expected_answer !== null && (
+              <p className="answer-reveal__value">
+                {strings.correctAnswerWas}: {verdict.expected_answer}
+              </p>
+            )
           )}
-          <p className="verdict verdict--correct" role="status">
-            {strings.correct}
-          </p>
+          {correct ? (
+            <p className="verdict verdict--correct" role="status">
+              {strings.correct}
+            </p>
+          ) : (
+            <p className="verdict verdict--saved" role="status">
+              {verdict.skipped ? strings.skipped : strings.savedBy1up}
+            </p>
+          )}
+          {verdict.life_earned && (
+            <p className="one-up" role="status">
+              {strings.oneUp}
+            </p>
+          )}
           <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
             {strings.nextQuestion}
           </button>
@@ -386,6 +437,16 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
           <button type="submit" className="button button--primary" disabled={judging || !canSubmit}>
             {judging ? <span className="blink">{strings.judging}</span> : strings.submit}
           </button>
+          {lives > 0 && (
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={skipQuestion}
+              disabled={judging}
+            >
+              {strings.skipQuestion}
+            </button>
+          )}
           {phase.kind === 'asking' && phase.error !== null && (
             <p className="message message--error" role="alert">
               {errorMessage(phase.error, strings)}

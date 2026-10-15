@@ -27,6 +27,8 @@ class LoggedQuestion:
     language: str
     number: int
     correct: bool
+    # Skipped with a 1UP: neither right nor wrong.
+    skipped: bool
     format: str
     question: str
     options: list[str]
@@ -84,6 +86,7 @@ def _logged(question: Question, ended_at: datetime, language: str) -> LoggedQues
         language=language,
         number=question.position,
         correct=bool(question.correct),
+        skipped=question.skipped,
         format=question.format,
         question=question.text,
         options=list(question.options or ()),

@@ -15,6 +15,9 @@ export interface Question {
   // Empty for free questions.
   options: string[];
   streak: number;
+  // 1UPs in stock and correct answers in a row towards the next one.
+  lives: number;
+  combo: number;
   // null when the server runs without a time limit.
   time_limit_seconds: number | null;
   // null until the question has been started (shown), see api.startQuestion.
@@ -25,6 +28,8 @@ export interface RunState {
   run_id: string;
   over: boolean;
   streak: number;
+  lives: number;
+  combo: number;
   open_question: Question | null;
   last_expected_answer: string | null;
   last_explanation: string | null;
@@ -43,7 +48,15 @@ export interface AnswerResult {
   game_over: boolean;
   // The answer came too late, or the time ran out without one.
   timed_out: boolean;
-  // Only set when the run is over.
+  lives: number;
+  combo: number;
+  // A correct answer completed the combo and earned a 1UP.
+  life_earned: boolean;
+  // A wrong or late answer cost a 1UP instead of ending the run.
+  saved: boolean;
+  // The question was skipped with a 1UP.
+  skipped: boolean;
+  // Set whenever the answer was not correct.
   expected_answer: string | null;
   // A sentence or two about the answer, shown after every verdict. null for old questions.
   explanation: string | null;
@@ -77,6 +90,8 @@ export interface LoggedQuestion {
   language: Language;
   number: number;
   correct: boolean;
+  // Skipped with a 1UP: neither right nor wrong.
+  skipped: boolean;
   format: QuestionFormat;
   question: string;
   // Choice questions: options in the shown order, correct_options as positions in it.
@@ -105,6 +120,7 @@ export type ErrorCode =
   | 'invalid_answer'
   | 'question_unavailable'
   | 'judge_unavailable'
+  | 'no_life_left'
   | 'run_not_over'
   | 'run_already_claimed'
   | 'invalid_handle'
@@ -169,7 +185,9 @@ export const api = {
   // Answers a choice question with the positions of the selected options.
   select: (runId: string, selected: number[]) =>
     request<AnswerResult>('POST', `/runs/${runId}/answer`, { selected }),
-  // Ends the run when the countdown ran out with nothing typed.
+  // Spends a 1UP to skip the open question.
+  skip: (runId: string) => request<AnswerResult>('POST', `/runs/${runId}/skip`),
+  // Ends the run when the countdown ran out with nothing typed (a 1UP may save it).
   timeOut: (runId: string) => request<AnswerResult>('POST', `/runs/${runId}/timeout`),
   claim: (runId: string, handle: string) =>
     request<ClaimResult>('POST', `/runs/${runId}/claim`, { handle }),

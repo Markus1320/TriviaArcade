@@ -25,6 +25,7 @@ const shared = {
   showLeaderboard: 'HIGH SCORES',
   leaderboard: 'HIGH SCORES',
   gameOver: 'GAME OVER',
+  oneUp: '1UP!',
   submit: 'ENTER',
   soundOn: '♪ ON',
   soundOff: '♪ OFF',
@@ -47,7 +48,7 @@ const en = {
 
   loadingQuestion: 'LOADING QUESTION',
   questionNumber: (number: number) => `QUESTION ${pad(number, 2)}`,
-  streakLabel: 'STREAK',
+  streakLabel: 'SCORE',
   answerLabel: 'YOUR ANSWER',
   answerPlaceholder: 'TYPE HERE',
   pickOne: 'PICK ONE',
@@ -61,6 +62,13 @@ const en = {
   optionWrong: 'WRONG',
   judging: 'JUDGING',
   correct: 'CORRECT!',
+  skipQuestion: 'SKIP (1UP)',
+  skipped: 'SKIPPED',
+  savedBy1up: 'SAVED BY 1UP!',
+  livesFull: '1UPS FULL',
+  comboToNext: (left: number) => `${String(left)} MORE FOR 1UP`,
+  lifeMeterLabel: (lives: number, combo: number) =>
+    `${String(lives)} 1UP. ${String(combo)} of 5 correct answers in a row towards the next.`,
   nextQuestion: 'NEXT QUESTION',
   retry: 'TRY AGAIN',
   timeLeftLabel: 'TIME LEFT',
@@ -85,7 +93,7 @@ const en = {
   leaderboardEmpty: 'NO SCORES YET. BE THE FIRST!',
   rank: 'RANK',
   handle: 'NAME',
-  score: 'STREAK',
+  score: 'SCORE',
   rankLabel: ordinal,
 
   showQuestionLog: 'QUESTION LOG',
@@ -97,6 +105,7 @@ const en = {
     date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).toUpperCase(),
   answeredRight: 'Answered correctly',
   answeredWrong: 'Answered wrongly',
+  answeredSkipped: 'Skipped with a 1UP',
   logFormat: 'FORMAT',
   formatNames: {
     free: 'TYPED ANSWER',
@@ -140,7 +149,7 @@ const de: Strings = {
 
   loadingQuestion: 'FRAGE WIRD GELADEN',
   questionNumber: (number: number) => `FRAGE ${pad(number, 2)}`,
-  streakLabel: 'SERIE',
+  streakLabel: 'PUNKTE',
   answerLabel: 'DEINE ANTWORT',
   answerPlaceholder: 'HIER TIPPEN',
   pickOne: 'WÄHLE EINE ANTWORT',
@@ -152,6 +161,13 @@ const de: Strings = {
   optionWrong: 'FALSCH',
   judging: 'PRÜFE',
   correct: 'RICHTIG!',
+  skipQuestion: 'ÜBERSPRINGEN (1UP)',
+  skipped: 'ÜBERSPRUNGEN',
+  savedBy1up: 'GERETTET DURCH 1UP!',
+  livesFull: '1UPS VOLL',
+  comboToNext: (left: number) => `NOCH ${String(left)} BIS 1UP`,
+  lifeMeterLabel: (lives: number, combo: number) =>
+    `${String(lives)} 1UP. ${String(combo)} von 5 richtigen Antworten in Folge bis zum nächsten.`,
   nextQuestion: 'NÄCHSTE FRAGE',
   retry: 'NOCHMAL',
   timeLeftLabel: 'VERBLEIBENDE ZEIT',
@@ -176,7 +192,7 @@ const de: Strings = {
   leaderboardEmpty: 'NOCH KEINE EINTRÄGE. MACH DEN ANFANG!',
   rank: 'PLATZ',
   handle: 'NAME',
-  score: 'SERIE',
+  score: 'PUNKTE',
   rankLabel: (rank: number) => `${String(rank)}.`,
 
   showQuestionLog: 'LETZTE FRAGEN',
@@ -188,6 +204,7 @@ const de: Strings = {
     date.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).toUpperCase(),
   answeredRight: 'Richtig beantwortet',
   answeredWrong: 'Falsch beantwortet',
+  answeredSkipped: 'Mit einem 1UP übersprungen',
   logFormat: 'FORMAT',
   formatNames: {
     free: 'FREIE ANTWORT',
@@ -215,6 +232,7 @@ const de: Strings = {
     no_open_question: 'Es gibt keine offene Frage.',
     invalid_answer: 'Bitte gib eine Antwort.',
     question_unavailable: 'Gerade konnte keine Frage erstellt werden. Bitte nochmal versuchen.',
+    no_life_left: 'Du hast kein 1UP zum Überspringen.',
     judge_unavailable:
       'Die Bewertung ist gerade nicht erreichbar. Dein Spiel ist pausiert; sende deine Antwort nochmal.',
     run_not_over: 'Nur beendete Spiele kommen in die Bestenliste.',

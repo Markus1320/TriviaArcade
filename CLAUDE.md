@@ -178,7 +178,12 @@ Before filling in model names, check which model tags are actually available for
 - 30 seconds per question (`ANSWER_TIME_SECONDS`), enforced server side and counted from
   when the question is shown. When the time is up, whatever the player typed is judged;
   with nothing typed the run ends. A late answer ends the run like a wrong one.
-- One wrong answer ends the run. No lives, no skips.
+- One wrong answer ends the run, unless the player has a 1UP: every 5 correct answers in
+  a row (the combo) earn one, at most 3 in stock. A wrong or late answer, or running out
+  of time, then costs a 1UP and resets the combo, and the run goes on with the correct
+  answer shown. A 1UP can also be spent to skip a question (SKIP button); a skip adds
+  nothing to the score and keeps the combo. Rules in `app/game/rules.py` (`LIFE_COMBO`,
+  `MAX_LIVES`, `apply_verdict`, `apply_skip`).
 - A question is answered by typing (`free`) or by picking from options: exactly one
   (`single`) or every one that applies (`multiple`: all correct options and no wrong one).
   Sorting questions (`order`) are answered by tapping all three or four items in the
@@ -186,7 +191,8 @@ Before filling in model names, check which model tags are actually available for
   judged like a typed answer (an incomplete order is wrong).
 - The game is played in English or German. A run keeps the language it was started in;
   both languages share one leaderboard.
-- The streak is the score.
+- The score is the number of correct answers in the run (stored as `runs.streak`, the
+  name from version one; the UI says SCORE / PUNKTE).
 - Within a run, the same starting node is never used twice, and neither is the start of any
   of the last `RECENT_STARTS_BLOCKED` (300) questions of all runs.
 - After every answer the player sees a short explanation (one or two sentences with the
@@ -451,6 +457,12 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 - `app/game/rules.py` and `app/leaderboard/{handles,ranking}.py` hold the rules as pure functions; `app/game/service.py` and `app/leaderboard/service.py` apply them in transactions.
 - Every run changing request locks the run row (`SELECT ... FOR NO KEY UPDATE`, so call log inserts referencing the run are not blocked). Parallel requests cannot create two questions or judge twice.
 - Asking for the next question while one is open returns the open question, so reloading cannot skip a question. The browser keeps only the run ID (in `sessionStorage`) and resumes after a reload.
+- 1UPs: `runs.lives` and `runs.combo`; `questions.skipped` marks a question skipped with
+  a 1UP (stored with `correct = false`). `POST /runs/{id}/skip` spends a 1UP (409
+  `no_life_left` without one); a skip after the deadline counts as running out of time.
+  Verdicts carry `lives`, `combo`, `life_earned`, `saved` (a 1UP took the hit) and
+  `skipped`, and the correct answer whenever the answer was not correct. A technical judge
+  failure never costs a 1UP.
 - A judge failure (`JudgeUnavailableError`) writes no verdict and returns 503 `judge_unavailable`; the question stays open and gets a fresh time limit. A generation failure returns 503 `question_unavailable`; the run continues.
 - Only claimed runs count for the leaderboard, one entry per player (`best_per_player` in `ranking.py`, a `row_number()` window query in `service.py`). Claiming returns the player's rank (may be below 10) and `personal_best`, whether this run became the player's entry.
 - After a correct answer the frontend immediately requests the next question in the background (prefetch), so NEXT QUESTION usually shows it without waiting. The server keeps it as the open question, so reloads stay safe.
@@ -465,7 +477,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
   `last_correct_options` and `last_selected_options` so the game over screen survives a
   reload.
 - Every verdict (`POST /answer`, `POST /timeout`) carries the question's `explanation`; `GET /runs/{id}` returns `last_explanation` once the run is over. The frontend shows it in the question box after a correct answer and under the answer on the game over screen.
-- `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay. A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
+- `python -m scripts.reset_leaderboard --yes` (inside the backend container) empties the leaderboard: runs are detached from their players but kept with their questions, handles stay (`--remove-handles` deletes them too; done when 1UPs were introduced). A claim checks `claimed_at`, so detached runs cannot be claimed again. Use it when rules or the question pool change so much that old scores are not comparable.
 - Question log: `GET /api/question-log?offset=N` lists the questions of finished runs,
   newest run first and within a run the last question first, 10 per request and at most
   the last 50 (`app/questionlog/service.py`). It shows whether each answer was right and
@@ -479,7 +491,7 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 ## Frontend and Styling
 
 - Classic arcade look: black background, neon colors, the "Press Start 2P" pixel font (bundled locally, not loaded from Google), subtle CRT scanline overlay.
-- Screens: title with blinking PRESS START, question screen with streak counter, game over, handle entry, leaderboard.
+- Screens: title with blinking PRESS START, question screen with score, 1UPs and combo, game over, handle entry, leaderboard, question log.
 - All assets are original. Do not use characters, sprites, logos or sounds from real arcade games.
 - Sound effects for correct, wrong and game over are generated with the Web Audio API (no audio files). Sound is **muted by default** with a visible toggle.
 - UI languages are English and German, switched with a button next to the sound toggle.
@@ -508,6 +520,7 @@ Current implementation:
   "YOU: n" where the player put one elsewhere.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.
+- `components/LifeMeter.tsx` shows the 1UPs as hearts and the combo as a bar of five cells under the HUD (constants mirror `rules.py`). After a correct answer that completes the combo "1UP!" flashes with its own sound (`oneUp` in `sfx.ts`); a saved or skipped question shows the answer and the explanation in a yellow box with SAVED BY 1UP / SKIPPED, then NEXT QUESTION.
 - `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
 
 ## Code Quality and Testing
@@ -592,7 +605,6 @@ A task is only finished when:
 
 These are planned for later. Keep the design open for them, but do not build them yet:
 
-- Lives or skips
 - Player accounts and handle protection
 - Per category leaderboards, stats, achievements
 - Production hosting outside the home network

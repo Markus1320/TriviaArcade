@@ -27,6 +27,7 @@ from app.db.models import RUN_OVER, Question, Run
 from app.game.rules import (
     Progress,
     answer_in_time,
+    apply_skip,
     apply_verdict,
     choice_correct,
     order_correct,
@@ -80,6 +81,10 @@ class QuestionUnavailableError(GameError):
     """No question could be created right now; the run continues."""
 
 
+class NoLifeLeftError(GameError):
+    """A skip needs a 1UP."""
+
+
 class JudgePausedError(GameError):
     """The judge failed technically. The run is paused, not ended; the answer can be resent."""
 
@@ -89,10 +94,13 @@ class QuestionView:
     question_id: int
     number: int
     text: str
-    # "free", "single" or "multiple"; options is empty for free questions.
+    # "free", "single", "multiple" or "order"; options is empty for free questions.
     format: str
     options: tuple[str, ...]
     streak: int
+    # 1UPs in stock and correct answers in a row towards the next one.
+    lives: int
+    combo: int
     # None when the time limit is off.
     time_limit_seconds: int | None
     # None until the question has been started (shown), or when the time limit is off.
@@ -105,7 +113,15 @@ class AnswerResult:
     streak: int
     game_over: bool
     timed_out: bool
-    # Only filled when the run is over: the correct answer to the last question.
+    lives: int
+    combo: int
+    # A correct answer completed the combo and earned a 1UP.
+    life_earned: bool
+    # A wrong (or late) answer cost a 1UP instead of ending the run.
+    saved: bool
+    # The question was skipped with a 1UP.
+    skipped: bool
+    # Filled whenever the answer was not correct: the correct answer to the question.
     expected_answer: str | None
     # What the player can learn from the question; sent after every verdict.
     explanation: str | None
@@ -119,6 +135,8 @@ class RunView:
     run_id: uuid.UUID
     over: bool
     streak: int
+    lives: int
+    combo: int
     open_question: QuestionView | None
     last_expected_answer: str | None
     last_explanation: str | None
@@ -185,6 +203,8 @@ class GameService:
                 run_id=run.id,
                 over=run.status == RUN_OVER,
                 streak=run.streak,
+                lives=run.lives,
+                combo=run.combo,
                 open_question=self._view(open_question, run) if open_question else None,
                 last_expected_answer=last.expected_answer if last else None,
                 last_explanation=last.explanation if last else None,
@@ -313,6 +333,29 @@ class GameService:
                 return self._finish(run, question, answer, correct=correct, timed_out=False)
         raise JudgePausedError(str(judge_error)) from judge_error
 
+    def skip(self, run_id: uuid.UUID) -> AnswerResult:
+        """Skip the open question with a 1UP. The score and the combo stay as they are.
+
+        A skip after the time limit counts as running out of time, which costs the 1UP
+        and the combo.
+        """
+        with self._session.begin():
+            run = self._load_run(run_id, lock=True)
+            question = self._open_question_or_raise(run)
+            if run.lives <= 0:
+                raise NoLifeLeftError("no 1UP left")
+            received_at = self._clock()
+            if question.shown_at is None:
+                question.shown_at = received_at
+            if not self._in_time(question, received_at):
+                return self._finish(run, question, None, correct=False, timed_out=True)
+            progress = apply_skip(self._progress(run))
+            question.skipped = True
+            question.correct = False
+            question.answered_at = received_at
+            run.lives = progress.lives
+            return self._result(run, question, correct=False, timed_out=False, skipped=True)
+
     def time_out(self, run_id: uuid.UUID) -> AnswerResult:
         """End the run because the time for the open question ran out without an answer.
 
@@ -334,7 +377,8 @@ class GameService:
         timed_out: bool,
         selected: list[int] | None = None,
     ) -> AnswerResult:
-        progress = apply_verdict(Progress(streak=run.streak), correct)
+        before = self._progress(run)
+        progress = apply_verdict(before, correct)
         now = self._clock()
         question.player_answer = answer[:MAX_STORED_ANSWER_LENGTH] if answer else answer
         question.selected_options = selected
@@ -342,15 +386,45 @@ class GameService:
         question.timed_out = timed_out
         question.answered_at = now
         run.streak = progress.streak
+        run.lives = progress.lives
+        run.combo = progress.combo
         if progress.over:
             run.status = RUN_OVER
             run.ended_at = now
+        return self._result(
+            run,
+            question,
+            correct=correct,
+            timed_out=timed_out,
+            life_earned=correct and progress.lives > before.lives,
+        )
+
+    @staticmethod
+    def _progress(run: Run) -> Progress:
+        return Progress(streak=run.streak, lives=run.lives, combo=run.combo)
+
+    @staticmethod
+    def _result(
+        run: Run,
+        question: Question,
+        *,
+        correct: bool,
+        timed_out: bool,
+        life_earned: bool = False,
+        skipped: bool = False,
+    ) -> AnswerResult:
+        over = run.status == RUN_OVER
         return AnswerResult(
             correct=correct,
-            streak=progress.streak,
-            game_over=progress.over,
+            streak=run.streak,
+            game_over=over,
             timed_out=timed_out,
-            expected_answer=question.expected_answer if progress.over else None,
+            lives=run.lives,
+            combo=run.combo,
+            life_earned=life_earned,
+            saved=not correct and not over and not skipped,
+            skipped=skipped,
+            expected_answer=None if correct else question.expected_answer,
             explanation=question.explanation,
             correct_options=tuple(question.correct_options or ()) if question.options else None,
         )
@@ -371,6 +445,8 @@ class GameService:
             format=question.format,
             options=tuple(question.options or ()),
             streak=run.streak,
+            lives=run.lives,
+            combo=run.combo,
             time_limit_seconds=self._time_limit,
             seconds_left=left,
         )

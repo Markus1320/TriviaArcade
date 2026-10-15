@@ -17,6 +17,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_game_service, get_leaderboard_service, get_question_log_service
 from app.db.models import Base, Question
+from app.game.rules import LIFE_COMBO
 from app.game.service import GameService
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.walk import NoQuestionSeedError
@@ -134,14 +135,16 @@ class Game:
         return self.client.post(f"/api/runs/{run_id}/answer", json={"selected": list(selected)})
 
     def play(self, correct_answers: int) -> str:
-        """Start a run, answer correctly n times, then wrongly. Returns the run ID."""
+        """Start a run, answer correctly n times, then wrongly until the 1UPs earned on the
+        way are used up and the run is over. Returns the run ID."""
         run_id = self.start()
         for _ in range(correct_answers):
             assert self.question(run_id).status_code == 200
             assert self.answer(run_id, "Secretland").json()["correct"] is True
-        self.question(run_id)
-        assert self.answer(run_id, "Nowhere").json()["game_over"] is True
-        return run_id
+        while True:
+            self.question(run_id)
+            if self.answer(run_id, "Nowhere").json()["game_over"]:
+                return run_id
 
     def claim(self, run_id: str, handle: str) -> Any:
         return self.client.post(f"/api/runs/{run_id}/claim", json={"handle": handle})
@@ -201,6 +204,8 @@ def test_question_does_not_reveal_the_answer(game: Game) -> None:
         "format": "free",
         "options": [],
         "streak": 0,
+        "lives": 0,
+        "combo": 0,
         "time_limit_seconds": 45,
         "seconds_left": None,
     }
@@ -220,6 +225,11 @@ def test_correct_answers_build_the_streak(game: Game) -> None:
             "streak": expected_streak,
             "game_over": False,
             "timed_out": False,
+            "lives": 0,
+            "combo": expected_streak,
+            "life_earned": False,
+            "saved": False,
+            "skipped": False,
             "expected_answer": None,
             "explanation": EXPLANATION,
             "correct_options": None,
@@ -237,6 +247,11 @@ def test_first_wrong_answer_ends_the_run_and_shows_the_answer(game: Game) -> Non
         "streak": 1,
         "game_over": True,
         "timed_out": False,
+        "lives": 0,
+        "combo": 0,
+        "life_earned": False,
+        "saved": False,
+        "skipped": False,
         "expected_answer": "Secretland",
         "explanation": EXPLANATION,
         "correct_options": None,
@@ -403,6 +418,11 @@ def test_late_answer_times_out_without_the_judge(game: Game) -> None:
         "streak": 0,
         "game_over": True,
         "timed_out": True,
+        "lives": 0,
+        "combo": 0,
+        "life_earned": False,
+        "saved": False,
+        "skipped": False,
         "expected_answer": "Secretland",
         "explanation": EXPLANATION,
         "correct_options": None,
@@ -829,3 +849,107 @@ def test_tapping_an_option_twice_is_rejected(game: Game) -> None:
     run_id = game.start()
     game.question(run_id)
     assert game.select(run_id, 1, 1, 0).status_code == 422
+
+
+# 1UPs and skips
+
+
+def earn_a_1up(game: Game, run_id: str) -> None:
+    for number in range(1, LIFE_COMBO + 1):
+        game.question(run_id)
+        result = game.answer(run_id, "Secretland").json()
+        assert result["life_earned"] is (number == LIFE_COMBO)
+    assert result["lives"] == 1
+    assert result["combo"] == 0
+
+
+def test_a_full_combo_earns_a_1up_that_saves_the_run(game: Game) -> None:
+    run_id = game.start()
+    earn_a_1up(game, run_id)
+    game.question(run_id)
+    result = game.answer(run_id, "Nowhere").json()
+    assert result["saved"] is True
+    assert result["game_over"] is False
+    assert result["lives"] == 0
+    assert result["streak"] == LIFE_COMBO
+    # The player learns the answer although the run goes on.
+    assert result["expected_answer"] == "Secretland"
+    assert game.question(run_id).json()["lives"] == 0
+    assert game.answer(run_id, "Nowhere").json()["game_over"] is True
+
+
+def test_running_out_of_time_with_a_1up_saves_the_run(game: Game) -> None:
+    run_id = game.start()
+    earn_a_1up(game, run_id)
+    game.question(run_id)
+    result = game.time_out(run_id).json()
+    assert result["saved"] is True
+    assert result["timed_out"] is True
+    assert result["game_over"] is False
+
+
+def test_skip_costs_a_1up_and_keeps_score_and_combo(game: Game) -> None:
+    run_id = game.start()
+    earn_a_1up(game, run_id)
+    game.question(run_id)
+    game.answer(run_id, "Secretland")
+    game.question(run_id)
+    result = game.client.post(f"/api/runs/{run_id}/skip").json()
+    assert result["skipped"] is True
+    assert result["saved"] is False
+    assert result["game_over"] is False
+    assert result["lives"] == 0
+    assert result["combo"] == 1
+    assert result["streak"] == LIFE_COMBO + 1
+    assert result["expected_answer"] == "Secretland"
+    assert game.judge.calls[-1][1] == "Secretland"  # the skipped question was not judged
+    with game.sessions() as session:
+        skipped = session.scalars(select(Question).order_by(Question.id.desc())).first()
+        assert skipped is not None
+        assert skipped.skipped is True
+    # The next question comes as usual.
+    assert game.question(run_id).json()["number"] == LIFE_COMBO + 3
+
+
+def test_skip_without_a_1up_is_refused(game: Game) -> None:
+    run_id = game.start()
+    game.question(run_id)
+    response = game.client.post(f"/api/runs/{run_id}/skip")
+    assert response.status_code == 409
+    assert response.json()["code"] == "no_life_left"
+    assert game.client.get(f"/api/runs/{run_id}").json()["open_question"] is not None
+
+
+def test_late_skip_counts_as_running_out_of_time(game: Game) -> None:
+    run_id = game.start()
+    earn_a_1up(game, run_id)
+    game.question(run_id)
+    game.answer(run_id, "Secretland")
+    game.question(run_id)
+    game.start_question(run_id)
+    game.wait(60)
+    result = game.client.post(f"/api/runs/{run_id}/skip").json()
+    assert result["timed_out"] is True
+    assert result["saved"] is True
+    assert result["skipped"] is False
+    assert result["combo"] == 0
+
+
+def test_question_log_marks_skipped_questions(game: Game) -> None:
+    run_id = game.start()
+    earn_a_1up(game, run_id)
+    game.question(run_id)
+    game.client.post(f"/api/runs/{run_id}/skip")
+    game.question(run_id)
+    game.answer(run_id, "Nowhere")
+    questions = game.client.get("/api/question-log").json()["questions"]
+    assert [(q["correct"], q["skipped"]) for q in questions[:2]] == [(False, False), (False, True)]
+
+
+def test_reset_can_remove_the_handles_too(game: Game) -> None:
+    run_id = game.play(1)
+    game.claim(run_id, "ALICE")
+    with game.sessions() as session:
+        assert LeaderboardService(session, game.clock).reset(remove_handles=True) == 1
+    assert game.client.get("/api/players").json() == []
+    assert game.claim(game.play(1), "ALICE").json()["rank"] == 1

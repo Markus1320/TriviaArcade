@@ -1,7 +1,11 @@
-"""Streak and game over rules (version one).
+"""Score, 1UP and game over rules.
 
-- The streak is the score: the number of correct answers in a row.
-- One wrong answer ends the run. No lives, no skips.
+- The score (stored as the run's streak) is the number of correct answers in the run.
+- Every LIFE_COMBO correct answers in a row earn a 1UP, up to MAX_LIVES in stock.
+- A wrong answer costs a 1UP if there is one, resets the combo and the run goes on;
+  without a 1UP it ends the run.
+- A 1UP can also be spent to skip a question. A skip adds nothing to the score and keeps
+  the combo where it was.
 - A technical judge failure is not a verdict and never reaches these rules.
 - Choice questions are checked by code: exactly the correct options must be selected.
 - With a time limit, an answer must arrive within the limit after the question was shown,
@@ -9,7 +13,7 @@
 """
 
 from collections.abc import Collection, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
 # Covers the delay between the browser's countdown reaching zero and the auto-submitted
@@ -17,7 +21,16 @@ from datetime import datetime, timedelta
 ANSWER_GRACE_SECONDS = 3.0
 
 
+# Correct answers in a row that earn a 1UP, and the most 1UPs a player can hold.
+LIFE_COMBO = 5
+MAX_LIVES = 3
+
+
 class RunAlreadyOverError(RuntimeError):
+    pass
+
+
+class NoLifeLeftError(RuntimeError):
     pass
 
 
@@ -25,14 +38,33 @@ class RunAlreadyOverError(RuntimeError):
 class Progress:
     streak: int = 0
     over: bool = False
+    lives: int = 0
+    # Correct answers in a row since the last 1UP or wrong answer.
+    combo: int = 0
 
 
 def apply_verdict(progress: Progress, correct: bool) -> Progress:
     if progress.over:
         raise RunAlreadyOverError("the run is already over")
     if correct:
-        return Progress(streak=progress.streak + 1, over=False)
-    return Progress(streak=progress.streak, over=True)
+        combo = progress.combo + 1
+        lives = progress.lives
+        if combo >= LIFE_COMBO:
+            # A full combo starts again; with a full stock the 1UP is lost.
+            combo = 0
+            lives = min(lives + 1, MAX_LIVES)
+        return replace(progress, streak=progress.streak + 1, lives=lives, combo=combo)
+    if progress.lives > 0:
+        return replace(progress, lives=progress.lives - 1, combo=0)
+    return replace(progress, over=True, combo=0)
+
+
+def apply_skip(progress: Progress) -> Progress:
+    if progress.over:
+        raise RunAlreadyOverError("the run is already over")
+    if progress.lives <= 0:
+        raise NoLifeLeftError("no 1UP left to skip with")
+    return replace(progress, lives=progress.lives - 1)
 
 
 def choice_correct(selected: Collection[int], correct: Collection[int]) -> bool:

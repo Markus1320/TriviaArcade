@@ -112,14 +112,22 @@ export function QuestionLogScreen({ onBack }: Props) {
 function LogEntry({ question, strings }: { question: LoggedQuestion; strings: Strings }) {
   const { notes } = question;
   return (
-    <details className={`log-entry log-entry--${question.correct ? 'right' : 'wrong'}`}>
+    <details
+      className={`log-entry log-entry--${question.correct ? 'right' : question.skipped ? 'skipped' : 'wrong'}`}
+    >
       <summary className="log-entry__summary">
         <span
           className="log-entry__mark"
           role="img"
-          aria-label={question.correct ? strings.answeredRight : strings.answeredWrong}
+          aria-label={
+            question.correct
+              ? strings.answeredRight
+              : question.skipped
+                ? strings.answeredSkipped
+                : strings.answeredWrong
+          }
         >
-          {question.correct ? '✓' : '✗'}
+          {question.correct ? '✓' : question.skipped ? '»' : '✗'}
         </span>
         <span className="log-entry__question">{question.question}</span>
       </summary>

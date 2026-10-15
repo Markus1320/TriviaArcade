@@ -4,9 +4,13 @@ import pytest
 
 from app.game.rules import (
     ANSWER_GRACE_SECONDS,
+    LIFE_COMBO,
+    MAX_LIVES,
+    NoLifeLeftError,
     Progress,
     RunAlreadyOverError,
     answer_in_time,
+    apply_skip,
     apply_verdict,
     choice_correct,
     order_correct,
@@ -16,29 +20,52 @@ from app.game.rules import (
 SHOWN = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)
 
 
-def test_correct_answer_increases_streak() -> None:
-    assert apply_verdict(Progress(streak=3), correct=True) == Progress(streak=4, over=False)
+def test_correct_answer_increases_score_and_combo() -> None:
+    assert apply_verdict(Progress(streak=3), correct=True) == Progress(streak=4, combo=1)
 
 
-def test_first_wrong_answer_ends_run_and_keeps_streak() -> None:
-    assert apply_verdict(Progress(streak=3), correct=False) == Progress(streak=3, over=True)
+def test_first_wrong_answer_without_a_1up_ends_run_and_keeps_score() -> None:
+    assert apply_verdict(Progress(streak=3, combo=2), correct=False) == Progress(
+        streak=3, over=True
+    )
 
 
 def test_wrong_first_answer_scores_zero() -> None:
     assert apply_verdict(Progress(), correct=False) == Progress(streak=0, over=True)
 
 
-def test_streak_counts_correct_answers_in_a_row() -> None:
+def test_full_combo_earns_a_1up_and_starts_again() -> None:
     progress = Progress()
-    for _ in range(5):
+    for _ in range(LIFE_COMBO):
         progress = apply_verdict(progress, correct=True)
-    assert progress == Progress(streak=5, over=False)
+    assert progress == Progress(streak=LIFE_COMBO, lives=1, combo=0)
+
+
+def test_1ups_stop_at_the_maximum() -> None:
+    progress = Progress(streak=20, lives=MAX_LIVES, combo=LIFE_COMBO - 1)
+    assert apply_verdict(progress, correct=True) == Progress(streak=21, lives=MAX_LIVES)
+
+
+def test_wrong_answer_costs_a_1up_and_resets_the_combo() -> None:
+    progress = Progress(streak=7, lives=2, combo=3)
+    assert apply_verdict(progress, correct=False) == Progress(streak=7, lives=1, combo=0)
+
+
+def test_skip_costs_a_1up_and_keeps_score_and_combo() -> None:
+    assert apply_skip(Progress(streak=7, lives=2, combo=3)) == Progress(streak=7, lives=1, combo=3)
+
+
+def test_skip_needs_a_1up() -> None:
+    with pytest.raises(NoLifeLeftError):
+        apply_skip(Progress(streak=7, combo=3))
 
 
 @pytest.mark.parametrize("correct", [True, False])
 def test_no_verdict_after_game_over(correct: bool) -> None:
     with pytest.raises(RunAlreadyOverError):
         apply_verdict(Progress(streak=2, over=True), correct=correct)
+    with pytest.raises(RunAlreadyOverError):
+        apply_skip(Progress(streak=2, over=True, lives=1))
 
 
 def test_seconds_left_counts_down_and_stops_at_zero() -> None:

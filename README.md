@@ -141,7 +141,9 @@ answer box is blocked.
 
 You have 30 seconds per question (a bar shows the time left); when the time is up, whatever
 you typed or picked is judged, and with nothing the run ends. Each correct answer adds one
-to your streak; the first wrong answer ends the run. After every answer you see a short
+to your score; the first wrong answer ends the run, unless you have a 1UP. Every 5 correct
+answers in a row earn a 1UP (hearts at the top, at most 3). A 1UP takes the hit of a wrong
+answer, or you spend it on SKIP to pass a question you do not know. After every answer you see a short
 explanation with the correct answer and a fact worth knowing, and for options which ones
 were right, missing or wrong.
 
@@ -173,7 +175,8 @@ All endpoints live under `/api`:
 | `POST` | `/runs/{run_id}/question` | next question; returns the open one if unanswered |
 | `POST` | `/runs/{run_id}/question/start` | starts the time limit of the open question when it is shown; returns `seconds_left` |
 | `POST` | `/runs/{run_id}/answer` | `{"answer": "..."}` (1 to 200 characters) for a typed answer or `{"selected": [0, 2]}` (option positions; for sorting questions in the tapped order) for a choice question; returns the verdict (`timed_out` if too late) and, for choice questions, `correct_options` |
-| `POST` | `/runs/{run_id}/timeout` | ends the run when the time ran out with no answer |
+| `POST` | `/runs/{run_id}/skip` | spends a 1UP to skip the open question (409 `no_life_left` without one) |
+| `POST` | `/runs/{run_id}/timeout` | the time ran out with no answer: costs a 1UP, or ends the run |
 | `POST` | `/runs/{run_id}/claim` | `{"handle": "..."}` after game over, once per run; returns rank and `personal_best` |
 | `GET` | `/leaderboard` | top 10 players, each with their best run |
 | `GET` | `/players` | existing handles, most recently used first |
@@ -185,8 +188,10 @@ To empty the leaderboard (runs and handles are kept, everybody starts from zero)
 docker compose exec backend python -m scripts.reset_leaderboard --yes
 ```
 
+Add `--remove-handles` to delete all handles as well.
+
 Errors return `{"code": "...", "detail": "..."}`, e.g. `judge_unavailable` (503) or
-`run_already_claimed` (409). Expected answers are only sent once the run is over.
+`run_already_claimed` (409). Expected answers are only sent once a question is judged.
 
 ## Questions from the LLM
 

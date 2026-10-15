@@ -57,7 +57,11 @@ class Run(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(10), default=RUN_ACTIVE)
+    # The score: correct answers in the run (named streak from version one).
     streak: Mapped[int] = mapped_column(Integer, default=0)
+    # 1UPs in stock and correct answers in a row towards the next one, see game/rules.py.
+    lives: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+    combo: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
     # Language of the questions, fixed when the run starts.
     language: Mapped[str] = mapped_column(String(2), default="en", server_default="en")
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -107,6 +111,8 @@ class Question(Base):
     player_answer: Mapped[str | None] = mapped_column(String(200))
     correct: Mapped[bool | None] = mapped_column(Boolean)
     timed_out: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Skipped with a 1UP; stored with correct = False, but neither right nor wrong.
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     run: Mapped[Run] = relationship(back_populates="questions")

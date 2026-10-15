@@ -7,6 +7,7 @@ from app.game.service import (
     GameError,
     InvalidAnswerError,
     JudgePausedError,
+    NoLifeLeftError,
     NoOpenQuestionError,
     QuestionUnavailableError,
     RunNotFoundError,
@@ -30,6 +31,7 @@ _ERRORS: dict[type[Exception], tuple[int, str, str]] = {
         "invalid_answer",
         "Please give an answer.",
     ),
+    NoLifeLeftError: (status.HTTP_409_CONFLICT, "no_life_left", "You have no 1UP to skip with."),
     QuestionUnavailableError: (
         status.HTTP_503_SERVICE_UNAVAILABLE,
         "question_unavailable",
