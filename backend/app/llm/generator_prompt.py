@@ -16,9 +16,11 @@ between them, found by walking from one entity to the next. Write exactly one qu
 inspired by these facts.
 
 Audience:
-- The player is an experienced quiz player, but not an expert. A typical adult with school
-  knowledge and an everyday interest in geography, films, music, sports and technology
-  should have a fair chance.
+- The player is a casual quiz player, not an expert: think of people born in the 1990s or
+  later. They have school knowledge and know the films, series, music, games, sports and
+  technology of roughly the last thirty years. Older people, works and events only when
+  they are still widely known today (the Beatles, World War II, Shakespeare). A typical
+  player of that age should know most answers or be able to work them out.
 - Judge yourself how well known each entity is. Build the question around entities you
   are confident a casual player knows; the others may appear as clues only.
 - Simple is good. A short, clear question beats a clever, convoluted one.

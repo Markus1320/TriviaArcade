@@ -270,7 +270,7 @@ The walker does not label how famous an entity is; the generator judges that its
 
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
-- Target audience in the prompt: an experienced quiz player who is not an expert; the request itself asks for an easy question for a casual player (see the format mix below for why). One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
+- Target audience in the prompt: a casual quiz player born in the 1990s or later, with school knowledge and the pop culture of roughly the last thirty years; older things only when still widely known. (It said "experienced quiz player" before; on 40 sample walks the casual wording made questions easier, mostly through more true or false: 8 to 14 of 40, free 19 to 14, some of them trivial. The true or false hint is in every request and may prime that type.) The request itself asks for an easy question for a casual player (see the format mix below for why). One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
 - The generator chooses one of four answer formats. The prompt lists them in order of
   difficulty (free, multiple, order, single) and tells the model to choose by two factors
   that weigh the same: difficulty (the less famous the fact, the further down the list)
@@ -520,7 +520,7 @@ Current implementation:
   "YOU: n" where the player put one elsewhere.
 - The answer input ignores paste and drop, and the open question text cannot be selected.
   This only slows down looking answers up; the time limit is the real defence.
-- `components/LifeMeter.tsx` shows the 1UPs as hearts and the combo as a bar of five cells under the HUD (constants mirror `rules.py`). After a correct answer that completes the combo "1UP!" flashes with its own sound (`oneUp` in `sfx.ts`); a saved or skipped question shows the answer and the explanation in a yellow box with SAVED BY 1UP / SKIPPED, then NEXT QUESTION.
+- `components/LifeMeter.tsx` shows the 1UPs as three hearts in the HUD between question number and score; the next empty heart fills from the bottom with the combo (a CSS gradient on the glyph, `--fill`). The constants mirror `rules.py`. After a correct answer that completes the combo "1UP!" flashes with its own sound (`oneUp` in `sfx.ts`); a saved or skipped question shows the answer and the explanation in a yellow box with SAVED BY 1UP / SKIPPED, then NEXT QUESTION.
 - `components/TimeBar.tsx` is the shrinking time bar (red in the last 5 seconds, which also tick); `useCountdown.ts` drives it from the server's `seconds_left`. The width is set from JavaScript, not a CSS transition, because `prefers-reduced-motion` turns transitions off.
 
 ## Code Quality and Testing
