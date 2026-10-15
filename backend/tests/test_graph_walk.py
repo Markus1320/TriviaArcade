@@ -159,3 +159,10 @@ def test_node_from_properties_separates_facts() -> None:
     assert node.facts == {"population": 3677472, "population_year": 2023}
     assert node.aliases == ("Berlin",)
     assert node.description is None
+
+
+def test_start_types_limit_where_walks_start() -> None:
+    settings = WalkSettings(start_types=frozenset({"river", "sea"}))
+    walker = RandomWalker(FakeRepository(), random.Random(3), settings)
+    starts = {walker.walk().start.entity_type for _ in range(50)}
+    assert starts == {"river", "sea"}

@@ -8,12 +8,17 @@ from app.graph.repository import Neo4jGraphRepository
 from app.graph.walk import RandomWalker, WalkSettings
 
 
-def build_walker(settings: Settings, rng: random.Random | None = None) -> RandomWalker:
+def build_walker(
+    settings: Settings,
+    rng: random.Random | None = None,
+    start_types: frozenset[str] = frozenset(),
+) -> RandomWalker:
     return RandomWalker(
         Neo4jGraphRepository(get_driver()),
         rng,
         WalkSettings(
             min_hops=settings.walk_min_hops,
             max_hops=settings.walk_max_hops,
+            start_types=start_types,
         ),
     )

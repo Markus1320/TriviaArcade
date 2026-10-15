@@ -35,6 +35,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also judge the expected answer, a wrong answer and an injection attempt",
     )
+    parser.add_argument(
+        "--types",
+        help="only start walks from these entity types, comma separated (e.g. animal,plant)",
+    )
     parser.add_argument("--no-log", action="store_true", help="do not log calls to PostgreSQL")
     parser.add_argument(
         "--language", choices=get_args(Language), default="en", help="language of the questions"
@@ -51,7 +55,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"LLM is not configured: {error}", file=sys.stderr)
         return 2
 
-    walker = build_walker(settings, random.Random(args.seed))
+    start_types = frozenset(t.strip() for t in args.types.split(",")) if args.types else frozenset()
+    walker = build_walker(settings, random.Random(args.seed), start_types)
     used_starts: set[str] = set()
     failures = 0
     formats: Counter[str] = Counter()

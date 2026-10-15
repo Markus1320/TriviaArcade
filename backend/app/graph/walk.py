@@ -30,6 +30,9 @@ class WalkSettings:
     max_hops: int = 2
     # Attempts to find an unused starting node that has at least one neighbor.
     max_start_attempts: int = 50
+    # Only start from these entity types; empty means all. For reviewing new types with
+    # the sample script, never set by the game.
+    start_types: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not 1 <= self.min_hops <= self.max_hops:
@@ -49,7 +52,11 @@ class RandomWalker:
 
     def walk(self, exclude_start_ids: Collection[str] = ()) -> QuestionSeed:
         # Read on every walk: cheap, and always matches the current import.
-        counts = {t: n for t, n in sorted(self._repository.type_counts().items()) if n > 0}
+        counts = {
+            t: n
+            for t, n in sorted(self._repository.type_counts().items())
+            if n > 0 and (not self._settings.start_types or t in self._settings.start_types)
+        }
         if not counts:
             raise NoQuestionSeedError("the knowledge graph is empty")
 
