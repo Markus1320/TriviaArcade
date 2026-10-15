@@ -1,4 +1,3 @@
-import math
 import random
 from itertools import pairwise
 
@@ -7,7 +6,6 @@ import pytest
 from app.graph.model import GraphEdge, GraphNode, Neighbor
 from app.graph.repository import node_from_properties
 from app.graph.walk import (
-    FAME_DEFAULT_LABEL,
     NoQuestionSeedError,
     RandomWalker,
     WalkSettings,
@@ -47,19 +45,6 @@ class FakeRepository:
             ("O2", "LOCATED_IN", "C"),
             ("B2", "COUNTRY", "A"),
         ]
-
-    def fame_thresholds(self, top_share: float) -> dict[str, int]:
-        # Same meaning as Neo4j's percentileDisc(sitelinks, 1 - top_share).
-        by_type: dict[str, list[int]] = {}
-        for wikidata_id, node in self.nodes.items():
-            by_type.setdefault(node.entity_type, []).append(self.sitelinks[wikidata_id])
-        percentile = 1.0 - top_share
-        result = {}
-        for entity_type, values in by_type.items():
-            values.sort()
-            index = max(0, math.ceil(percentile * len(values)) - 1)
-            result[entity_type] = values[index]
-        return result
 
     def type_counts(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -115,20 +100,6 @@ def test_every_type_is_an_equal_slice_of_the_starts() -> None:
     cities = [s.wikidata_id for s in starts if s.entity_type == "city"]
     for wikidata_id in ("B", "B2", "O1", "O2"):
         assert 0.2 < cities.count(wikidata_id) / len(cities) < 0.3
-
-
-def test_nodes_get_fame_labels_relative_to_their_type() -> None:
-    # Cities: 250 (top 10%), 200 (top 30%), 30 and 20 (below).
-    walker = RandomWalker(FakeRepository(), random.Random(2), LONG)
-    labels: dict[str, str | None] = {}
-    for _ in range(200):
-        for node in walker.walk().nodes:
-            labels[node.wikidata_id] = node.fame
-    assert labels["B"] == "world famous"
-    assert labels["B2"] == "well known"
-    assert labels["O1"] == FAME_DEFAULT_LABEL
-    # The only river is the most famous of its kind.
-    assert labels["C"] == "world famous"
 
 
 def test_default_walk_has_one_or_two_hops() -> None:

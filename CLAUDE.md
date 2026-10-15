@@ -235,7 +235,7 @@ All randomness comes from code. The graph access lives behind a clear interface 
 
 Current implementation (`app/graph/walk.py`): the start is chosen by picking an entity type uniformly, then a random entity of that type. Every type is one equal slice of the question starts, however many entities it has; within a type every entity is equally likely. There are no weights per type: how the types are cut in `config/import.yaml` decides the mix. Every imported entity can take part, for the start and for every step. The import thresholds in `config/import.yaml` are the only fame filter (an earlier second filter, `WALK_TOP_SHARE`, was removed); to make a type less obscure, raise its threshold and re-import. The walk takes `WALK_MIN_HOPS` to `WALK_MAX_HOPS` hops (default 1 to 2), the natural base for a later difficulty ramp.
 
-The walker also labels every node of a seed with its fame relative to its type: top 10% "world famous", top 30% "well known", otherwise "known to fans" (`FAME_LEVELS` in `walk.py`). The generator prompt requires the answer to be world famous or well known. Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
+The walker does not label how famous an entity is; the generator judges that itself. (Labels relative to the type, "world famous" / "well known" / "known to fans", were removed: on the same 30 walks they changed little, questions without them were slightly easier, and they did not cause or prevent repetition.) Starts without neighbors are skipped. Each hop goes to a random neighbor (either direction) not visited yet; a dead end ends the walk early. `RandomWalker` takes a `random.Random`, so walks are reproducible with a seed.
 
 ## LLM Integration
 
@@ -287,10 +287,15 @@ The walker also labels every node of a seed with its fame relative to its type: 
   the mismatch and asks for the names usual in that language, with the English name as an
   accepted answer. Whether German names need to come from the graph instead is decided on
   real questions.
-- The fame labels from the walk are passed on as a hint only: sitelink counts are often
-  skewed, so the prompt tells the model to trust its own judgement of what a casual player
-  knows. Birthplaces and places of death are ruled out as question targets (prompt rule
-  only; the relations stay in the graph).
+- The facts carry no fame labels; the prompt tells the model to judge itself how well
+  known each entity is and to build the question around entities a casual player knows.
+  Birthplaces and places of death are ruled out as question targets (prompt rule only;
+  the relations stay in the graph). Sorting questions need three or four items; with two
+  they are just "pick one" and belong in a comparison.
+- Repetition: within a run only the start entity is blocked. Different walks reach the
+  same entities, and the model then tends to ask the same famous fact (twice "Earth is to
+  the Moon as Neptune is to ...?" in one batch of 30). Passing the run's earlier topics to
+  the generator would be the direct fix; not built yet.
 - Code checks on the output (`generator.py`), each counting as invalid output with a retry:
   a free question must not contain its expected or an accepted answer (word for word,
   answers under three characters are not checked); a single choice question must not name

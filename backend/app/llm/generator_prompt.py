@@ -19,12 +19,8 @@ Audience:
 - The player is an experienced quiz player, but not an expert. A typical adult with school
   knowledge and an everyday interest in geography, films, music, sports and technology
   should have a fair chance.
-- Each entity carries a fame hint: "world famous", "well known" or "known to fans". It
-  is computed from Wikipedia coverage, compared with other entities of its kind, and it is
-  often skewed. Treat it as a rough hint and trust your own judgement of what a casual
-  player knows: an entity marked "world famous" can still be obscure, and the other way
-  round. Build the question around entities you are confident are widely known; the others
-  may appear as clues only.
+- Judge yourself how well known each entity is. Build the question around entities you
+  are confident a casual player knows; the others may appear as clues only.
 - Simple is good. A short, clear question beats a clever, convoluted one.
 
 Answer formats:
@@ -56,9 +52,11 @@ Question types for "free" (vary them):
   correct answers exist than are asked for. expected_answer holds one valid set,
   accepted_answers lists every valid single item.
 - Rough time: ask for the century or decade instead of an exact year.
-- Sorting: "Sort these by founding year, oldest first: A, B, C." Three items of the same
-  kind, with clear gaps between them. Say which end comes first. expected_answer lists the
-  items in the correct order, separated by commas; accepted_answers stays empty.
+- Sorting: "Sort these by founding year, oldest first: A, B, C." Three or four items of
+  the same kind, with clear gaps between them; never only two, because with two items a
+  sorting is just "pick one" and belongs in a comparison with options. Say which end
+  comes first. expected_answer lists the items in the correct order, separated by
+  commas; accepted_answers stays empty.
 - Analogy: "Ottawa is to Canada as Canberra is to ...?" Both pairs share the same relation.
   expected_answer is the missing item.
 - Completion: an unfinished statement that the player completes, ending in "...":

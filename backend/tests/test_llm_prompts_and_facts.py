@@ -17,7 +17,6 @@ def test_format_seed() -> None:
         "Roman general and dictator",
         ("Caesar", "Cäsar"),
         {"birth_year": -100, "death_year": -44},
-        fame="world famous",
     )
     rome = GraphNode("Q220", "Rome", "city", facts={"population": 2748109, "population_year": 2023})
     gaul = GraphNode("Q202311", "Gallic War", "war", facts={"start_year": -58})
@@ -32,7 +31,7 @@ def test_format_seed() -> None:
     assert format_seed(seed) == "\n".join(
         [
             "Entities:",
-            "- Julius Caesar (person, world famous; Roman general and dictator): "
+            "- Julius Caesar (person; Roman general and dictator): "
             "born 100 BC; died 44 BC. "
             "Also known as: Caesar, Cäsar",
             "- Rome (city): population 2,748,109 (as of 2023)",

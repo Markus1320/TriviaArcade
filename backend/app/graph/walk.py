@@ -14,17 +14,10 @@ All randomness comes from the injected random.Random, so walks are reproducible 
 
 import random
 from collections.abc import Collection
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.repository import GraphRepository
-
-# Fame labels for the generator, from the most famous share of each type downwards.
-# Entities below the last share get FAME_DEFAULT_LABEL. Fame is compared within a type,
-# because sitelink counts differ a lot between types: a famous battle has fewer sitelinks
-# than a mid-sized city.
-FAME_LEVELS: tuple[tuple[float, str], ...] = ((0.1, "world famous"), (0.3, "well known"))
-FAME_DEFAULT_LABEL = "known to fans"
 
 
 class NoQuestionSeedError(RuntimeError):
@@ -69,23 +62,11 @@ class RandomWalker:
                 continue
             seed = self._walk_from(start)
             if seed.edges:
-                return self._with_fame_labels(seed)
+                return seed
         raise NoQuestionSeedError(
             f"no unused starting node with neighbors after {self._settings.max_start_attempts} "
             "attempts"
         )
-
-    def _with_fame_labels(self, seed: QuestionSeed) -> QuestionSeed:
-        levels = [(self._repository.fame_thresholds(share), label) for share, label in FAME_LEVELS]
-
-        def labeled(node: GraphNode) -> GraphNode:
-            for level_thresholds, label in levels:
-                if node.sitelinks >= level_thresholds.get(node.entity_type, 0):
-                    return replace(node, fame=label)
-            return replace(node, fame=FAME_DEFAULT_LABEL)
-
-        nodes = tuple(labeled(node) for node in seed.nodes)
-        return QuestionSeed(start=nodes[0], nodes=nodes, edges=seed.edges)
 
     def _walk_from(self, start: GraphNode) -> QuestionSeed:
         hops = self._rng.randint(self._settings.min_hops, self._settings.max_hops)

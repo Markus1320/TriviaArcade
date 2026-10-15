@@ -13,10 +13,6 @@ _NON_FACT_PROPERTIES = frozenset(
 
 
 class GraphRepository(Protocol):
-    def fame_thresholds(self, top_share: float) -> dict[str, int]:
-        """Per entity type, the sitelinks count that the most famous top_share reach."""
-        ...
-
     def type_counts(self) -> dict[str, int]:
         """Number of entities per type."""
         ...
@@ -33,14 +29,6 @@ class GraphRepository(Protocol):
 class Neo4jGraphRepository:
     def __init__(self, driver: Driver) -> None:
         self._driver = driver
-
-    def fame_thresholds(self, top_share: float) -> dict[str, int]:
-        records, _, _ = self._driver.execute_query(
-            "MATCH (n:Entity) "
-            "RETURN n.entity_type AS type, percentileDisc(n.sitelinks, $percentile) AS threshold",
-            percentile=max(0.0, 1.0 - top_share),
-        )
-        return {record["type"]: record["threshold"] for record in records}
 
     def type_counts(self) -> dict[str, int]:
         records, _, _ = self._driver.execute_query(

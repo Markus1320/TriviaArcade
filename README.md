@@ -186,10 +186,15 @@ Questions are generated in two independent LLM calls through the Ollama API:
    so large types do not dominate) and walks 1 to 2 hops through the graph (configurable
    with `WALK_MIN_HOPS` and `WALK_MAX_HOPS`).
 2. The generator model writes a question from these facts, returned as JSON and validated.
-   It chooses the answer format by difficulty: `free` (typed answer, with expected and
+   Before the question it fills in four note fields: the `topic` (which entity and fact to
+   ask about; the model judges itself how well known an entity is), three `candidates` of
+   different question types (comparisons, analogies, open questions, true or false and
+   others, never a plain direct question), its `choice` among them (or "none", then it asks
+   a plain question) and a `review` of the chosen question. The notes are logged, never
+   shown to the player. The answer format is `free` (typed answer, with expected and
    accepted answers), `single` (options, one correct) or `multiple` (options, several
-   correct). It also writes a short explanation, shown after every answer. Free questions
-   that contain their own answer are rejected and written again.
+   correct). The model also writes a short explanation, shown after every answer.
+   Questions that give their own answer away are rejected and written again.
 3. Typed answers go to the judge model, which decides whether the answer is correct and may
    only reply `true` or `false`. The player's answer is treated as untrusted data inside
    clear delimiters. Picked options are checked by code, without an LLM call.
@@ -221,7 +226,8 @@ random walk picks:
 - Fame thresholds in `config/import.yaml`: only entities above their type's threshold are
   imported, and every imported entity can appear in questions. Raise a threshold to make a
   type less obscure, then rerun the importer. Every entity type gets the same share of
-  question starts.
+  question starts. The generator is not told how famous an entity is; it decides that
+  itself.
 - `WALK_MIN_HOPS` / `WALK_MAX_HOPS` (default `1` / `2`): how many relations a question may
   connect. Fewer hops give simpler questions.
 - `ANSWER_TIME_SECONDS` (default `30`): seconds per question, counted from when it is
@@ -244,7 +250,32 @@ a prompt injection attempt (both should be `false`). `--seed 42` makes the walks
 reproducible, `--no-log` skips the call log, `--language de` asks for German questions.
 The last line counts the questions per answer format.
 
-To look at logged calls:
+To look at logged calls, open a database prompt (`-x` prints each row as a list, which
+suits long texts; leave with `\q`):
+
+```bash
+docker compose exec postgres sh -c 'psql -x -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+```
+
+The last generated questions with the model's notes:
+
+```sql
+SELECT created_at, attempt, latency_ms,
+       parsed->>'topic' AS topic, parsed->'candidates' AS candidates,
+       parsed->>'choice' AS choice, parsed->>'review' AS review,
+       parsed->>'format' AS format, parsed->>'question' AS question
+FROM llm_calls WHERE purpose = 'generate' AND parsed IS NOT NULL
+ORDER BY id DESC LIMIT 10;
+```
+
+Rejected or failed attempts:
+
+```sql
+SELECT created_at, purpose, attempt, left(error, 200) AS error, raw_output
+FROM llm_calls WHERE error IS NOT NULL ORDER BY id DESC LIMIT 10;
+```
+
+Or all calls at a glance:
 
 ```bash
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, purpose, model, attempt, latency_ms, parsed, error FROM llm_calls ORDER BY id DESC LIMIT 20"'
