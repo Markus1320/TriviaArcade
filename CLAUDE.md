@@ -265,9 +265,13 @@ The walker does not label how famous an entity is; the generator judges that its
 - Input: the subgraph facts from the random walk.
 - The LLM has creative freedom in how it builds the question, including questions that connect several hops.
 - Target audience in the prompt: an experienced quiz player who is not an expert; the request itself asks for an easy question for a casual player (see the format mix below for why). One clear answer. No obscure numbers. Only the facts needed to point to the answer are used, no side details. The prompt contains good examples and real too-hard examples for calibration.
-- The generator chooses one of three answer formats. The prompt lists them in order of
-  priority (free, then multiple, then single) and tells the model to take the first one
-  that gives a good question; going down the list is also the lever for less famous facts:
+- The generator chooses one of four answer formats. The prompt lists them in order of
+  difficulty (free, multiple, order, single) and tells the model to choose by two factors
+  that weigh the same: difficulty (the less famous the fact, the further down the list)
+  and fun (a surprising true or false claim, a close comparison or a sorting is often more
+  entertaining than one more typed answer). Easy points are not fun: claims anyone sees
+  through, comparisons with an obvious winner and options with only one plausible answer
+  stay free or ask something else.
   - `free`: the player types. For answers a casual player can recall. Question types:
     direct, record or rank ("the first country to...", "the second largest..."), open
     ("Name a country that borders Germany"), name several, rough time (century), analogy
@@ -278,7 +282,7 @@ The walker does not label how famous an entity is; the generator judges that its
   - `single`: options with exactly one correct. The last choice, for the hardest facts and
     everything that offers alternatives: true or false, comparisons (the two things are
     the options), "which of these" with three or four options, odd one out.
-  - `order`: outside that order, the only format for sorting questions ("oldest first").
+  - `order`: the only format for sorting questions ("oldest first").
     Three or four items as options; `correct_options` lists every option in the correct
     order. The code checks that, and shuffles until the shown order is not already sorted.
   Comparisons of size or location pair two entities of the same kind, neither part of the
@@ -307,7 +311,15 @@ The walker does not label how famous an entity is; the generator judges that its
   belong in a comparison.
 - Sorting share: with sorting as its own format, one sorting example among the choice
   examples and no push, a batch of 40 had no sorting question, and only 1 of 120
-  candidate drafts was a sorting question (with two items).
+  candidate drafts was a sorting question (with two items). A hint per request was
+  offered and declined for now.
+- Fun as a format factor, measured on the same 40 walks (seed 41): with the formats only
+  in order of difficulty 38 to 40 were free. Fun as an equal factor gave 15 free, 1
+  multiple, 24 single, with 12 true or false questions, many trivially false ("Handel was
+  a French composer"). Adding "easy points are not fun" (current) gave 19 free, 1
+  multiple, 20 single, with better comparisons ("Snow White or Java?") but still some
+  options that make a famous fact easy. Adding entertainment as a general content rule
+  (audience, topic, review) changed nothing measurable and was dropped.
 - Repetition: the start entity is blocked within a run and for the last 300 questions of
   all runs (`GameService._recent_starts`); hops avoid hubs (see the random walk). Different walks reach the
   same entities, and the model then tends to ask the same famous fact (twice "Earth is to

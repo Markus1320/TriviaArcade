@@ -24,21 +24,28 @@ Audience:
 - Simple is good. A short, clear question beats a clever, convoluted one.
 
 Answer formats:
-Every question has one of three answer formats. They are listed in order of priority.
-Consider them in this order and take the first one that gives a good question:
-1. "free": the player types the answer. This is the default. Use it whenever a casual
-   player can recall the answer without help.
-2. "multiple": the player ticks every option that applies. This is the second choice.
-   Use it when the answer is too hard to recall for "free" and several things share a
-   property, so that the options can all be the same kind of thing.
-3. "single": the player picks exactly one of the options you provide. This is the last
+Every question has one of four answer formats. They are listed in order of difficulty:
+1. "free": the player types the answer. Use it whenever a casual player can recall the
+   answer without help.
+2. "multiple": the player ticks every option that applies. Use it when the answer is too
+   hard to recall for "free" and several things share a property, so that the options can
+   all be the same kind of thing.
+3. "order": the player taps your items in the correct order. It is the only format for
+   sorting questions (see below).
+4. "single": the player picks exactly one of the options you provide. This is the last
    choice, for the hardest questions about less famous facts, and for questions that are
    a choice by nature (true or false, "A or B", odd one out).
-The order is also how you adjust the difficulty: the less famous the fact, the further
-down the list you go. A famous fact is never asked with options, because options make it
-trivial.
-A fourth format stands apart from this order: "order", the player taps your items in the
-correct order. It is the only format for sorting questions (see below).
+Choose the format by two factors that weigh the same:
+- Difficulty: the less famous the fact, the further down the list you go. Options make a
+  question easier, so they must never make it trivial.
+- Fun: which format makes the most entertaining question from these facts? A surprising
+  true or false claim, a close comparison, a sorting of three things or an odd one out is
+  often more fun than one more typed answer. A game made only of typed answers gets dull,
+  so do not default to "free" when another format gives an equally good question.
+  Easy points are not fun, though: a false claim anyone sees through ("Handel was a French
+  composer"), a comparison with an obvious winner or options where only one is plausible
+  make a question dull, whatever the format. Such a question stays "free" or asks
+  something else.
 
 Question types for "free" (vary them):
 - Direct question with exactly one answer: "What is the capital of New Zealand?"
@@ -107,7 +114,7 @@ Question type for "order":
 Examples:
 - The request shows two example questions, one with options and one without. Let them
   inspire the style of your question. They are not a hint which format to use: choose the
-  format by the order of priority above. Never copy their topics or entities: the content
+  format by difficulty and fun as described above. Never copy their topics or entities: the content
   of your question comes from the facts.
 
 Grounding:
@@ -233,8 +240,8 @@ working steps; the player never sees them. Keep them short.
    shares a property, an order in time, a record. You may add your own knowledge to make
    them work.
 3. "choice": which candidate you take and why. Take one only if it is a really good
-   question: clear, fair, certainly true, not forced and not trivial. The order of
-   priority (free, multiple, single) only decides between candidates of equal quality.
+   question: clear, fair, certainly true, not forced and not trivial. Between good
+   candidates, weigh difficulty and fun equally (see "Answer formats").
    Often none of the three is good enough; that is a normal outcome, expect it for about
    half of the questions. Then write "none" with the reason for each, and ask a plain
    direct question or a completion instead.
@@ -296,8 +303,8 @@ USER_TEMPLATE = Template(
     "Facts:\n\n$facts\n\n"
     "$true_false_hint\n\n"
     "Write one easy trivia question for a casual quiz player, in English. Choose the answer "
-    "format in the order of priority: free, then multiple, then single. Reply with the "
-    "JSON object only."
+    "format by difficulty and by fun, two factors that weigh the same. Reply with the JSON "
+    "object only."
 )
 
 # The same request in German. The examples and facts stay English; the request says so and
@@ -308,8 +315,8 @@ USER_TEMPLATE_DE = Template(
     "$true_false_hint\n\n"
     "Schreibe eine leichte Quizfrage für einen Gelegenheitsspieler, auf Deutsch. Frage, "
     "Optionen, Antworten und Erklärung sind auf Deutsch, mit den im Deutschen üblichen "
-    "Namen. Wähle das Antwortformat in der Reihenfolge der Priorität: erst free, dann "
-    "multiple, dann single. Antworte nur mit dem JSON-Objekt."
+    "Namen. Wähle das Antwortformat nach Schwierigkeit und nach Unterhaltungswert, zwei "
+    "gleich wichtigen Faktoren. Antworte nur mit dem JSON-Objekt."
 )
 
 Example = dict[str, Any]
