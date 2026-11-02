@@ -96,9 +96,11 @@ services:
       WALK_MIN_HOPS: ${WALK_MIN_HOPS:-1}
       WALK_MAX_HOPS: ${WALK_MAX_HOPS:-2}
       WALK_HUB_PENALTY: ${WALK_HUB_PENALTY:-0.5}
-      POOL_DIR: /pool
+      # Inside data/ (owned by the container user on the server, like for the importer),
+      # so the container creates the folder itself.
+      POOL_DIR: /data/pool
     volumes:
-      - ./data/pool:/pool
+      - ./data:/data
     depends_on:
       postgres:
         condition: service_healthy

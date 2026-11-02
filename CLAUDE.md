@@ -485,12 +485,13 @@ Pipeline (`backend/poolgen/`, one walk at a time):
 - Files: `<dir>/<language>.jsonl` (accepted) and `<dir>/<language>.rejected.jsonl`, one
   JSON object per line, appended at once so a run can stop any time. The generator writes
   to `data/pool/` (gitignored; on the server owned by the container user like the rest of
-  `data/`); finished pools are copied into the repository's `pool/` and committed.
+  `data/`; the whole `data/` is mounted, because a missing bind mount folder is created
+  by Docker as root and the container cannot write to it); finished pools are copied into the repository's `pool/` and committed.
 - One pool per language, chosen with `--language`; no translation.
 - HTTP 429 from Ollama (`LLMRateLimitError`) drops the walk in progress and waits
   `--wait-hours` (5); so do five technical failures in a row.
 - Run: `docker compose run --rm poolgen python -m poolgen --language en --walks N
-  [--dir /pool/<name>] [--seed S]`, review with `python -m poolgen.report --language en
+  [--dir /data/pool/<name>] [--seed S]`, review with `python -m poolgen.report --language en
   [--dir ...]`. Calls are logged to `llm_calls` with the purposes `critic` and `solve`.
 - First trial (30 walks, seed 41, before critic tuning): 28 accepted, 3.7 calls and 28
   seconds per accepted question, formats free 6, single 19, multiple 1, order 2. The
