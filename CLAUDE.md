@@ -105,7 +105,7 @@ Key principles:
 │   │   ├── records.py          # JSONL records, accepted and rejected
 │   │   └── report.py           # python -m poolgen.report: review a pool
 │   ├── scripts/                # manual tools: sample_questions.py (real LLM calls),
-│   │                           # reset_leaderboard.py
+│   │                           # reset_leaderboard.py, evaluate_matcher.py
 │   └── tests/
 └── frontend/
     ├── package.json
@@ -504,6 +504,30 @@ Pipeline (`backend/poolgen/`, one walk at a time):
   offer one): 29 accepted, 8 after a revision, formats free 8, single 17, multiple 3,
   order 1, with four analogies. The critic now catches obvious outliers (Biryani became
   a choice among Indian dishes, Titan became Rhea) but still approved the Elbrus question.
+
+### Answer Matcher (pool only mode)
+
+`app/game/matcher.py` judges typed answers by code (`AnswerKey.of(question, *answer
+lists)`, `match_answer`). Not wired into the game yet.
+
+- Normalization: case, accents, punctuation, spacing, leading articles and a leading "in"
+  / "in the" / "im" do not matter. "19th century" may be answered "19" (and "19.
+  Jahrhundert").
+- Typos: up to six letters a changed letter is never accepted (Rhine and Rhone, Iran and
+  Iraq, AS and AC Roma), only one missing or extra letter (five or more letters) or two
+  swapped neighbours; 7 to 8 letters one edit, 9 or more two (Slovakia and Slovenia are
+  two apart). Digits must match exactly.
+- "Name three ..." (also German "Nenne drei") needs that many distinct matching items,
+  split at commas, "and", "und", "&", "/".
+- Measured with `scripts/evaluate_matcher.py` against 741 real judge verdicts of live
+  questions (exported to the gitignored `data/judge-eval.jsonl`; it holds player answers),
+  using only the generator's answer lists: 94.6% agreement, no answer the judge rejected
+  is accepted. Of the 40 answers the judge accepted and the matcher did not, about 13 are
+  German names in English runs (Themse, Florenz), 13 open questions with incomplete lists
+  (Israel for "borders Syria"), 8 short forms (Fischer, Russia for Russian Empire) and 6
+  bad typos.
+- Graph aliases are not used for matching: Wikidata aliases include wrong friends (Zeus
+  has "Jupiter" and "Jove", rabies "extreme salivation").
 
 ## Players and Leaderboard
 

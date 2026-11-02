@@ -7,28 +7,13 @@ Three layers:
 - The same typed answer is allowed at most answer_cap times.
 """
 
-import re
-import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Sequence
 
+from app.game.matcher import normalize_answer
 from app.graph.model import GraphNode, QuestionSeed
 from app.llm.generator import GeneratedQuestion, find_giveaway
 from poolgen.records import PoolQuestion, Rejection
-
-LEADING_ARTICLES = ("the ", "a ", "an ", "der ", "die ", "das ", "le ", "la ", "les ")
-
-
-def normalize_answer(text: str) -> str:
-    """Case, accents, punctuation and a leading article do not matter."""
-    decomposed = unicodedata.normalize("NFKD", text.casefold())
-    plain = "".join(char for char in decomposed if not unicodedata.combining(char))
-    words = " ".join(re.findall(r"\w+", plain.replace("ß", "ss")))
-    for article in LEADING_ARTICLES:
-        if words.startswith(article) and len(words) > len(article):
-            words = words[len(article) :]
-            break
-    return words
 
 
 def summary(question: GeneratedQuestion) -> str:

@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from app.game.matcher import normalize_answer
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.llm.client import LLMError, LLMRateLimitError
 from app.llm.critic import QuestionCritic, parse_critic_verdict
@@ -14,7 +15,7 @@ from app.llm.critic_prompt import PROMPT as CRITIC_PROMPT
 from app.llm.generator import GeneratedQuestion, QuestionGenerator, parse_generated_question
 from app.llm.solver import BlindSolver, parse_solver_answers
 from app.llm.solver_prompt import PROMPT as SOLVER_PROMPT
-from poolgen.index import PoolIndex, answer_aliases, mentioned_entities, normalize_answer
+from poolgen.index import PoolIndex, answer_aliases, mentioned_entities
 from poolgen.pipeline import CountingClient, PoolPipeline, UsageLimitReached, solver_miss
 from poolgen.records import (
     PoolQuestion,

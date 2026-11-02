@@ -16,6 +16,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.game.matcher import normalize_answer
 from app.graph.model import QuestionSeed
 from app.llm.client import ChatRequest, LLMClient, LLMRateLimitError
 from app.llm.critic import QuestionCritic, draft_for_review
@@ -23,12 +24,7 @@ from app.llm.facts import format_seed
 from app.llm.generator import GeneratedQuestion, QuestionGenerationError, QuestionGenerator
 from app.llm.solver import BlindSolver
 from app.llm.structured import StructuredCallError
-from poolgen.index import (
-    PoolIndex,
-    answer_aliases,
-    mentioned_entities,
-    normalize_answer,
-)
+from poolgen.index import PoolIndex, answer_aliases, mentioned_entities
 from poolgen.records import PoolQuestion, Rejection, Round, question_id
 
 EXISTING_NOTE = (
