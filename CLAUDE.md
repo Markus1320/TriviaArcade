@@ -497,6 +497,12 @@ Pipeline (`backend/poolgen/`, one walk at a time):
   critic fixed real problems (Malta has two official languages, a trivial true or false)
   but let giveaway options pass (Biryani among Sushi, Paella, Risotto) and a disputed
   fact (Elbrus as Europe's highest mountain with Mont Blanc as an option).
+- Second trial (same walks) after adding a giveaway test with those real examples, a
+  point on facts that depend on a definition, and a light format point (recallable
+  answers are better typed; suggest a more interesting type only when the facts clearly
+  offer one): 29 accepted, 8 after a revision, formats free 8, single 17, multiple 3,
+  order 1, with four analogies. The critic now catches obvious outliers (Biryani became
+  a choice among Indian dishes, Titan became Rhea) but still approved the Elbrus question.
 
 ## Players and Leaderboard
 
