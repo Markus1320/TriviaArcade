@@ -99,6 +99,11 @@ Key principles:
 │   │   ├── build.py            # seeds -> relations -> labels -> facts
 │   │   ├── explore.py          # python -m importer.explore: preview candidate types
 │   │   └── loader.py           # writes the graph into Neo4j
+│   ├── poolgen/                # question pool generator (python -m poolgen)
+│   │   ├── pipeline.py         # write -> critic (revise loop) -> blind solve
+│   │   ├── index.py            # what the pool holds: used starts, related questions
+│   │   ├── records.py          # JSONL records, accepted and rejected
+│   │   └── report.py           # python -m poolgen.report: review a pool
 │   ├── scripts/                # manual tools: sample_questions.py (real LLM calls),
 │   │                           # reset_leaderboard.py
 │   └── tests/
@@ -149,6 +154,7 @@ OLLAMA_API_KEY=
 OLLAMA_BASE_URL=
 LLM_GENERATOR_MODEL=      # a recent Gemma or Qwen model
 LLM_JUDGE_MODEL=          # a smaller, cheaper model
+LLM_CRITIC_MODEL=         # question pool critic and blind solver, another model family
 POSTGRES_USER=
 POSTGRES_PASSWORD=
 POSTGRES_DB=
@@ -448,6 +454,49 @@ The expected answer, accepted answers, options, correct options and explanation 
 Every generator and judge call is logged in PostgreSQL (inputs, raw output, parsed result, model, latency), so questionable verdicts and question quality can be reviewed later.
 
 The table is `llm_calls` (one row per attempt, so retries are visible). A failure to write the log is reported but never breaks the game. Each row has an optional `run_id`, so all calls of a run can be reviewed together.
+
+## Question Pool (Version 5)
+
+The Ollama cloud free plan ends on 2026-11-09 and paid LLM use is not an option, so
+questions are written ahead of time into a pool. Without the latency limit of live play,
+the pool pipeline can use thinking and a review loop. Planned: milestone 1, a hybrid mode
+(unasked pool questions first, then live); milestone 2, a pool only mode with a code based
+answer matcher instead of the LLM judge. Neither is built yet; only the generator is.
+
+Pipeline (`backend/poolgen/`, one walk at a time):
+
+1. The writer is the game's generator (`QuestionGenerator` with `think=True`). Its request
+   also lists the pool's questions about the walk's entities ("do not ask these again").
+2. Code check: the same typed answer may be in the pool at most `--answer-cap` (2) times;
+   otherwise the draft goes back to the writer with a note.
+3. The critic (`app/llm/critic.py`, `critic_prompt.py`, `LLM_CRITIC_MODEL`, thinking
+   "high") answers approve, revise (with feedback, back to the writer) or reject. At most
+   `--max-rounds` (3) drafts.
+4. The blind solver (`app/llm/solver.py`, `solver_prompt.py`, the critic model) answers
+   the question without its answer. Choice questions must get exactly the correct options;
+   free questions must have the expected or an accepted answer among the solver's
+   answers. The solver lists every form a typed answer may take; the pool keeps them (and
+   the graph aliases of the answer entity) for judging without an LLM.
+
+- gpt-oss thinks only briefly with `think: true`; `ChatRequest.think` also takes "low",
+  "medium" or "high". With "high" the critic and solver take about 2 seconds a call.
+- Every start entity is walked once per pool. Rejected walks are recorded too, so their
+  starts are not retried; technical failures (`technical: true`) leave the start free.
+- Files: `<dir>/<language>.jsonl` (accepted) and `<dir>/<language>.rejected.jsonl`, one
+  JSON object per line, appended at once so a run can stop any time. The generator writes
+  to `data/pool/` (gitignored; on the server owned by the container user like the rest of
+  `data/`); finished pools are copied into the repository's `pool/` and committed.
+- One pool per language, chosen with `--language`; no translation.
+- HTTP 429 from Ollama (`LLMRateLimitError`) drops the walk in progress and waits
+  `--wait-hours` (5); so do five technical failures in a row.
+- Run: `docker compose run --rm poolgen python -m poolgen --language en --walks N
+  [--dir /pool/<name>] [--seed S]`, review with `python -m poolgen.report --language en
+  [--dir ...]`. Calls are logged to `llm_calls` with the purposes `critic` and `solve`.
+- First trial (30 walks, seed 41, before critic tuning): 28 accepted, 3.7 calls and 28
+  seconds per accepted question, formats free 6, single 19, multiple 1, order 2. The
+  critic fixed real problems (Malta has two official languages, a trivial true or false)
+  but let giveaway options pass (Biryani among Sushi, Paella, Risotto) and a disputed
+  fact (Elbrus as Europe's highest mountain with Mont Blanc as an option).
 
 ## Players and Leaderboard
 

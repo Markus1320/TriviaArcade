@@ -308,6 +308,25 @@ Or all calls at a glance:
 docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, purpose, model, attempt, latency_ms, parsed, error FROM llm_calls ORDER BY id DESC LIMIT 20"'
 ```
 
+## Question pool
+
+Version 5 prepares for a game without live LLM calls: `poolgen` writes questions ahead of
+time, with more care than live generation allows. The writer thinks before it answers, a
+critic model (`LLM_CRITIC_MODEL`, e.g. `gpt-oss:120b`) approves each question or sends it
+back with feedback, and a blind solver answers it without seeing the answer, to catch
+ambiguous questions and to collect every accepted form of a typed answer. The game does
+not serve pool questions yet.
+
+```bash
+docker compose run --rm poolgen python -m poolgen --language en --walks 30
+docker compose run --rm poolgen python -m poolgen.report --language en
+```
+
+The pool is written to `data/pool/<language>.jsonl` (rejected walks to
+`<language>.rejected.jsonl`). A run can be stopped and restarted at any time; it never
+walks the same start entity twice. When Ollama's usage limit is reached, it waits five
+hours and continues.
+
 ## Playing from a phone on the home network
 
 1. Find the host's local IP address. On Windows run `ipconfig` and use the IPv4 address

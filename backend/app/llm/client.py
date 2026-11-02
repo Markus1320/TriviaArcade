@@ -3,11 +3,19 @@
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
+
+# True or False, or a level for models that think in levels (gpt-oss ignores booleans
+# and thinks only briefly with True).
+Think = bool | Literal["low", "medium", "high"]
 
 
 class LLMError(RuntimeError):
     """A technical failure: network, HTTP error, malformed provider response."""
+
+
+class LLMRateLimitError(LLMError):
+    """The provider refused the call because a usage limit was reached (HTTP 429)."""
 
 
 @dataclass(frozen=True)
@@ -20,7 +28,7 @@ class ChatRequest:
     temperature: float | None = None
     # Let the model reason before it answers, for models that support it. The reasoning
     # is returned apart from the answer and not used. None leaves the provider's default.
-    think: bool | None = None
+    think: Think | None = None
 
     def to_log(self) -> dict[str, Any]:
         """Everything needed to replay the call; contains no credentials."""

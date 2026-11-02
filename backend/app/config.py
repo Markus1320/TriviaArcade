@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     ollama_base_url: str | None = None
     llm_generator_model: str | None = None
     llm_judge_model: str | None = None
+    # Reviews and blind-solves questions for the question pool (poolgen). Best a model
+    # from another family than the generator, so it does not share its blind spots.
+    llm_critic_model: str | None = None
     llm_timeout_seconds: float = 120.0
 
     # Random walk for question seeds, see app/graph/walk.py.

@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.graph.model import QuestionSeed
 from app.llm.call_log import CallLogger, LLMCallRecord
-from app.llm.client import ChatRequest, LLMClient, timed_call
+from app.llm.client import ChatRequest, LLMClient, Think, timed_call
 from app.llm.facts import format_seed
 from app.llm.generator_prompt import pick_examples, pick_true_false_hint
 from app.llm.prompts import PromptTemplate
@@ -334,6 +334,7 @@ class QuestionGenerator:
         call_logger: CallLogger,
         max_attempts: int = 2,
         rng: random.Random | None = None,
+        think: Think | None = None,
     ) -> None:
         self._client = client
         self._model = model
@@ -341,11 +342,22 @@ class QuestionGenerator:
         self._call_logger = call_logger
         self._max_attempts = max_attempts
         self._rng = rng or random.Random()
+        # The game leaves thinking off (too slow); the question pool turns it on.
+        self._think = think
 
     def generate(
-        self, seed: QuestionSeed, *, run_id: uuid.UUID | None = None, language: str = "en"
+        self,
+        seed: QuestionSeed,
+        *,
+        run_id: uuid.UUID | None = None,
+        language: str = "en",
+        context: str = "",
     ) -> GenerationResult:
-        """Write a question in the given language (a code from app.languages)."""
+        """Write a question in the given language (a code from app.languages).
+
+        context is appended to the request: the question pool passes the questions that
+        already exist about these entities and an editor's feedback on a previous draft.
+        """
         request = ChatRequest(
             model=self._model,
             system=self._prompt.system,
@@ -357,7 +369,10 @@ class QuestionGenerator:
             ),
             json_schema=QUESTION_SCHEMA,
             temperature=GENERATOR_TEMPERATURE,
+            think=self._think,
         )
+        if context:
+            request = dataclasses.replace(request, user=f"{request.user}\n\n{context}")
         first_user = request.user
         errors: list[str] = []
         for attempt in range(1, self._max_attempts + 1):

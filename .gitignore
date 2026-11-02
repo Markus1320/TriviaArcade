@@ -5,6 +5,7 @@
 
 # Data caches
 data/raw/
+data/pool/
 
 # Python
 .venv/

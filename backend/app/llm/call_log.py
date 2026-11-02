@@ -11,7 +11,7 @@ from app.db.models import LLMCall
 
 logger = logging.getLogger(__name__)
 
-Purpose = Literal["generate", "judge"]
+Purpose = Literal["generate", "judge", "critic", "solve"]
 
 
 @dataclass(frozen=True)

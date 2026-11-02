@@ -16,6 +16,7 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 COPY importer ./importer
+COPY poolgen ./poolgen
 COPY scripts ./scripts
 
 ENV PATH="/app/.venv/bin:$PATH"

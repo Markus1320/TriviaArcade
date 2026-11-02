@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx2
 
-from app.llm.client import ChatRequest, LLMError
+from app.llm.client import ChatRequest, LLMError, LLMRateLimitError
 
 
 class OllamaClient:
@@ -42,6 +42,8 @@ class OllamaClient:
             response = self._http.post(self._chat_url, json=body)
         except httpx2.HTTPError as error:
             raise LLMError(f"Ollama request failed: {type(error).__name__}: {error}") from error
+        if response.status_code == 429:
+            raise LLMRateLimitError(f"Ollama usage limit reached: {response.text[:300]}")
         if response.status_code != 200:
             raise LLMError(f"Ollama returned HTTP {response.status_code}: {response.text[:300]}")
         try:

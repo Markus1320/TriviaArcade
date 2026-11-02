@@ -37,7 +37,7 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 mypy_path = "."
-packages = ["app", "importer", "scripts", "tests"]
+packages = ["app", "importer", "poolgen", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

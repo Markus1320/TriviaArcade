@@ -74,6 +74,37 @@ services:
       neo4j:
         condition: service_healthy
 
+  # Question pool generator. Not started by "up"; run it with:
+  #   docker compose run --rm poolgen python -m poolgen --language en --walks 10
+  poolgen:
+    build: ./backend
+    profiles: ["tools"]
+    command: ["python", "-m", "poolgen.report", "--language", "en", "--summary"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      LLM_GENERATOR_MODEL: ${LLM_GENERATOR_MODEL:-}
+      LLM_CRITIC_MODEL: ${LLM_CRITIC_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      WALK_MIN_HOPS: ${WALK_MIN_HOPS:-1}
+      WALK_MAX_HOPS: ${WALK_MAX_HOPS:-2}
+      WALK_HUB_PENALTY: ${WALK_HUB_PENALTY:-0.5}
+      POOL_DIR: /pool
+    volumes:
+      - ./data/pool:/pool
+    depends_on:
+      postgres:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
