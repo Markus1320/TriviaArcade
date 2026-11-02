@@ -104,6 +104,8 @@ class Question(Base):
     generator_model: Mapped[str | None] = mapped_column(String(200))
     prompt: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
+    # The question pool record the question came from; null for live questions.
+    pool_question_id: Mapped[str | None] = mapped_column(String(12), index=True)
     # asked_at: when the question was generated (possibly prefetched). shown_at: when the
     # player first saw it, which starts the time limit.
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

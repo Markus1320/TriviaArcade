@@ -12,7 +12,7 @@ from typing import get_args
 
 from app.languages import Language
 from app.llm.generator import GeneratedQuestion
-from poolgen.records import (
+from app.pool.records import (
     DEFAULT_DIR,
     PoolQuestion,
     Rejection,

@@ -6,21 +6,29 @@ results; expected answers leave the server only after the run is over.
 Each public method runs in its own transaction and locks the run row, so two parallel
 requests for the same run cannot both generate a question or both judge an answer.
 
-Answers: free questions are judged by the LLM; choice questions (single, multiple) are
-checked by code against the stored correct options, without a judge call.
+Answers: free questions are judged by the LLM (or, in pool mode, by the code matcher);
+choice questions (single, multiple) are checked by code against the stored correct
+options, without a judge call.
+
+Question sources (QUESTION_SOURCE):
+- live: every question is written by the LLM from a fresh walk.
+- hybrid: a pool question no run has had yet; otherwise a live question; if that fails,
+  the pool question asked longest ago.
+- pool: pool questions only, those no run has had first, then the ones asked longest ago.
 
 Time limit: generating a question (also when prefetched) does not start the clock;
 start_question does, when the browser shows the question. The deadline is checked when an
 answer arrives, before judging. A late answer ends the run without asking the judge.
 """
 
+import random
 import uuid
 from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import RUN_OVER, Question, Run
@@ -38,8 +46,17 @@ from app.graph.model import QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.languages import DEFAULT_LANGUAGE
 from app.llm.facts import format_seed
-from app.llm.generator import NOTE_FIELDS, GenerationResult, QuestionGenerationError
+from app.llm.generator import (
+    NOTE_FIELDS,
+    GeneratedQuestion,
+    GenerationResult,
+    QuestionGenerationError,
+    shuffle_options,
+)
 from app.llm.judge import JudgeInput, JudgeUnavailableError, sanitize_answer
+from app.pool.store import PoolEntry, PoolStore, pick_least_recent, pick_unasked
+
+QuestionMode = Literal["live", "hybrid", "pool"]
 
 
 class SeedSource(Protocol):
@@ -171,16 +188,25 @@ class GameService:
         self,
         session: Session,
         seeds: SeedSource,
-        generator: QuestionSource,
+        generator: QuestionSource | None,
         judge: AnswerChecker,
         clock: Callable[[], datetime] = utc_now,
         answer_time_seconds: int = 30,
         recent_starts_blocked: int = 0,
         life_rules: LifeRules | None = None,
+        mode: QuestionMode = "live",
+        pool: PoolStore | None = None,
+        rng: random.Random | None = None,
     ) -> None:
+        if mode != "live" and pool is None:
+            raise ValueError(f"question source {mode!r} needs a question pool")
         self._session = session
         self._seeds = seeds
+        # None in pool mode, where no question is written live.
         self._generator = generator
+        self._mode = mode
+        self._pool = pool
+        self._rng = rng or random.Random()
         self._judge = judge
         self._clock = clock
         # 0 turns the time limit off.
@@ -248,33 +274,109 @@ class GameService:
 
             used_starts = {question.start_node_id for question in run.questions}
             used_starts |= self._recent_starts()
-            try:
-                seed = self._seeds.walk(exclude_start_ids=used_starts)
-                result = self._generator.generate(seed, run_id=run.id, language=run.language)
-            except (NoQuestionSeedError, QuestionGenerationError) as error:
-                raise QuestionUnavailableError(str(error)) from error
-            generated = result.question
-
-            question = Question(
-                run=run,
-                position=len(run.questions) + 1,
-                start_node_id=seed.start.wikidata_id,
-                facts=format_seed(seed),
-                text=generated.question,
-                format=generated.format,
-                options=generated.options if generated.is_choice else None,
-                correct_options=generated.correct_indices if generated.is_choice else None,
-                expected_answer=generated.expected_answer,
-                accepted_answers=generated.accepted_answers,
-                explanation=generated.explanation or None,
-                generator_model=result.model,
-                prompt=result.prompt,
-                notes={field: getattr(generated, field) for field in NOTE_FIELDS},
-                asked_at=self._clock(),
-            )
+            question = self._new_question(run, used_starts)
             self._session.add(question)
             self._session.flush()
             return self._view(question, run)
+
+    def _new_question(self, run: Run, used_starts: set[str]) -> Question:
+        """The next question from the configured source, see the module docstring."""
+        if self._pool is not None:
+            entries = self._pool.entries(run.language)
+            entry = pick_unasked(entries, self._asked_pool_ids(), used_starts, self._rng)
+            if entry is not None:
+                return self._pool_question(run, entry)
+        if self._mode != "pool":
+            try:
+                return self._live_question(run, used_starts)
+            except QuestionUnavailableError:
+                if self._mode == "live":
+                    raise
+        assert self._pool is not None
+        run_ids = {q.pool_question_id for q in run.questions if q.pool_question_id}
+        entry = pick_least_recent(
+            self._pool.entries(run.language),
+            self._pool_last_asked(),
+            run_ids,
+            used_starts,
+            self._rng,
+        )
+        if entry is None:
+            raise QuestionUnavailableError(f"the question pool has no {run.language} questions")
+        return self._pool_question(run, entry)
+
+    def _live_question(self, run: Run, used_starts: set[str]) -> Question:
+        if self._generator is None:
+            raise QuestionUnavailableError("live questions are turned off")
+        try:
+            seed = self._seeds.walk(exclude_start_ids=used_starts)
+            result = self._generator.generate(seed, run_id=run.id, language=run.language)
+        except (NoQuestionSeedError, QuestionGenerationError) as error:
+            raise QuestionUnavailableError(str(error)) from error
+        return self._question_row(
+            run,
+            result.question,
+            start_node_id=seed.start.wikidata_id,
+            facts=format_seed(seed),
+            model=result.model,
+            prompt=result.prompt,
+        )
+
+    def _pool_question(self, run: Run, entry: PoolEntry) -> Question:
+        question = self._question_row(
+            run,
+            shuffle_options(entry.question, self._rng),
+            start_node_id=entry.start_entity,
+            facts=entry.facts,
+            model=entry.generator_model,
+            prompt=entry.prompt,
+        )
+        question.accepted_answers = list(entry.other_answers)
+        question.pool_question_id = entry.id
+        return question
+
+    def _question_row(
+        self,
+        run: Run,
+        generated: GeneratedQuestion,
+        *,
+        start_node_id: str,
+        facts: str,
+        model: str,
+        prompt: str,
+    ) -> Question:
+        return Question(
+            run=run,
+            position=len(run.questions) + 1,
+            start_node_id=start_node_id,
+            facts=facts,
+            text=generated.question,
+            format=generated.format,
+            options=generated.options if generated.is_choice else None,
+            correct_options=generated.correct_indices if generated.is_choice else None,
+            expected_answer=generated.expected_answer,
+            accepted_answers=generated.accepted_answers,
+            explanation=generated.explanation or None,
+            generator_model=model,
+            prompt=prompt,
+            notes={field: getattr(generated, field) for field in NOTE_FIELDS},
+            asked_at=self._clock(),
+        )
+
+    def _asked_pool_ids(self) -> set[str]:
+        """Pool questions any run has had (also prefetched ones never shown)."""
+        asked = select(Question.pool_question_id).where(Question.pool_question_id.is_not(None))
+        return {pool_id for pool_id in self._session.scalars(asked.distinct()) if pool_id}
+
+    def _pool_last_asked(self) -> dict[str, int]:
+        """For every pool question asked, the ID of its latest question row (grows with
+        time)."""
+        latest = (
+            select(Question.pool_question_id, func.max(Question.id))
+            .where(Question.pool_question_id.is_not(None))
+            .group_by(Question.pool_question_id)
+        )
+        return {pool_id: last for pool_id, last in self._session.execute(latest) if pool_id}
 
     def _recent_starts(self) -> set[str]:
         """Start entities of the latest questions of all runs, so that players who play

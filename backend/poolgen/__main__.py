@@ -30,14 +30,7 @@ from app.llm.generator_prompt import PROMPT as generator_prompt
 from app.llm.ollama import OllamaClient
 from app.llm.solver import BlindSolver
 from app.llm.solver_prompt import PROMPT as solver_prompt
-from poolgen.index import PoolIndex
-from poolgen.pipeline import (
-    CountingClient,
-    PipelineSettings,
-    PoolPipeline,
-    UsageLimitReached,
-)
-from poolgen.records import (
+from app.pool.records import (
     DEFAULT_DIR,
     PoolQuestion,
     Rejection,
@@ -45,6 +38,13 @@ from poolgen.records import (
     pool_path,
     read_records,
     rejected_path,
+)
+from poolgen.index import PoolIndex
+from poolgen.pipeline import (
+    CountingClient,
+    PipelineSettings,
+    PoolPipeline,
+    UsageLimitReached,
 )
 
 # Walks failing in a row for technical reasons before the run waits as for a usage limit.

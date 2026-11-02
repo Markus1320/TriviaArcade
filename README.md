@@ -314,8 +314,14 @@ Version 5 prepares for a game without live LLM calls: `poolgen` writes questions
 time, with more care than live generation allows. The writer thinks before it answers, a
 critic model (`LLM_CRITIC_MODEL`, e.g. `gpt-oss:120b`) approves each question or sends it
 back with feedback, and a blind solver answers it without seeing the answer, to catch
-ambiguous questions and to collect every accepted form of a typed answer. The game does
-not serve pool questions yet.
+ambiguous questions and to collect every accepted form of a typed answer. Set
+`QUESTION_SOURCE` in `.env` to choose where questions come from:
+
+- `live` (default): every question is written by the LLM as you play.
+- `hybrid`: pool questions nobody has had yet come first, then live questions.
+- `pool`: pool questions only. No LLM is needed; typed answers are checked by code
+  against every known form of the answer, with a small tolerance for typos. Only English
+  questions exist so far.
 
 ```bash
 docker compose run --rm poolgen python -m poolgen --language en --walks 30

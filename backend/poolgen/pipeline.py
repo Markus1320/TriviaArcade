@@ -24,8 +24,8 @@ from app.llm.facts import format_seed
 from app.llm.generator import GeneratedQuestion, QuestionGenerationError, QuestionGenerator
 from app.llm.solver import BlindSolver
 from app.llm.structured import StructuredCallError
+from app.pool.records import PoolQuestion, Rejection, Round, question_id
 from poolgen.index import PoolIndex, answer_aliases, mentioned_entities
-from poolgen.records import PoolQuestion, Rejection, Round, question_id
 
 EXISTING_NOTE = (
     "Questions that already exist about these entities. Do not ask their facts again, in "

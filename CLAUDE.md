@@ -91,6 +91,7 @@ Key principles:
 │   │   │                       # facts formatting, call logging, factory
 │   │   ├── leaderboard/        # handles.py, ranking.py, service.py (claim, top 10)
 │   │   ├── questionlog/        # service.py (public log of finished runs)
+│   │   ├── pool/               # records.py (pool JSONL format), store.py (read, pick)
 │   │   └── db/                 # SQLAlchemy engine, models, session handling
 │   ├── importer/               # Wikidata import into Neo4j (python -m importer)
 │   │   ├── config.py           # typed model of config/import.yaml
@@ -173,6 +174,7 @@ LIFE_COMBO=               # optional, default 3, correct answers in a row for a 
 MAX_LIVES=                # optional, default 3, most 1UPs in stock
 START_LIVES=              # optional, default 1, 1UPs a new run starts with
 ANSWER_TIME_SECONDS=      # optional, default 30, 0 = no timer
+QUESTION_SOURCE=          # optional, live (default), hybrid or pool
 ```
 
 LLM variables are optional in the backend settings so the stack starts without an API key; `app/llm/factory.py` checks them when the LLM is used.
@@ -459,9 +461,9 @@ The table is `llm_calls` (one row per attempt, so retries are visible). A failur
 
 The Ollama cloud free plan ends on 2026-11-09 and paid LLM use is not an option, so
 questions are written ahead of time into a pool. Without the latency limit of live play,
-the pool pipeline can use thinking and a review loop. Planned: milestone 1, a hybrid mode
-(unasked pool questions first, then live); milestone 2, a pool only mode with a code based
-answer matcher instead of the LLM judge. Neither is built yet; only the generator is.
+the pool pipeline can use thinking and a review loop. `QUESTION_SOURCE` chooses where the
+game takes its questions (see "Serving pool questions" below): `live`, `hybrid` (unasked
+pool questions first, then live) or `pool` (pool only, typed answers judged by code).
 
 Pipeline (`backend/poolgen/`, one walk at a time):
 
@@ -473,7 +475,10 @@ Pipeline (`backend/poolgen/`, one walk at a time):
    "high") answers approve, revise (with feedback, back to the writer) or reject. At most
    `--max-rounds` (3) drafts.
 4. The blind solver (`app/llm/solver.py`, `solver_prompt.py`, the critic model) answers
-   the question without its answer. Choice questions must get exactly the correct options;
+   the question without its answer. For free questions it lists English and German forms
+   whatever the language of the pool, since German players type German names in English
+   runs (the first 100 English questions had English forms only; their free questions
+   were deleted). Choice questions must get exactly the correct options;
    free questions must have the expected or an accepted answer among the solver's
    answers. The solver lists every form a typed answer may take; the pool keeps them (and
    the graph aliases of the answer entity) for judging without an LLM.
@@ -505,10 +510,30 @@ Pipeline (`backend/poolgen/`, one walk at a time):
   order 1, with four analogies. The critic now catches obvious outliers (Biryani became
   a choice among Indian dishes, Titan became Rhea) but still approved the Elbrus question.
 
+### Serving pool questions
+
+- `app/pool/store.py` reads `<POOL_DIR>/<language>.jsonl` (the backend mounts `data/`
+  read only, `POOL_DIR=/data/pool`) and reads it again when the file changes, since
+  poolgen may still be appending; a half written last line is skipped. The record model is
+  `app/pool/records.py`, shared with poolgen.
+- `questions.pool_question_id` (migration 0010) links a question to its pool record. A
+  pool question counts as asked once any run had it, prefetched or not.
+- `GameService._new_question`: in `hybrid` and `pool`, a pool question in the run's
+  language that no run has had, picked like a walk start (entity type uniformly, then a
+  question of that type), not from a start entity used in this run or in the last
+  `RECENT_STARTS_BLOCKED` questions. Then, in `hybrid`, a live question; if that fails, and
+  always in `pool`, one of the 50 pool questions asked longest ago (never one of this
+  run; the recent starts are given up when nothing else is left).
+- Pool questions are stored with `accepted_answers` = the writer's accepted answers plus
+  the blind solver's answers (never the graph aliases) and their options shuffled anew.
+- In `pool` mode there is no generator and the judge is `MatcherJudge`, so no LLM settings
+  are needed. A language without a pool file gets 503 `question_unavailable`; only an
+  English pool exists so far.
+
 ### Answer Matcher (pool only mode)
 
 `app/game/matcher.py` judges typed answers by code (`AnswerKey.of(question, *answer
-lists)`, `match_answer`). Not wired into the game yet.
+lists)`, `match_answer`); `MatcherJudge` puts it behind the judge interface.
 
 - Normalization: case, accents, punctuation, spacing, leading articles and a leading "in"
   / "in the" / "im" do not matter. "19th century" may be answered "19" (and "19.

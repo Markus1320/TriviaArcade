@@ -15,9 +15,7 @@ from app.llm.critic_prompt import PROMPT as CRITIC_PROMPT
 from app.llm.generator import GeneratedQuestion, QuestionGenerator, parse_generated_question
 from app.llm.solver import BlindSolver, parse_solver_answers
 from app.llm.solver_prompt import PROMPT as SOLVER_PROMPT
-from poolgen.index import PoolIndex, answer_aliases, mentioned_entities
-from poolgen.pipeline import CountingClient, PoolPipeline, UsageLimitReached, solver_miss
-from poolgen.records import (
+from app.pool.records import (
     PoolQuestion,
     Rejection,
     append_record,
@@ -25,6 +23,8 @@ from poolgen.records import (
     read_records,
     rejected_path,
 )
+from poolgen.index import PoolIndex, answer_aliases, mentioned_entities
+from poolgen.pipeline import CountingClient, PoolPipeline, UsageLimitReached, solver_miss
 from tests.llm_fakes import ListCallLogger, ScriptedClient, real_prompt
 
 FRANCE = GraphNode("Q142", "France", "country", aliases=("Frankreich",))

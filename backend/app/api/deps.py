@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -9,12 +10,14 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db.engine import get_session_factory
+from app.game.matcher import MatcherJudge
 from app.game.rules import LifeRules
 from app.game.service import AnswerChecker, GameService, QuestionSource, SeedSource
 from app.graph.factory import build_walker
 from app.leaderboard.service import LeaderboardService
 from app.llm.call_log import SqlCallLogger
 from app.llm.factory import LLMComponents, LLMNotConfiguredError, build_llm_components
+from app.pool.store import PoolStore
 from app.questionlog.service import QuestionLogService
 
 
@@ -42,18 +45,28 @@ def get_seed_source() -> SeedSource:
     return build_walker(get_settings())
 
 
-def get_question_source() -> QuestionSource:
+@lru_cache
+def get_pool_store() -> PoolStore:
+    return PoolStore(Path(get_settings().pool_dir))
+
+
+def get_question_source() -> QuestionSource | None:
+    """None in pool mode: no question is written live, and no LLM is needed."""
+    if get_settings().question_source == "pool":
+        return None
     return _llm().generator
 
 
 def get_answer_checker() -> AnswerChecker:
+    if get_settings().question_source == "pool":
+        return MatcherJudge()
     return _llm().judge
 
 
 def get_game_service(
     session: Annotated[Session, Depends(get_session)],
     seeds: Annotated[SeedSource, Depends(get_seed_source)],
-    generator: Annotated[QuestionSource, Depends(get_question_source)],
+    generator: Annotated[QuestionSource | None, Depends(get_question_source)],
     judge: Annotated[AnswerChecker, Depends(get_answer_checker)],
 ) -> GameService:
     settings = get_settings()
@@ -65,6 +78,8 @@ def get_game_service(
         answer_time_seconds=settings.answer_time_seconds,
         recent_starts_blocked=settings.recent_starts_blocked,
         life_rules=_life_rules(),
+        mode=settings.question_source,
+        pool=get_pool_store() if settings.question_source != "live" else None,
     )
 
 

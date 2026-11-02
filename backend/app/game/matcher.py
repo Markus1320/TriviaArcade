@@ -13,8 +13,11 @@ answer entity.
 
 import re
 import unicodedata
+import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+
+from app.llm.judge import JudgeInput
 
 # Dropped from the start of an answer: articles, and "in" for answers to "where" questions
 # ("in the Middle East").
@@ -174,3 +177,14 @@ def match_answer(key: AnswerKey, player_answer: str) -> bool:
     # Distinct answers, not two spellings of the same one: "USA, United States" names one
     # country. Forms of one answer are not linked, so this only catches identical forms.
     return len(matched) >= needed
+
+
+class MatcherJudge:
+    """The code matcher behind the judge interface, for the pool only mode. It never fails
+    technically, so a run is never paused for it."""
+
+    def judge(
+        self, item: JudgeInput, player_answer: str, *, run_id: uuid.UUID | None = None
+    ) -> bool:
+        key = AnswerKey.of(item.question, [item.expected_answer], item.accepted_answers)
+        return match_answer(key, player_answer)

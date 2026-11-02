@@ -4,6 +4,7 @@ Covers the server side run lifecycle, the pause on judge failures, claiming and 
 leaderboard. PostgreSQL specific behaviour (row locks, JSONB) is not covered here.
 """
 
+import random
 import uuid
 from collections.abc import Collection, Iterator
 from datetime import UTC, datetime, timedelta
@@ -18,13 +19,14 @@ from sqlalchemy.pool import StaticPool
 from app.api.deps import get_game_service, get_leaderboard_service, get_question_log_service
 from app.db.models import Base, Question
 from app.game.rules import LifeRules
-from app.game.service import GameService
+from app.game.service import AnswerChecker, GameService, QuestionMode
 from app.graph.model import GraphEdge, GraphNode, QuestionSeed
 from app.graph.walk import NoQuestionSeedError
 from app.leaderboard.service import LeaderboardService
 from app.llm.generator import GeneratedQuestion, GenerationResult, QuestionGenerationError
 from app.llm.judge import JudgeInput, JudgeUnavailableError
 from app.main import app
+from app.pool.store import PoolStore
 from app.questionlog.service import QuestionLogService
 
 EXPLANATION = "Secretland is where every place in these tests lies."
@@ -110,6 +112,9 @@ class Game:
         self.answer_time_seconds = 45
         self.recent_starts_blocked = 0
         self.life_rules = LifeRules(combo=5, max_lives=3, start_lives=0)
+        self.mode: QuestionMode = "live"
+        self.pool: PoolStore | None = None
+        self.judge_checker: AnswerChecker = self.judge
 
     def start(self) -> str:
         response = self.client.post("/api/runs")
@@ -168,11 +173,14 @@ def game() -> Iterator[Game]:
                     session,
                     game.seeds,
                     game.generator,
-                    game.judge,
+                    game.judge_checker,
                     game.clock,
                     answer_time_seconds=game.answer_time_seconds,
                     recent_starts_blocked=game.recent_starts_blocked,
                     life_rules=game.life_rules,
+                    mode=game.mode,
+                    pool=game.pool,
+                    rng=random.Random(1),
                 )
 
         def leaderboard_service() -> Iterator[LeaderboardService]:

@@ -1,6 +1,7 @@
 """Application settings, read from environment variables."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,6 +29,12 @@ class Settings(BaseSettings):
     # from another family than the generator, so it does not share its blind spots.
     llm_critic_model: str | None = None
     llm_timeout_seconds: float = 120.0
+
+    # Where questions come from, see app/game/service.py: live (LLM), hybrid (unasked pool
+    # questions first, then live) or pool (pool only, typed answers judged by code).
+    question_source: Literal["live", "hybrid", "pool"] = "live"
+    # The pool files written by poolgen (<language>.jsonl).
+    pool_dir: str = "/data/pool"
 
     # Random walk for question seeds, see app/graph/walk.py.
     walk_min_hops: int = 1

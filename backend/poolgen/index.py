@@ -13,7 +13,7 @@ from collections.abc import Iterable, Sequence
 from app.game.matcher import normalize_answer
 from app.graph.model import GraphNode, QuestionSeed
 from app.llm.generator import GeneratedQuestion, find_giveaway
-from poolgen.records import PoolQuestion, Rejection
+from app.pool.records import PoolQuestion, Rejection
 
 
 def summary(question: GeneratedQuestion) -> str:
