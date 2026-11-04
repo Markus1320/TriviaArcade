@@ -1,8 +1,8 @@
 import pytest
 
-from importer.loader import node_record, relation_properties, type_label
-from importer.model import Node, Relation
-from importer.parsing import (
+from offline.importer.loader import node_record, relation_properties, type_label
+from offline.importer.model import Node, Relation
+from offline.importer.parsing import (
     ENTITY_PREFIX,
     build_aliases,
     chunks,

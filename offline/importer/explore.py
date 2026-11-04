@@ -1,8 +1,8 @@
 """Look at candidate entity types on Wikidata before adding them to config/import.yaml.
 
-    python -m importer.explore Q11424 Q7889             # film, video game (instance of)
-    python -m importer.explore --by P106 Q11900058      # people with the occupation explorer
-    python -m importer.explore --by P39 Q842606         # people who held the position Roman emperor
+    python -m offline.importer.explore Q11424 Q7889  # film, video game (instance of)
+    python -m offline.importer.explore --by P106 Q11900058  # people with the occupation explorer
+    python -m offline.importer.explore --by P39 Q842606  # people who were Roman emperor
 
 For every class it prints how many entities reach several fame thresholds, the most famous
 names, and which properties those entities carry (candidates for relations and facts).
@@ -17,11 +17,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from importer import queries
-from importer.config import ImportConfig, load_config
-from importer.parsing import ENTITY_PREFIX, Row, chunks, entity_id
-from importer.settings import PROJECT_ROOT
-from importer.sparql import SparqlClient, SparqlError
+from offline.importer import queries
+from offline.importer.config import ImportConfig, load_config
+from offline.importer.parsing import ENTITY_PREFIX, Row, chunks, entity_id
+from offline.importer.settings import PROJECT_ROOT
+from offline.importer.sparql import SparqlClient, SparqlError
 
 SelectFn = Callable[[str], list[Row]]
 
@@ -160,7 +160,7 @@ def _pid(value: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m importer.explore",
+        prog="python -m offline.importer.explore",
         description="Show counts, top names and common properties of Wikidata classes.",
     )
     parser.add_argument("classes", nargs="+", type=_qid, metavar="QID")

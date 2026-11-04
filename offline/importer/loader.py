@@ -6,7 +6,7 @@ from typing import Any, LiteralString
 
 from neo4j import Driver, ManagedTransaction, Session
 
-from importer.model import ImportedGraph, Node, Relation
+from offline.importer.model import ImportedGraph, Node, Relation
 
 logger = logging.getLogger(__name__)
 

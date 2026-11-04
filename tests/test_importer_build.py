@@ -5,11 +5,11 @@ from typing import Any
 
 import pytest
 
-from importer.build import GraphBuilder
-from importer.config import ImportConfig
-from importer.model import ImportedGraph, Relation
-from importer.parsing import ENTITY_PREFIX, PREFERRED_RANK, Row
-from importer.queries import query_kind
+from offline.importer.build import GraphBuilder
+from offline.importer.config import ImportConfig
+from offline.importer.model import ImportedGraph, Relation
+from offline.importer.parsing import ENTITY_PREFIX, PREFERRED_RANK, Row
+from offline.importer.queries import query_kind
 
 E = ENTITY_PREFIX
 NORMAL_RANK = "http://wikiba.se/ontology#NormalRank"

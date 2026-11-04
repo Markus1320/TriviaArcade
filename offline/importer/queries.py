@@ -9,7 +9,7 @@ language codes), so no user controlled text reaches a query.
 
 from collections.abc import Iterable
 
-from importer.config import DatePropertyConfig, NumericPropertyConfig, RelationConfig
+from offline.importer.config import DatePropertyConfig, NumericPropertyConfig, RelationConfig
 
 _NOT_DEPRECATED = "?st wikibase:rank ?rank . FILTER(?rank != wikibase:DeprecatedRank)"
 

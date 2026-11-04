@@ -6,8 +6,8 @@ from pathlib import Path
 import httpx2
 import pytest
 
-from importer.config import WikidataConfig
-from importer.sparql import SparqlClient, SparqlError
+from offline.importer.config import WikidataConfig
+from offline.importer.sparql import SparqlClient, SparqlError
 
 QUERY = "# kind: test\nSELECT ?x WHERE { }"
 PAYLOAD = {"results": {"bindings": [{"x": {"type": "literal", "value": "1"}}]}}

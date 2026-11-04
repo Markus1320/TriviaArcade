@@ -16,10 +16,10 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from importer import queries
-from importer.config import ImportConfig, RelationConfig
-from importer.model import ImportedGraph, Node, Relation
-from importer.parsing import (
+from offline.importer import queries
+from offline.importer.config import ImportConfig, RelationConfig
+from offline.importer.model import ImportedGraph, Node, Relation
+from offline.importer.parsing import (
     YEAR_PRECISION,
     Row,
     build_aliases,

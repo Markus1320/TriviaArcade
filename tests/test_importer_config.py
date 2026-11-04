@@ -3,10 +3,10 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from test_importer_build import make_config
 
-from importer.config import ImportConfig, load_config
-from importer.settings import PROJECT_ROOT
-from tests.test_importer_build import make_config
+from offline.importer.config import ImportConfig, load_config
+from offline.importer.settings import PROJECT_ROOT
 
 
 def test_repository_config_is_valid() -> None:

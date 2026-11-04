@@ -1,9 +1,10 @@
 """The explore command against canned SPARQL results; no network access."""
 
-from importer.explore import explore_class, format_report
-from importer.parsing import ENTITY_PREFIX, Row
-from importer.queries import query_kind
-from tests.test_importer_build import make_config
+from test_importer_build import make_config
+
+from offline.importer.explore import explore_class, format_report
+from offline.importer.parsing import ENTITY_PREFIX, Row
+from offline.importer.queries import query_kind
 
 ITEM = "http://wikiba.se/ontology#WikibaseItem"
 TIME = "http://wikiba.se/ontology#Time"

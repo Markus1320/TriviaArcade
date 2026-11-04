@@ -1,4 +1,4 @@
-"""Command line entry point: python -m importer."""
+"""Command line entry point: python -m offline.importer."""
 
 import argparse
 import logging
@@ -7,19 +7,19 @@ from pathlib import Path
 
 from neo4j import GraphDatabase
 
-from importer.build import GraphBuilder
-from importer.config import load_config
-from importer.loader import load_graph
-from importer.model import ImportedGraph
-from importer.settings import PROJECT_ROOT, ImporterSettings
-from importer.sparql import SparqlClient, SparqlError
+from offline.importer.build import GraphBuilder
+from offline.importer.config import load_config
+from offline.importer.loader import load_graph
+from offline.importer.model import ImportedGraph
+from offline.importer.settings import PROJECT_ROOT, neo4j_connection
+from offline.importer.sparql import SparqlClient, SparqlError
 
 logger = logging.getLogger("importer")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="python -m importer", description="Import Wikidata facts into Neo4j."
+        prog="python -m offline.importer", description="Import Wikidata facts into Neo4j."
     )
     parser.add_argument("--config", type=Path, default=PROJECT_ROOT / "config" / "import.yaml")
     parser.add_argument("--cache-dir", type=Path, default=PROJECT_ROOT / "data" / "raw")
@@ -56,10 +56,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         return 0
-    settings = ImporterSettings()
+    uri, user, password = neo4j_connection()
     with GraphDatabase.driver(
-        settings.neo4j_uri,
-        auth=(settings.neo4j_user, settings.neo4j_password.get_secret_value()),
+        uri,
+        auth=(user, password),
         # Skip informational notices such as "constraint already exists".
         notifications_min_severity="WARNING",
     ) as driver:

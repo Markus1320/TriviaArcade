@@ -10,9 +10,9 @@ from typing import Any
 
 import httpx2
 
-from importer.config import WikidataConfig
-from importer.parsing import Row
-from importer.queries import query_kind
+from offline.importer.config import WikidataConfig
+from offline.importer.parsing import Row
+from offline.importer.queries import query_kind
 
 logger = logging.getLogger(__name__)
 
