@@ -70,6 +70,7 @@ Key principles:
 ├── scripts/deploy.sh           # deploy main to the home server (see Deployment)
 ├── .env.example                # placeholders only, never real values
 ├── data/raw/                   # gitignored cache of raw Wikidata responses
+├── pool/                       # snapshots of the question pools (<language>.jsonl, .rejected.jsonl)
 ├── config/
 │   └── import.yaml             # fame thresholds, relation allowlist, alias languages
 ├── backend/
