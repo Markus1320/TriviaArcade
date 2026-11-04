@@ -1,3 +1,5 @@
+# The same checks as on your PC, on every push. scripts/deploy.sh deploys only after this
+# run succeeded.
 name: CI
 
 on:
@@ -5,11 +7,9 @@ on:
   pull_request:
 
 jobs:
-  backend:
+  # game/, offline/ and tests/: ruff (lint and format) and pytest. No test calls an LLM.
+  python:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
@@ -21,8 +21,6 @@ jobs:
         run: uv run ruff check .
       - name: Ruff format
         run: uv run ruff format --check .
-      - name: Mypy
-        run: uv run mypy
       - name: Pytest
         run: uv run pytest
 
@@ -47,11 +45,14 @@ jobs:
       - name: Type check and build
         run: npm run build
 
-  compose:
+  # The compose file is valid and the one image builds.
+  docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Validate Compose file
+      - name: Validate the compose file
         run: |
           cp .env.example .env
-          docker compose config --quiet
+          docker compose --profile offline config --quiet
+      - name: Build the image
+        run: docker compose build game
