@@ -2,8 +2,6 @@
 
 from string import Template
 
-from app.llm.prompts import PromptTemplate
-
 SYSTEM_PROMPT = """You answer questions of an arcade general knowledge trivia game. You see a
 question as the player sees it, without its answer. Answer it as well as you can.
 
@@ -38,5 +36,3 @@ USER_TEMPLATE = Template(
     "Language of the game: $game_language\nFormat: $format\n\nQuestion: $question\n$options\n"
     "Reply with the JSON object only."
 )
-
-PROMPT = PromptTemplate(name="solver", system=SYSTEM_PROMPT, user_template=USER_TEMPLATE)

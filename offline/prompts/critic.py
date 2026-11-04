@@ -2,8 +2,6 @@
 
 from string import Template
 
-from app.llm.prompts import PromptTemplate
-
 SYSTEM_PROMPT = """You are the strict editor of an arcade general knowledge trivia game. A writer
 drafted a question from a few facts of a knowledge graph. Decide whether it goes into the
 game's question pool as it is.
@@ -91,5 +89,3 @@ USER_TEMPLATE = Template(
     "Draft:\n$draft\n\n"
     "Check every point and reply with the JSON object only."
 )
-
-PROMPT = PromptTemplate(name="critic", system=SYSTEM_PROMPT, user_template=USER_TEMPLATE)

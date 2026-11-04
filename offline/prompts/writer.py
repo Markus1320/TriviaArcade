@@ -1,11 +1,11 @@
-"""Prompt for call one: generate a question from a knowledge graph seed."""
+"""The writer's prompt: write one question from the facts of a walk.
+
+Tuned on real questions; see docs/history.md before changing the wording."""
 
 import json
 import random
 from string import Template
 from typing import Any
-
-from app.llm.prompts import PromptTemplate
 
 SYSTEM_PROMPT = """You write questions for an arcade general knowledge trivia game. Topics range
 from geography and history to science, technology, politics, art, film, games, music and
@@ -808,9 +808,5 @@ def pick_examples(rng: random.Random | None = None, language: str = "en") -> str
     return f"{EXAMPLE_INTROS.get(language, EXAMPLE_INTROS['en'])}\n\n{examples}"
 
 
-PROMPT = PromptTemplate(
-    name="generate_question",
-    system=SYSTEM_PROMPT,
-    user_template=USER_TEMPLATE,
-    localized_user_templates={"de": USER_TEMPLATE_DE},
-)
+# The request by language.
+USER_TEMPLATES = {"en": USER_TEMPLATE, "de": USER_TEMPLATE_DE}
