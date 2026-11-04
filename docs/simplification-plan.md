@@ -1,6 +1,6 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Steps 1 to 4 are done on the branch `simple` (see "Progress"
+Status: agreed, 2026-11-04. Steps 1 to 5 are done on the branch `simple` (see "Progress"
 at the end).
 
 ## Goal
@@ -183,6 +183,10 @@ disturbed.
 5. **Tools and CI.** Milder lint settings, CI for the new layout.
 6. **Documentation.** The documents above.
 7. **Switch, after 2026-11-09** (when the pool run on the server has ended):
+   - before that: a trial of the new `offline.poolgen` with a few walks, once the Ollama
+     usage limit has reset (about 2026-11-06) and before the free plan ends on
+     2026-11-09; written to `--dir data/pool-trial`, compared with the server's latest
+     records (see "Step 4" below)
    - take the last pool snapshot from the server and commit it
    - merge `simple` into `main`, deploy with a simpler `scripts/deploy.sh`
    - keep the old PostgreSQL and Neo4j volumes on the server for a while, remove them
@@ -297,4 +301,18 @@ Built as planned, with these differences:
   CLAUDE.md for `docs/history.md`).
 - **Not yet checked:** a trial with real LLM calls. Ollama runs only in the cloud here,
   and the account is shared with the pool run on the server until 2026-11-09.
-- CI still points at `backend/` and fails until step 5.
+- CI still pointed at `backend/` until step 5.
+
+### Step 5 (2026-11-04)
+
+- **ESLint** uses `typescript-eslint`'s `recommended` rules instead of
+  `strictTypeChecked`, without type information (no `projectService`), so it is faster
+  and asks for no extra annotations. TypeScript's strict mode stays. The code passed
+  without changes.
+- **CI** (`.github/workflows/ci.yml`) has three jobs: `python` (ruff lint and format,
+  pytest, at the top of the repository; no mypy), `frontend` (ESLint, Prettier, type
+  check and build) and `docker` (the compose file with the `offline` profile, and a
+  build of the image). All checks were run locally; CI on GitHub runs on the first push
+  of `simple`.
+- **The LLM trial of step 4 is still open**: the Ollama usage limit is reached until
+  about 2026-11-06. It is now part of step 7.
