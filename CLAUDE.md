@@ -527,7 +527,8 @@ Pipeline (`backend/poolgen/`, one walk at a time):
 - Pool questions are stored with `accepted_answers` = the writer's accepted answers plus
   the blind solver's answers (never the graph aliases) and their options shuffled anew.
 - In `pool` mode there is no generator and the judge is `MatcherJudge`, so no LLM settings
-  are needed. A language without a pool file gets 503 `question_unavailable`; only an
+  are needed. A language without pool questions gets 503 `no_questions_in_language`; the
+  question screen then shows the message with only a BACK button (no TRY AGAIN). Only an
   English pool exists so far.
 
 ### Answer Matcher (pool only mode)

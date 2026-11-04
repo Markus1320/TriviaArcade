@@ -122,6 +122,7 @@ export type ErrorCode =
   | 'no_open_question'
   | 'invalid_answer'
   | 'question_unavailable'
+  | 'no_questions_in_language'
   | 'judge_unavailable'
   | 'no_life_left'
   | 'run_not_over'

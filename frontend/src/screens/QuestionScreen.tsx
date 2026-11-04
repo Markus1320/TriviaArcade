@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react';
 
-import { api, type AnswerResult, type Question } from '../api/client';
+import { api, ApiError, type AnswerResult, type Question } from '../api/client';
 import { useSound } from '../audio/soundState';
 import { LifeMeter } from '../components/LifeMeter';
 import { OptionList, type ChoiceReveal } from '../components/OptionList';
@@ -22,6 +22,8 @@ export interface GameOverResult {
 interface Props {
   runId: string;
   onGameOver: (result: GameOverResult) => void;
+  // Leaves the run, e.g. when no question can be had in its language.
+  onQuit: () => void;
 }
 
 // deadline: performance.now() timestamp when the time is up, null without a time limit.
@@ -44,7 +46,7 @@ interface Prefetch {
   ready: Question | null;
 }
 
-export function QuestionScreen({ runId, onGameOver }: Props) {
+export function QuestionScreen({ runId, onGameOver, onQuit }: Props) {
   const { play } = useSound();
   const strings = useStrings();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
@@ -296,13 +298,28 @@ export function QuestionScreen({ runId, onGameOver }: Props) {
     );
   }
   if (phase.kind === 'loadFailed' || question === null) {
+    // Retrying cannot help when the language has no questions at all.
+    const hopeless =
+      phase.kind === 'loadFailed' &&
+      phase.error instanceof ApiError &&
+      phase.error.code === 'no_questions_in_language';
     return (
       <main className="screen screen--question">
         <p className="message message--error" role="alert">
           {phase.kind === 'loadFailed' ? errorMessage(phase.error, strings) : strings.genericError}
         </p>
-        <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
-          {strings.retry}
+        {!hopeless && (
+          <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
+            {strings.retry}
+          </button>
+        )}
+        <button
+          type="button"
+          className={hopeless ? 'button button--primary' : 'button button--secondary'}
+          onClick={onQuit}
+          autoFocus={hopeless}
+        >
+          {strings.backToTitle}
         </button>
       </main>
     );

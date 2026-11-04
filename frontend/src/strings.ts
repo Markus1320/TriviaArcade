@@ -228,6 +228,8 @@ const de: Strings = {
     no_open_question: 'Es gibt keine offene Frage.',
     invalid_answer: 'Bitte gib eine Antwort.',
     question_unavailable: 'Gerade konnte keine Frage erstellt werden. Bitte nochmal versuchen.',
+    no_questions_in_language:
+      'Für diese Sprache gibt es noch keine Fragen. Bitte spiele in einer anderen Sprache.',
     no_life_left: 'Du hast kein 1UP zum Überspringen.',
     judge_unavailable:
       'Die Bewertung ist gerade nicht erreichbar. Dein Spiel ist pausiert; sende deine Antwort nochmal.',

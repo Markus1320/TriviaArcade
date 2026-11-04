@@ -99,6 +99,10 @@ class QuestionUnavailableError(GameError):
     """No question could be created right now; the run continues."""
 
 
+class NoQuestionsInLanguageError(QuestionUnavailableError):
+    """Pool only mode, and the pool has no questions in the run's language."""
+
+
 class NoLifeLeftError(GameError):
     """A skip needs a 1UP."""
 
@@ -302,7 +306,9 @@ class GameService:
             self._rng,
         )
         if entry is None:
-            raise QuestionUnavailableError(f"the question pool has no {run.language} questions")
+            if self._mode == "pool" and not self._pool.entries(run.language):
+                raise NoQuestionsInLanguageError(f"the pool has no {run.language} questions")
+            raise QuestionUnavailableError(f"no unused {run.language} pool question left")
         return self._pool_question(run, entry)
 
     def _live_question(self, run: Run, used_starts: set[str]) -> Question:

@@ -94,6 +94,7 @@ export function App() {
           onGameOver={(result) => {
             setScreen({ name: 'gameOver', runId: screen.runId, ...result });
           }}
+          onQuit={toTitle}
         />
       );
     case 'gameOver':

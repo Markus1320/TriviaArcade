@@ -9,6 +9,7 @@ from app.game.service import (
     JudgePausedError,
     NoLifeLeftError,
     NoOpenQuestionError,
+    NoQuestionsInLanguageError,
     QuestionUnavailableError,
     RunNotFoundError,
     RunOverError,
@@ -36,6 +37,11 @@ _ERRORS: dict[type[Exception], tuple[int, str, str]] = {
         status.HTTP_503_SERVICE_UNAVAILABLE,
         "question_unavailable",
         "Could not create a question right now. Please try again.",
+    ),
+    NoQuestionsInLanguageError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "no_questions_in_language",
+        "There are no questions in this language yet. Please play in another language.",
     ),
     JudgePausedError: (
         status.HTTP_503_SERVICE_UNAVAILABLE,

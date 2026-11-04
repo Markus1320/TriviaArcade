@@ -122,7 +122,9 @@ def test_hybrid_mode_falls_back_to_the_pool_when_live_fails(game: Game, tmp_path
 def test_pool_mode_without_questions_in_the_language(game: Game, tmp_path: Path) -> None:
     use_pool(game, tmp_path, "pool", 1)
     run_id = game.client.post("/api/runs", json={"language": "de"}).json()["run_id"]
-    assert game.question(run_id).status_code == 503
+    response = game.question(run_id)
+    assert response.status_code == 503
+    assert response.json()["code"] == "no_questions_in_language"
 
 
 def test_choice_options_are_shuffled_when_served(game: Game, tmp_path: Path) -> None:
