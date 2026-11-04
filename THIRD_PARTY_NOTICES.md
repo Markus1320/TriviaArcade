@@ -27,6 +27,6 @@ project; no audio files, sprites or logos from other games are used.
 
 ## Software dependencies
 
-Backend and frontend dependencies are installed from PyPI and npm and are distributed
-under their own licenses. See `backend/uv.lock` and `frontend/package-lock.json` for the
+Python and frontend dependencies are installed from PyPI and npm and are distributed
+under their own licenses. See `uv.lock` and `frontend/package-lock.json` for the
 full list.
