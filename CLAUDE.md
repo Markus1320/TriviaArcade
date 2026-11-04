@@ -15,6 +15,9 @@ Core loop (version one):
 4. Each correct answer increases the streak. The first wrong answer ends the run.
 5. After game over, the player picks an existing handle or enters a new one, and the run is added to a top 10 leaderboard.
 
+Since version 5 questions can also come from a pregenerated pool, and typed answers to pool
+questions are then judged by code (see "Question Pool"); live generation stays available.
+
 The project must stay maintainable and extendable. Prefer clear module boundaries and small, readable units over clever shortcuts.
 
 ## Tech Stack
@@ -492,13 +495,24 @@ Pipeline (`backend/poolgen/`, one walk at a time):
   JSON object per line, appended at once so a run can stop any time. The generator writes
   to `data/pool/` (gitignored; on the server owned by the container user like the rest of
   `data/`; the whole `data/` is mounted, because a missing bind mount folder is created
-  by Docker as root and the container cannot write to it); finished pools are copied into the repository's `pool/` and committed.
+  by Docker as root and the container cannot write to it). Snapshots are copied off the
+  server with `scp` into the repository's `pool/` and committed (never committed on the
+  server); the game itself only reads `data/pool/`.
 - One pool per language, chosen with `--language`; no translation.
 - HTTP 429 from Ollama (`LLMRateLimitError`) drops the walk in progress and waits
   `--wait-hours` (5); so do five technical failures in a row.
 - Run: `docker compose run --rm poolgen python -m poolgen --language en --walks N
   [--dir /data/pool/<name>] [--seed S]`, review with `python -m poolgen.report --language en
-  [--dir ...]`. Calls are logged to `llm_calls` with the purposes `critic` and `solve`.
+  [--dir ...] [--summary]`. Calls are logged to `llm_calls` with the purposes `critic` and
+  `solve`.
+- The long run on the server is a detached container with a fixed name, restarted by
+  removing it (`docker rm -f poolgen-en`) and starting it again; the new run continues
+  where the pool stands: `docker compose run -d --name poolgen-en poolgen python -m poolgen
+  --language en --walks 4000`. Follow it with `docker logs -f poolgen-en`.
+- Long run (started 2026-11-02, after both trials): first snapshot on 2026-11-04 with 792
+  accepted of 839 walks (94%), 3.7 calls and 33 seconds per accepted question, formats
+  single 520, free 192, multiple 48, order 32; 156 accepted after a revision. The Ollama
+  monthly limit stopped it for about a day in between.
 - First trial (30 walks, seed 41, before critic tuning): 28 accepted, 3.7 calls and 28
   seconds per accepted question, formats free 6, single 19, multiple 1, order 2. The
   critic fixed real problems (Malta has two official languages, a trivial true or false)
