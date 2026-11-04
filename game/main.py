@@ -1,4 +1,4 @@
-"""The web app: every HTTP route of the game, all under /api.
+"""The web app: every HTTP route of the game under /api, and the built frontend.
 
 Start it with:
 
@@ -15,10 +15,12 @@ or a dependency (Db: an open database connection, closed again after the request
 import logging
 import sqlite3
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
 from game import db, runs, scores
@@ -155,4 +157,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.include_router(router)
     app.add_exception_handler(GameError, game_error)
+    # Everything that is not /api: the files of the built frontend. html=True serves
+    # index.html for "/". Mounted last, so the /api routes come first.
+    if Path(settings.frontend_dir).is_dir():
+        app.mount("/", StaticFiles(directory=settings.frontend_dir, html=True))
     return app

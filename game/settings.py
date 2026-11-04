@@ -10,6 +10,8 @@ class Settings:
     database: str = "data/game.db"
     # The folder with the question pool, one <language>.jsonl file per language.
     pool_dir: str = "pool"
+    # The built frontend (npm run build). Served when the folder exists.
+    frontend_dir: str = "frontend/dist"
     # Seconds per question, counted from when it is shown. 0 turns the time limit off.
     answer_time_seconds: int = 30
     # Correct answers in a row that earn a 1UP.
@@ -26,6 +28,7 @@ def load_settings() -> Settings:
     settings = Settings(
         database=os.environ.get("DATABASE", default.database),
         pool_dir=os.environ.get("POOL_DIR", default.pool_dir),
+        frontend_dir=os.environ.get("FRONTEND_DIR", default.frontend_dir),
         answer_time_seconds=int(os.environ.get("ANSWER_TIME_SECONDS", default.answer_time_seconds)),
         life_combo=int(os.environ.get("LIFE_COMBO", default.life_combo)),
         max_lives=int(os.environ.get("MAX_LIVES", default.max_lives)),
