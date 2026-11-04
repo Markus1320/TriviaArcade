@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { api, ApiError, type AnswerResult, type Question } from '../api/client';
 import { useSound } from '../audio/soundState';
-import { LifeMeter } from '../components/LifeMeter';
-import { OptionList, type ChoiceReveal } from '../components/OptionList';
-import { TimeBar, URGENT_MS } from '../components/TimeBar';
+import { AnswerForm } from '../components/AnswerForm';
+import { Hud } from '../components/Hud';
+import { type ChoiceReveal } from '../components/OptionList';
+import { Verdict } from '../components/Verdict';
 import { errorMessage } from '../errors';
 import { useStrings } from '../language/languageState';
-import { useCountdown } from '../useCountdown';
-
-const MAX_ANSWER_LENGTH = 200;
 
 export interface GameOverResult {
   streak: number;
@@ -22,271 +20,109 @@ export interface GameOverResult {
 interface Props {
   runId: string;
   onGameOver: (result: GameOverResult) => void;
-  // Leaves the run, e.g. when no question can be had in its language.
+  // Leaves the run, e.g. when there are no questions in its language.
   onQuit: () => void;
 }
 
-// deadline: performance.now() timestamp when the time is up, null without a time limit.
+// What the screen shows: a question being loaded, an error, the open question, or the
+// verdict on the last answer (while the run goes on).
 type Phase =
   | { kind: 'loading' }
-  | { kind: 'loadFailed'; error: unknown }
-  | { kind: 'asking'; question: Question; error: unknown; deadline: number | null }
-  | { kind: 'judging'; question: Question }
-  // The run goes on: the answer was correct, a 1UP saved the run, or the question was skipped.
+  | { kind: 'failed'; error: unknown }
   | {
-      kind: 'verdict';
+      kind: 'asking';
       question: Question;
-      result: AnswerResult;
-      choice: ChoiceReveal | null;
-    };
+      // performance.now() timestamp when the time is up; null without a time limit.
+      deadline: number | null;
+      judging: boolean;
+      error: unknown;
+    }
+  | { kind: 'verdict'; question: Question; result: AnswerResult; choice: ChoiceReveal | null };
 
-// The next question, requested while the player still sees the "correct" verdict.
-interface Prefetch {
-  promise: Promise<Question>;
-  ready: Question | null;
-}
-
+// One question of a run, from loading it to the verdict. Talks to the server; the parts
+// on screen are Hud, AnswerForm and Verdict.
 export function QuestionScreen({ runId, onGameOver, onQuit }: Props) {
   const { play } = useSound();
   const strings = useStrings();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
-  // The typed answer of a free question, or the picked options of a choice question.
-  const [answer, setAnswer] = useState('');
-  const [selected, setSelected] = useState<number[]>([]);
-  const prefetch = useRef<Prefetch | null>(null);
-  const optionButtons = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const fail = useCallback((err: unknown) => {
-    setPhase({ kind: 'loadFailed', error: err });
-  }, []);
-
-  // Tells the server the open question is now shown, which starts its time limit, then shows
-  // it. The response is the open question itself, so a prefetched copy is not needed here.
-  // After a reload the clock keeps running, so seconds_left may already be low or zero.
-  const showQuestion = useCallback(() => {
+  // Gets the open question (the server creates one if there is none), then tells the
+  // server it is shown, which starts its clock. After a reload the clock keeps running,
+  // so seconds_left may already be low or zero.
+  const fetchQuestion = useCallback(() => {
     api
-      .startQuestion(runId)
-      .then((started) => {
-        setAnswer('');
-        setSelected([]);
+      .nextQuestion(runId)
+      .then(() => api.startQuestion(runId))
+      .then((question) => {
         setPhase({
           kind: 'asking',
-          question: started,
+          question,
+          deadline: deadlineIn(question.seconds_left),
+          judging: false,
           error: null,
-          deadline: deadlineIn(started.seconds_left),
         });
       })
-      .catch(fail);
-  }, [runId, fail]);
-
-  // Only updates state once the request settles, so it can run inside an effect.
-  const awaitQuestion = useCallback(
-    (request: Promise<Question>) => {
-      request
-        .then(() => {
-          showQuestion();
-        })
-        .catch(fail);
-    },
-    [showQuestion, fail],
-  );
+      .catch((error: unknown) => {
+        setPhase({ kind: 'failed', error });
+      });
+  }, [runId]);
 
   useEffect(() => {
-    awaitQuestion(api.nextQuestion(runId));
-  }, [awaitQuestion, runId]);
+    fetchQuestion();
+  }, [fetchQuestion]);
 
-  // Starts generating the next question right after a correct answer. The server keeps it
-  // as the open question, so this is safe even if the player reloads before seeing it.
-  const startPrefetch = () => {
-    const entry: Prefetch = { promise: api.nextQuestion(runId), ready: null };
-    entry.promise.then(
-      (question) => {
-        entry.ready = question;
-      },
-      () => {
-        // Reported when the player asks for the question; see loadQuestion.
-      },
-    );
-    prefetch.current = entry;
-  };
-
-  const loadQuestion = () => {
-    const entry = prefetch.current;
-    prefetch.current = null;
-    if (entry?.ready) {
-      showQuestion();
-      return;
-    }
+  const loadNext = () => {
     setPhase({ kind: 'loading' });
-    // A failed prefetch rejects here too; the retry button then sends a fresh request.
-    awaitQuestion(entry?.promise ?? api.nextQuestion(runId));
+    fetchQuestion();
   };
 
-  const question = 'question' in phase ? phase.question : null;
-  const isChoice = question !== null && question.format !== 'free';
-  const ordered = question?.format === 'order';
-  // Something to judge when the time is up. ENTER also needs every item of an order
-  // question tapped.
-  const hasAnswer = isChoice ? selected.length > 0 : answer.trim() !== '';
-  const canSubmit = ordered ? selected.length === question.options.length : hasAnswer;
-
-  const revealOf = (shown: Question, result: AnswerResult): ChoiceReveal | null =>
-    result.correct_options === null
-      ? null
-      : {
-          options: shown.options,
-          correct: result.correct_options,
-          // A skipped question was not answered, whatever was picked before.
-          selected: result.skipped ? [] : selected,
-          ordered: shown.format === 'order',
-        };
-
-  const endRun = (shown: Question, result: AnswerResult) => {
-    play('wrong');
-    play('gameOver');
-    onGameOver({
-      streak: result.streak,
-      expectedAnswer: result.expected_answer,
-      explanation: result.explanation,
-      timedOut: result.timed_out,
-      choice: revealOf(shown, result),
-    });
-  };
-
-  // Shows what happened; unless the run is over, the next question is prepared meanwhile.
-  const showResult = (shown: Question, result: AnswerResult) => {
+  // Shows what happened, or ends the run.
+  const showResult = (question: Question, result: AnswerResult, selected: number[]) => {
+    const choice =
+      result.correct_options === null
+        ? null
+        : {
+            options: question.options,
+            correct: result.correct_options,
+            selected,
+            ordered: question.format === 'order',
+          };
     if (result.game_over) {
-      endRun(shown, result);
+      play('wrong');
+      play('gameOver');
+      onGameOver({
+        streak: result.streak,
+        expectedAnswer: result.expected_answer,
+        explanation: result.explanation,
+        timedOut: result.timed_out,
+        choice,
+      });
       return;
     }
     if (result.correct) {
       play(result.life_earned ? 'oneUp' : 'correct');
     } else if (result.saved) {
+      // A skip makes no sound.
       play('wrong');
     }
-    setPhase({ kind: 'verdict', question: shown, result, choice: revealOf(shown, result) });
-    startPrefetch();
+    setPhase({ kind: 'verdict', question, result, choice });
   };
 
-  // Sends the typed answer or the picked options, whichever the question asks for. When the
-  // time is up (force) an incomplete order is sent too; it counts as wrong.
-  const sendAnswer = (force = false) => {
-    if (phase.kind !== 'asking' || !(canSubmit || (force && hasAnswer))) return;
-    const shown = phase.question;
-    setPhase({ kind: 'judging', question: shown });
-    const request = isChoice ? api.select(runId, selected) : api.answer(runId, answer);
-    request
+  // Sends an answer, a skip or a timeout. On an error the question stays open with the
+  // message; once its time is up, the error screen offers TRY AGAIN instead.
+  const send = (request: () => Promise<AnswerResult>, selected: number[]) => {
+    if (phase.kind !== 'asking' || phase.judging) return;
+    const asking = phase;
+    setPhase({ ...asking, judging: true, error: null });
+    request()
       .then((result) => {
-        showResult(shown, result);
+        showResult(asking.question, result, selected);
       })
-      .catch((err: unknown) => {
-        // A judge failure pauses the run: the question stays open and can be answered again.
-        // The server gives a fresh time limit for it.
-        setPhase({
-          kind: 'asking',
-          question: shown,
-          error: err,
-          deadline: deadlineIn(shown.time_limit_seconds),
-        });
+      .catch((error: unknown) => {
+        const timeIsUp = asking.deadline !== null && performance.now() >= asking.deadline;
+        setPhase(timeIsUp ? { kind: 'failed', error } : { ...asking, error });
       });
   };
-
-  // Spends a 1UP on the open question. Errors (e.g. no 1UP left) keep the question open.
-  const skipQuestion = () => {
-    if (phase.kind !== 'asking') return;
-    const shown = phase.question;
-    setPhase({ kind: 'judging', question: shown });
-    api
-      .skip(runId)
-      .then((result) => {
-        showResult(shown, result);
-      })
-      .catch((err: unknown) => {
-        setPhase({ kind: 'asking', question: shown, error: err, deadline: phase.deadline });
-      });
-  };
-
-  const submit = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    sendAnswer();
-  };
-
-  // Time is up: whatever the player typed or picked is sent; with nothing the run ends,
-  // unless a 1UP saves it.
-  const expire = () => {
-    if (phase.kind !== 'asking') return;
-    if (hasAnswer) {
-      sendAnswer(true);
-      return;
-    }
-    const shown = phase.question;
-    setPhase({ kind: 'judging', question: shown });
-    api
-      .timeOut(runId)
-      .then((result) => {
-        showResult(shown, result);
-      })
-      .catch(fail);
-  };
-
-  const toggleOption = (index: number) => {
-    // Order: a tap gives the next number, tapping a numbered item takes it back and the
-    // later items move up.
-    if (question?.format === 'multiple' || question?.format === 'order') {
-      setSelected((current) =>
-        current.includes(index) ? current.filter((item) => item !== index) : [...current, index],
-      );
-    } else {
-      setSelected([index]);
-    }
-  };
-
-  // Keyboard for choice questions: digits pick an option, the arrow keys move through the
-  // options (and pick, when only one can be picked), Enter confirms.
-  const asking = phase.kind === 'asking';
-  const onKey = useRef<(event: KeyboardEvent) => void>(() => undefined);
-  useEffect(() => {
-    onKey.current = (event) => {
-      if (!asking || !isChoice || event.ctrlKey || event.metaKey || event.altKey) return;
-      const count = question.options.length;
-      const digit = Number(event.key);
-      if (Number.isInteger(digit) && digit >= 1 && digit <= count) {
-        event.preventDefault();
-        toggleOption(digit - 1);
-        optionButtons.current[digit - 1]?.focus();
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const step = event.key === 'ArrowDown' ? 1 : -1;
-        const focused = optionButtons.current.findIndex(
-          (button) => button !== null && button === document.activeElement,
-        );
-        const start = focused === -1 ? (step === 1 ? -1 : 0) : focused;
-        const next = (start + step + count) % count;
-        optionButtons.current[next]?.focus();
-        if (question.format === 'single') setSelected([next]);
-      } else if (event.key === 'Enter') {
-        // Enter on a focused option would pick it again instead of confirming.
-        event.preventDefault();
-        sendAnswer();
-      }
-    };
-  });
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => {
-      onKey.current(event);
-    };
-    window.addEventListener('keydown', listener);
-    return () => {
-      window.removeEventListener('keydown', listener);
-    };
-  }, []);
-
-  const remainingMs = useCountdown(phase.kind === 'asking' ? phase.deadline : null, {
-    onSecond: (secondsLeft) => {
-      if (secondsLeft * 1000 <= URGENT_MS) play('tick');
-    },
-    onExpire: expire,
-  });
 
   if (phase.kind === 'loading') {
     return (
@@ -297,19 +133,18 @@ export function QuestionScreen({ runId, onGameOver, onQuit }: Props) {
       </main>
     );
   }
-  if (phase.kind === 'loadFailed' || question === null) {
-    // Retrying cannot help when the language has no questions at all.
+
+  if (phase.kind === 'failed') {
+    // Trying again cannot help when the language has no questions at all.
     const hopeless =
-      phase.kind === 'loadFailed' &&
-      phase.error instanceof ApiError &&
-      phase.error.code === 'no_questions_in_language';
+      phase.error instanceof ApiError && phase.error.code === 'no_questions_in_language';
     return (
       <main className="screen screen--question">
         <p className="message message--error" role="alert">
-          {phase.kind === 'loadFailed' ? errorMessage(phase.error, strings) : strings.genericError}
+          {errorMessage(phase.error, strings)}
         </p>
         {!hopeless && (
-          <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
+          <button type="button" className="button button--primary" onClick={loadNext} autoFocus>
             {strings.retry}
           </button>
         )}
@@ -325,156 +160,50 @@ export function QuestionScreen({ runId, onGameOver, onQuit }: Props) {
     );
   }
 
-  const verdict = phase.kind === 'verdict' ? phase.result : null;
-  const correct = verdict?.correct === true;
-  const streak = verdict ? verdict.streak : question.streak;
-  const lives = verdict ? verdict.lives : question.lives;
-  const combo = verdict ? verdict.combo : question.combo;
-  const limit = question.time_limit_seconds;
-  const judging = phase.kind === 'judging';
+  const { question } = phase;
+  // After a verdict the HUD shows the run as it is now.
+  const now = phase.kind === 'verdict' ? phase.result : question;
   return (
     <main className="screen screen--question">
-      <header className="hud">
-        <p className="hud__item">{strings.questionNumber(question.number)}</p>
-        <LifeMeter
-          lives={lives}
-          combo={combo}
-          lifeCombo={question.life_combo}
-          maxLives={question.max_lives}
+      <Hud
+        number={question.number}
+        streak={now.streak}
+        lives={now.lives}
+        combo={now.combo}
+        lifeCombo={question.life_combo}
+        maxLives={question.max_lives}
+        scored={phase.kind === 'verdict' && phase.result.correct}
+      />
+      {phase.kind === 'verdict' ? (
+        <Verdict
+          question={question}
+          result={phase.result}
+          choice={phase.choice}
+          onNext={loadNext}
         />
-        <p className="hud__item hud__item--streak">
-          {strings.streakLabel}{' '}
-          {/* The key restarts the pop animation whenever the streak changes. */}
-          <strong
-            key={streak}
-            className={correct ? 'streak-value streak-value--up' : 'streak-value'}
-          >
-            {strings.streakValue(streak)}
-          </strong>
-        </p>
-      </header>
-      {verdict === null && limit !== null && remainingMs !== null && (
-        <TimeBar remainingMs={remainingMs} limitMs={limit * 1000} />
-      )}
-      {/* After a verdict the box shows what there is to learn, not the question again. */}
-      <section
-        className={
-          verdict === null
-            ? 'question-box'
-            : correct
-              ? 'question-box question-box--correct'
-              : 'question-box question-box--saved'
-        }
-      >
-        {verdict?.explanation ? (
-          <p className="question-text">{verdict.explanation}</p>
-        ) : (
-          <h2 className="question-text question-text--locked">{question.text}</h2>
-        )}
-      </section>
-      {phase.kind === 'verdict' && verdict !== null ? (
-        <>
-          {phase.choice ? (
-            <OptionList
-              options={phase.choice.options}
-              selected={phase.choice.selected}
-              reveal={phase.choice}
-            />
-          ) : (
-            !correct &&
-            verdict.expected_answer !== null && (
-              <p className="answer-reveal__value">
-                {strings.correctAnswerWas}: {verdict.expected_answer}
-              </p>
-            )
-          )}
-          {correct ? (
-            <p className="verdict verdict--correct" role="status">
-              {strings.correct}
-            </p>
-          ) : (
-            <p className="verdict verdict--saved" role="status">
-              {verdict.skipped ? strings.skipped : strings.savedBy1up}
-            </p>
-          )}
-          {verdict.life_earned && (
-            <p className="one-up" role="status">
-              {strings.oneUp}
-            </p>
-          )}
-          <button type="button" className="button button--primary" onClick={loadQuestion} autoFocus>
-            {strings.nextQuestion}
-          </button>
-        </>
       ) : (
-        <form className="answer-form" onSubmit={submit}>
-          {isChoice ? (
-            <>
-              <p className="field-label">
-                {ordered
-                  ? strings.tapInOrder
-                  : question.format === 'multiple'
-                    ? strings.pickAll
-                    : strings.pickOne}
-              </p>
-              <OptionList
-                options={question.options}
-                selected={selected}
-                multiple={question.format === 'multiple'}
-                ordered={ordered}
-                disabled={judging}
-                onToggle={toggleOption}
-                buttons={optionButtons}
-              />
-            </>
-          ) : (
-            <>
-              <label className="field-label" htmlFor="answer">
-                {strings.answerLabel}
-              </label>
-              <input
-                id="answer"
-                className="text-input"
-                value={answer}
-                onChange={(event) => {
-                  setAnswer(event.target.value);
-                }}
-                placeholder={strings.answerPlaceholder}
-                maxLength={MAX_ANSWER_LENGTH}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                // Typing only: pasting or dropping a looked up answer is blocked.
-                onPaste={(event) => {
-                  event.preventDefault();
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                }}
-                // No autoFocus: on phones it opens the keyboard, which hides the question.
-                disabled={judging}
-              />
-            </>
-          )}
-          <button type="submit" className="button button--primary" disabled={judging || !canSubmit}>
-            {judging ? <span className="blink">{strings.judging}</span> : strings.submit}
-          </button>
-          {lives > 0 && (
-            <button
-              type="button"
-              className="button button--secondary"
-              onClick={skipQuestion}
-              disabled={judging}
-            >
-              {strings.skipQuestion}
-            </button>
-          )}
-          {phase.kind === 'asking' && phase.error !== null && (
-            <p className="message message--error" role="alert">
-              {errorMessage(phase.error, strings)}
-            </p>
-          )}
-        </form>
+        <AnswerForm
+          // A new key for every question starts the form empty.
+          key={question.question_id}
+          question={question}
+          deadline={phase.deadline}
+          judging={phase.judging}
+          error={phase.error}
+          lives={question.lives}
+          onAnswer={(answer) => {
+            send(() => api.answer(runId, answer), []);
+          }}
+          onSelect={(selected) => {
+            send(() => api.select(runId, selected), selected);
+          }}
+          onSkip={() => {
+            // A skipped question was not answered, whatever was picked before.
+            send(() => api.skip(runId), []);
+          }}
+          onTimeout={() => {
+            send(() => api.timeOut(runId), []);
+          }}
+        />
       )}
     </main>
   );

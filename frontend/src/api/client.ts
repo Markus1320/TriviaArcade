@@ -61,7 +61,7 @@ export interface AnswerResult {
   skipped: boolean;
   // Set whenever the answer was not correct.
   expected_answer: string | null;
-  // A sentence or two about the answer, shown after every verdict. null for old questions.
+  // A sentence or two about the answer, shown after every verdict. null if there is none.
   explanation: string | null;
   // Choice questions: positions of the correct options (order questions: in the correct
   // order). null for free questions.
@@ -115,7 +115,7 @@ export interface QuestionLogPage {
   has_more: boolean;
 }
 
-// Error codes sent by the backend, see backend/app/api/errors.py.
+// Error codes sent by the backend, see ERRORS in game/runs.py.
 export type ErrorCode =
   | 'run_not_found'
   | 'run_over'
@@ -123,7 +123,6 @@ export type ErrorCode =
   | 'invalid_answer'
   | 'question_unavailable'
   | 'no_questions_in_language'
-  | 'judge_unavailable'
   | 'no_life_left'
   | 'run_not_over'
   | 'run_already_claimed'
@@ -173,7 +172,8 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown):
   if (!response.ok) {
     throw errorFromBody(response.status, payload);
   }
-  // The shapes are defined by our own backend (see the Pydantic models in backend/app/api).
+  // The shapes are defined by our own backend (see the dicts returned in game/runs.py and
+  // game/scores.py).
   return payload as T;
 }
 
