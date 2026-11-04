@@ -1,6 +1,6 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Steps 1 to 3 are done on the branch `simple` (see "Progress"
+Status: agreed, 2026-11-04. Steps 1 to 4 are done on the branch `simple` (see "Progress"
 at the end).
 
 ## Goal
@@ -90,9 +90,10 @@ Everything runs in Docker with the profile `offline`, so the game alone starts w
 | File | Job |
 |---|---|
 | `offline/importer/` | Wikidata into Neo4j, as today (config in `config/import.yaml`) |
-| `offline/walk.py` | random walk in Neo4j, gives a few connected facts |
+| `offline/walk.py` | random walk in Neo4j, gives a few connected facts, and those as text |
 | `offline/llm.py` | one function: send a chat to Ollama, get JSON back, with one retry |
 | `offline/prompts/` | writer, critic and solver prompts (carried over, they are tuned) |
+| `offline/questions.py` | what a question is, and the code checks on the writer's reply |
 | `offline/poolgen.py` | the pipeline: write → check → critic → blind solve → append to the pool |
 | `offline/report.py` | summary and review of a pool |
 
@@ -256,3 +257,44 @@ Built as planned, with these differences:
   keyboard, a reload during a question (same question, clock kept running), a wrong
   answer saved by a 1UP, a timeout ending the run, claiming a handle, the leaderboard,
   the question log, and German without questions (message and BACK only).
+
+### Step 4 (2026-11-04)
+
+- **`offline/`** as planned, plus `offline/questions.py` (the question's JSON shape and
+  the checks on the writer's reply: options, giveaways, "all of the above"), taken out
+  of the old generator so `poolgen.py` stays readable. `poolgen.py` is 530 lines: the
+  pool files and index, the three roles (writer, critic, solver), one walk from start to
+  end, and the command line, in that order.
+- **`llm.ask(chat, ..., check=...)`** is the one function. `chat` sends one request body
+  and returns the reply text; in use it is `Ollama(...).chat`, in the tests a function
+  returning canned replies. A retry after a reply that failed its check tells the model
+  why (as the writer did before; the critic and the solver now get the note too).
+- **Pool records** are plain dicts with exactly the old keys, so the existing
+  `pool/en.jsonl` and new lines look the same; `python -m offline.report` reads the
+  whole pool (839 walks, 792 accepted). Pydantic stays only where it checks data from
+  outside: the writer's reply (`questions.Question`) and `config/import.yaml`.
+- **No database:** the call log (`llm_calls`) is gone; the critic rounds are in each
+  record.
+- **The importer** moved unchanged except for its Neo4j settings (plain environment
+  variables instead of pydantic-settings). **Its five test files moved with it**
+  (680 lines): the importer is carried over, not rewritten, and those tests protect it.
+  So the tests are about 1,500 lines instead of the planned 600.
+- **`offline/walk.py` has no unit test**: it is mostly Neo4j queries; it was checked
+  against the real graph (three walks, same facts text as in the pool records).
+- **Commands** (on the host the values of `.env` are passed with `--env-file`):
+
+  ```bash
+  docker compose --profile offline run --rm importer --dry-run --names
+  docker compose --profile offline run --rm poolgen --language en --walks 100
+  uv run python -m offline.report --language en --summary
+  uv run --env-file .env python -m offline.importer.explore Q11424
+  ```
+
+- **Removed with `backend/`:** the old app, Alembic, the judge and live generator,
+  `scripts/sample_questions.py` (live questions), `scripts/reset_leaderboard.py`
+  (becomes one SQL line in `docs/how-to.md`) and `scripts/evaluate_matcher.py` (it
+  compared the matcher with judge verdicts, which no longer exist; its result is kept in
+  CLAUDE.md for `docs/history.md`).
+- **Not yet checked:** a trial with real LLM calls. Ollama runs only in the cloud here,
+  and the account is shared with the pool run on the server until 2026-11-09.
+- CI still points at `backend/` and fails until step 5.
