@@ -1,5 +1,6 @@
-# One image for the game: the frontend is built in a first stage, the Python app runs in
-# the second and serves both the API and the built frontend.
+# One image for the game and the offline part. The frontend is built in a first stage;
+# the Python app runs in the second and serves both the API and the built frontend. The
+# offline services (importer, poolgen) use the same image with another command.
 
 # --- Stage 1: build the frontend (only its output, dist/, is kept) ---
 FROM node:22-alpine AS frontend
@@ -26,9 +27,11 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev
 
 COPY game ./game
+COPY offline ./offline
 COPY --from=frontend /frontend/dist ./frontend/dist
 
-# The pool is mounted at /app/pool and the database folder at /data (docker-compose.yml).
+# docker-compose.yml mounts the pool at /app/pool and the database folder at /data (the
+# offline services: config/ and data/ at /app/config and /app/data).
 ENV PATH="/app/.venv/bin:$PATH" \
     DATABASE=/data/game.db \
     POOL_DIR=/app/pool \

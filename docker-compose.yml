@@ -3,6 +3,8 @@
 #   docker compose up -d --build                       the game on http://localhost:8080
 #   docker compose --profile offline up -d neo4j       the knowledge graph, with its Browser
 #   docker compose --profile offline run --rm importer rebuild the graph from Wikidata
+#   docker compose --profile offline run --rm poolgen --language en --walks 100
+#                                                      make questions (needs an LLM)
 #
 # Only the game publishes a port to the network. Services with "profiles: [offline]" are
 # left out unless --profile offline is given; the game never needs them.
@@ -10,6 +12,7 @@
 services:
   game:
     build: .
+    image: triviaarcade
     restart: unless-stopped
     ports:
       - "${GAME_PORT:-8080}:8000"
@@ -60,19 +63,50 @@ services:
       retries: 20
       start_period: 20s
 
-  # Wikidata import into Neo4j (still the old code in backend/ until step 4 of
-  # docs/simplification-plan.md moves it to offline/).
+  # Wikidata into Neo4j, configured by config/import.yaml. Wikidata's answers are cached
+  # in data/raw. Options go after the service name, e.g. "importer --dry-run --names":
+  # the command is "python -m offline.importer" plus what you add.
   importer:
-    build: ./backend
+    build: .
+    image: triviaarcade
     profiles: ["offline"]
-    command: ["python", "-m", "importer"]
+    entrypoint: ["python", "-m", "offline.importer"]
+    command: []
     environment:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: ${NEO4J_USER:-neo4j}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
     volumes:
-      - ./config:/config:ro
-      - ./data:/data
+      - ./config:/app/config:ro
+      - ./data:/app/data
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # Walks through the graph and lets the LLM write questions into pool/. Options go after
+  # the service name: "poolgen --language en --walks 100" (see offline/poolgen.py).
+  poolgen:
+    build: .
+    image: triviaarcade
+    profiles: ["offline"]
+    entrypoint: ["python", "-m", "offline.poolgen"]
+    command: ["--help"]
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      # For an Ollama on this computer: http://host.docker.internal:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      LLM_GENERATOR_MODEL: ${LLM_GENERATOR_MODEL:-}
+      LLM_CRITIC_MODEL: ${LLM_CRITIC_MODEL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-300}
+      WALK_MIN_HOPS: ${WALK_MIN_HOPS:-1}
+      WALK_MAX_HOPS: ${WALK_MAX_HOPS:-2}
+      WALK_HUB_PENALTY: ${WALK_HUB_PENALTY:-0.5}
+    volumes:
+      # Written: new questions are appended to pool/<language>.jsonl.
+      - ./pool:/app/pool
     depends_on:
       neo4j:
         condition: service_healthy
