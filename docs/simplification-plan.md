@@ -1,6 +1,7 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Nothing here is built yet.
+Status: agreed, 2026-11-04. Steps 1 and 2 are done on the branch `simple` (see "Progress"
+at the end).
 
 ## Goal
 
@@ -40,7 +41,8 @@ Neo4j.
 |---|---|---|
 | `game/main.py` | all HTTP routes, start of the app | 200 lines |
 | `game/rules.py` | score, 1UPs, combo, time limit, checking choice answers | 100 |
-| `game/runs.py` | start a run, next question, answer, skip, timeout, claim | 250 |
+| `game/runs.py` | start a run, next question, answer, skip, timeout | 400 |
+| `game/scores.py` | after game over: claim, leaderboard, handles, question log | 140 |
 | `game/pool.py` | read the pool file, pick a question | 100 |
 | `game/matcher.py` | check a typed answer (carried over) | 190 |
 | `game/db.py` | open SQLite, small helper functions for queries | 80 |
@@ -49,7 +51,7 @@ Neo4j.
 
 In total about 1,000 lines instead of about 4,600 in `backend/app`.
 
-**Database: SQLite.** One file, `data/game.db`, mounted into the container. A backup is a
+**Database: SQLite.** One file, `data/game.db` (`DATABASE`), mounted into the container. A backup is a
 copy of that file. Tables:
 
 - `players`: id, handle
@@ -195,3 +197,34 @@ Steps 2 to 6 are each a review point for you.
    `backend/poolgen/` and `backend/importer/`.
 4. **Branch:** the rebuild happens on `simple`, an exception to "commit directly to
    `main`" until the switch.
+
+## Progress
+
+### Step 1 (2026-11-04)
+
+The tag `v0.5.0` points at the commit before this plan. `classic` was created from it
+and pushed; `simple` was created from `main`.
+
+### Step 2 (2026-11-04)
+
+Built as planned, with these differences:
+
+- **`game/scores.py`** is one more file: claiming a run, the leaderboard, the handle list
+  and the question log. `runs.py` is then only about playing a run, and both stay
+  readable top to bottom.
+- **No "recent starts" rule at all.** Every start entity is walked once per pool, so two
+  pool questions never share a start. A run never gets a question twice, and questions
+  nobody has had come first.
+- **Concurrency:** each changing request runs in `BEGIN IMMEDIATE`, which takes SQLite's
+  write lock at once, so a double click cannot create two questions or judge twice.
+- **Errors:** one `GameError` with a code; the table `ERRORS` in `runs.py` holds every
+  code with its HTTP status and message (same codes as before, minus `judge_unavailable`).
+- **The project file** `pyproject.toml` (and `uv.lock`) is at the top of the repository,
+  tests are in `tests/`. The old `backend/` keeps its own until step 4 removes it.
+- **Settings:** `DATABASE` (default `data/game.db`), `POOL_DIR` (default `pool`, the
+  committed snapshots), `ANSWER_TIME_SECONDS`, `LIFE_COMBO`, `MAX_LIVES`, `START_LIVES`.
+- **Clock in tests:** `runs.now()` is replaced by a fake clock, the only fake in the
+  game tests.
+- The backend does not serve the frontend yet; that comes with the Dockerfile in step 3.
+- A question whose pool record disappears from the pool file is left out of the
+  question log; during a run it gives `question_unavailable`.
