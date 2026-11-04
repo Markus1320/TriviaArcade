@@ -1,6 +1,6 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Steps 1 to 5 are done on the branch `simple` (see "Progress"
+Status: agreed, 2026-11-04. Steps 1 to 6 are done on the branch `simple` (see "Progress"
 at the end).
 
 ## Goal
@@ -316,3 +316,19 @@ Built as planned, with these differences:
   of `simple`.
 - **The LLM trial of step 4 is still open**: the Ollama usage limit is reached until
   about 2026-11-06. It is now part of step 7.
+
+### Step 6 (2026-11-04)
+
+- `docs/how-it-works.md` follows one question through the game and then the offline
+  path, and names every file (checked with a script against `git ls-files`).
+- `docs/how-to.md`: playing, working without Docker, checks, rules, UI texts, topics,
+  making questions, the database, backup, leaderboard reset (one SQL line instead of the
+  old script), table changes, dependencies, deploy.
+- `docs/history.md`: the sections of the old CLAUDE.md about rules, the knowledge graph,
+  the LLM, the pool, the matcher, the game loop and the frontend, copied unchanged, with
+  a table of where those files live now.
+- `docs/react-for-angular-devs.md`, from the "Frontend" section of this plan.
+- `CLAUDE.md` is short now (the rules for working on the project), `README.md` says what
+  the game is and how to start it.
+- The deploy recipe describes the new deploy (no importer, no Neo4j on the server); the
+  script itself is simplified in step 7.
