@@ -1,6 +1,6 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Steps 1 and 2 are done on the branch `simple` (see "Progress"
+Status: agreed, 2026-11-04. Steps 1 to 3 are done on the branch `simple` (see "Progress"
 at the end).
 
 ## Goal
@@ -228,3 +228,31 @@ Built as planned, with these differences:
 - The backend does not serve the frontend yet; that comes with the Dockerfile in step 3.
 - A question whose pool record disappears from the pool file is left out of the
   question log; during a run it gives `question_unavailable`.
+
+### Step 3 (2026-11-04)
+
+- **Question screen** split into `QuestionScreen.tsx` (loading, talking to the server,
+  214 lines), `components/Hud.tsx` (number, 1UPs, score), `components/AnswerForm.tsx`
+  (time bar, question, input or options, keyboard, ENTER and SKIP) and
+  `components/Verdict.tsx` (explanation, marked options, NEXT QUESTION). Prefetching and
+  the "judge paused" state are gone; when a request fails after the time is up, the
+  error screen offers TRY AGAIN.
+- **One `Dockerfile`** at the top: Node builds the frontend, the Python image runs
+  uvicorn and serves the API and the built files (`FRONTEND_DIR`). It runs as the system
+  user `app`, uid 999, the owner of `data/` on the server. `Caddyfile`,
+  `compose.debug.yml` and `frontend/Dockerfile` are removed.
+- **`docker-compose.yml`:** the service `game` on `${GAME_PORT:-8080}`, with `pool/`
+  mounted read only (new questions are picked up without a restart, so the pool is not
+  copied into the image) and `data/` mounted for `game.db`. Under the profile `offline`:
+  `neo4j` (Browser on `127.0.0.1:7474`, same volume as before, so the graph is kept) and
+  `importer` (still built from `backend/` until step 4). The old `poolgen` service is
+  left out until step 4, because it needs PostgreSQL for its call log.
+- **`.env.example`** lists only what the game and the offline part read.
+- **For the switch (step 7):** `CADDY_PORT` is now `GAME_PORT`. If the server's `.env`
+  sets `CADDY_PORT`, the owner renames it. The old containers (caddy, backend, postgres)
+  show up as "orphans" of the project until they are removed.
+- ESLint keeps the strict rules until step 5; the new code passes them.
+- Played in the container on `localhost:8080`: order and single choice questions, the
+  keyboard, a reload during a question (same question, clock kept running), a wrong
+  answer saved by a 1UP, a timeout ending the run, claiming a handle, the leaderboard,
+  the question log, and German without questions (message and BACK only).
