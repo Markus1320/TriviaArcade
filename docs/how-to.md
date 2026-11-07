@@ -182,6 +182,6 @@ server and checks `/api/health`. The server needs neither Neo4j nor an LLM: new 
 arrive with the pool file in git. Never deploy while CI is red. The server's `.env` and
 `data/` are managed there; never change them by hand.
 
-> Until the switch to this version (step 7 of
-> [simplification-plan.md](simplification-plan.md)), `scripts/deploy.sh` still deploys
-> the classic version.
+On the server the deploy also removes containers that are not part of the game: those of
+services no longer in `docker-compose.yml`, and those of the `offline` profile. Their
+volumes are kept.
