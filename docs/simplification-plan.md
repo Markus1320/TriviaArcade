@@ -183,10 +183,6 @@ disturbed.
 5. **Tools and CI.** Milder lint settings, CI for the new layout.
 6. **Documentation.** The documents above.
 7. **Switch, after 2026-11-09** (when the pool run on the server has ended):
-   - before that: a trial of the new `offline.poolgen` with a few walks, once the Ollama
-     usage limit has reset (about 2026-11-06) and before the free plan ends on
-     2026-11-09; written to `--dir data/pool-trial`, compared with the server's latest
-     records (see "Step 4" below)
    - take the last pool snapshot from the server and commit it
    - merge `simple` into `main`, deploy with a simpler `scripts/deploy.sh`
    - keep the old PostgreSQL and Neo4j volumes on the server for a while, remove them
@@ -332,3 +328,17 @@ Built as planned, with these differences:
   the game is and how to start it.
 - The deploy recipe describes the new deploy (no importer, no Neo4j on the server); the
   script itself is simplified in step 7.
+
+### Step 7 (started 2026-11-07)
+
+- **No free Ollama usage any more:** since 2026-11-04 17:10 UTC Ollama answered with
+  HTTP 402 ("Add usage credits or subscribe"). The last accepted question was written on
+  2026-11-03. `poolgen-en` was stopped on 2026-11-07.
+- **The LLM trial is skipped before the switch.** It is the first job on the GPU PC with
+  a local Ollama: 3 walks into `--dir data/pool-trial`, then `offline.report`. The
+  prompts were tuned on `gemma4:31b-cloud` (writer) and `gpt-oss:120b` (critic, solver);
+  a smaller local model needs a look at question quality, not only at whether the code
+  runs.
+- **Last snapshot:** `pool/en.jsonl` on the server is identical to the committed one
+  (792 questions). `pool/en.rejected.jsonl` gained 5 lines, all technical failures
+  (HTTP 402), so their start entities stay free for later walks.
