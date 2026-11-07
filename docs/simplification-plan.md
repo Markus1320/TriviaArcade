@@ -1,6 +1,6 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Steps 1 to 6 are done on the branch `simple` (see "Progress"
+Status: agreed, 2026-11-04. Steps 1 to 7 are done: the simple version is live since 2026-11-07 (see "Progress"
 at the end).
 
 ## Goal
@@ -348,5 +348,12 @@ Built as planned, with these differences:
   removes the classic caddy, backend and postgres containers (tested: the old container
   is removed before the new one takes port 8080); a second line removes the offline
   containers, so the classic Neo4j stops running on the server. All volumes stay.
-  `poolgen-en` (a stopped `docker compose run` container) is left for the owner to
-  remove with `docker rm poolgen-en`.
+- **Switched on 2026-11-07:** `simple` merged into `main` (merge commit 5dcee49) and
+  deployed with the new script. CI was green, `/api/health` ok, the game reads the 786
+  distinct pool questions, `data/game.db` was created by uid 999, the leaderboard starts
+  empty. `--remove-orphans` also removed the stopped `poolgen-en` container (only the
+  container; its output is in `data/pool/` and in the committed snapshot).
+- **Left:** the volumes `triviaarcade_postgres_data`, `triviaarcade_neo4j_data`,
+  `triviaarcade_caddy_data` (and one unnamed volume) stay on the server for a few days
+  of play, then get removed (`docker volume rm ...`). The graph can be imported again
+  on the GPU PC; nothing in them is needed by the game.
