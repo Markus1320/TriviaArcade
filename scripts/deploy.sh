@@ -9,11 +9,23 @@
 #
 # The server needs neither Neo4j nor an LLM: new questions arrive with pool/ in git.
 # The server's .env and data/ folder are managed there and never touched by this script.
+#
+# Where to deploy comes from DEPLOY_SERVER (the ssh login, e.g. user@myserver.local) and
+# DEPLOY_DIR (the checkout on the server), set in the environment or in your local .env.
 set -euo pipefail
 
-SERVER="${DEPLOY_SERVER:-markus@arcade.local}"
-SERVER_DIR="${DEPLOY_DIR:-/home/markus/TriviaArcade}"
-REPO="Markus1320/TriviaArcade"
+# The value of one setting in .env (only that line is read, nothing is run).
+env_value() {
+  sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1 | tr -d '\r'
+}
+SERVER="${DEPLOY_SERVER:-$(env_value DEPLOY_SERVER)}"
+SERVER_DIR="${DEPLOY_DIR:-$(env_value DEPLOY_DIR)}"
+if [ -z "$SERVER" ] || [ -z "$SERVER_DIR" ]; then
+  echo "deploy: set DEPLOY_SERVER and DEPLOY_DIR in .env (see .env.example)" >&2
+  exit 1
+fi
+# The GitHub repository, from the origin remote ("owner/name"), to ask for its CI result.
+REPO="$(git remote get-url origin | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')"
 
 if [ "$(git rev-parse --abbrev-ref HEAD)" != "main" ]; then
   echo "deploy: not on main" >&2

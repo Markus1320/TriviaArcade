@@ -135,11 +135,12 @@ The tables are described in [game/schema.sql](../game/schema.sql).
 
 ## Back up the database
 
-On the server, while the game runs (SQLite's backup copies a consistent state):
+On the server, while the game runs (SQLite's backup copies a consistent state). Replace
+`<server>` and `<dir>` with your `DEPLOY_SERVER` and `DEPLOY_DIR`:
 
 ```bash
-ssh markus@arcade.local "cd TriviaArcade && docker compose exec -T game python -c \"import sqlite3; sqlite3.connect('/data/game.db').backup(sqlite3.connect('/data/backup.db'))\""
-scp markus@arcade.local:TriviaArcade/data/backup.db game-backup.db
+ssh <server> "cd <dir> && docker compose exec -T game python -c \"import sqlite3; sqlite3.connect('/data/game.db').backup(sqlite3.connect('/data/backup.db'))\""
+scp <server>:<dir>/data/backup.db game-backup.db
 ```
 
 To restore: stop the game (`docker compose stop game`), replace `data/game.db` with the
@@ -177,7 +178,9 @@ Commit `uv.lock` or `package-lock.json` with it.
 bash scripts/deploy.sh
 ```
 
-It pushes `main`, waits for CI to be green, pulls and rebuilds the game on the home
+It deploys to `DEPLOY_SERVER` (the ssh login) into `DEPLOY_DIR` (the checkout there),
+both set in your `.env`. The server needs Docker, a clone of this repository and ssh
+access with a key. It pushes `main`, waits for CI to be green, pulls and rebuilds the game on the home
 server and checks `/api/health`. The server needs neither Neo4j nor an LLM: new questions
 arrive with the pool file in git. Never deploy while CI is red. The server's `.env` and
 `data/` are managed there; never change them by hand.
