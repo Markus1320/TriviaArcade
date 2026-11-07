@@ -30,3 +30,6 @@ docker-compose.override.yml
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Personal notes for Claude Code (your own server, paths)
+CLAUDE.local.md

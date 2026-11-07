@@ -229,6 +229,7 @@ review new questions before committing them.
 | `.github/workflows/ci.yml` | runs ruff, pytest, ESLint, Prettier, the frontend build and the image build on every push |
 | `scripts/deploy.sh` | deploys `main` to the home server (see [how-to.md](how-to.md)) |
 | `.env.example` | every setting, with placeholders; copy it to `.env` |
+| `.env`, `CLAUDE.local.md` | yours, never committed: settings and secrets; notes for Claude Code about your own machines |
 | `frontend/package.json`, `package-lock.json` | frontend dependencies and the `npm run` commands |
 | `frontend/vite.config.ts` | the dev server, which passes `/api` on to the game on port 8080 |
 | `frontend/tsconfig*.json` | TypeScript settings (strict) |

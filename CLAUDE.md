@@ -67,8 +67,9 @@ More recipes: [docs/how-to.md](docs/how-to.md).
 - **No test calls an LLM or Neo4j.** poolgen is tested with canned replies.
 - **Ports:** only the game is published on all interfaces (`GAME_PORT`, default 8080).
   Neo4j is bound to `127.0.0.1` only, never to all interfaces.
-- **Secrets** live in `.env` (gitignored). `.env.example` lists every variable with
-  placeholders. Never commit, print or hardcode keys.
+- **Secrets and personal details** (keys, server names, logins, paths of your own
+  machines) live in `.env` or `CLAUDE.local.md`, both gitignored. `.env.example` lists
+  every variable with placeholders. Never commit, print or hardcode them.
 - **Data:** `pool/` is committed. `data/` (the database `game.db`, the Wikidata cache) and
   player data are never committed.
 - **Frontend:** all assets original (no characters, sprites, logos or sounds from real
@@ -89,10 +90,11 @@ More recipes: [docs/how-to.md](docs/how-to.md).
 
 ## Deployment
 
-The game runs on a Debian laptop, `ssh markus@arcade.local`, checkout at
-`/home/markus/TriviaArcade`, tracking `origin/main`. "Deploy" always means
-`bash scripts/deploy.sh`: push `main`, wait for green CI (**never deploy while CI is
-red**), pull and rebuild on the server, check `/api/health`.
+The game runs on a small home server with Docker; its checkout tracks `origin/main`.
+`DEPLOY_SERVER` (ssh login) and `DEPLOY_DIR` (checkout) are set in the local `.env`. The
+owner's own server details are in `CLAUDE.local.md`, which is not committed. "Deploy"
+always means `bash scripts/deploy.sh`: push `main`, wait for green CI (**never deploy
+while CI is red**), pull and rebuild on the server, check `/api/health`.
 
 On the server:
 
