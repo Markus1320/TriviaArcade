@@ -1,0 +1,11 @@
+# Files Docker leaves out when it builds the image from this folder.
+.git
+.env
+.env.*
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+data
+frontend/node_modules
+frontend/dist

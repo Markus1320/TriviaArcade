@@ -227,12 +227,10 @@ const de: Strings = {
     run_over: 'Dieses Spiel ist schon vorbei.',
     no_open_question: 'Es gibt keine offene Frage.',
     invalid_answer: 'Bitte gib eine Antwort.',
-    question_unavailable: 'Gerade konnte keine Frage erstellt werden. Bitte nochmal versuchen.',
+    question_unavailable: 'Für dieses Spiel ist keine Frage mehr übrig.',
     no_questions_in_language:
       'Für diese Sprache gibt es noch keine Fragen. Bitte spiele in einer anderen Sprache.',
     no_life_left: 'Du hast kein 1UP zum Überspringen.',
-    judge_unavailable:
-      'Die Bewertung ist gerade nicht erreichbar. Dein Spiel ist pausiert; sende deine Antwort nochmal.',
     run_not_over: 'Nur beendete Spiele kommen in die Bestenliste.',
     run_already_claimed: 'Dieses Spiel steht schon in der Bestenliste.',
     invalid_handle: 'Der Name braucht 3 bis 8 Buchstaben (A-Z) oder Ziffern.',

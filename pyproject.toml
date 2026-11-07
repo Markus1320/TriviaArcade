@@ -1,0 +1,42 @@
+[project]
+name = "triviaarcade"
+version = "0.6.0"
+description = "TriviaArcade, an arcade style trivia game."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.141.1",
+    "httpx2>=2.13.1",
+    "neo4j>=6.3.1",
+    "pydantic>=2.13.5",
+    "pyyaml>=6.0.3",
+    "uvicorn[standard]>=0.53.0",
+]
+
+[tool.uv]
+# Not an installable package: the code runs from this folder (game/, later offline/).
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# The old backend has its own settings until it is removed.
+extend-exclude = ["backend"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# The example questions are JSON inside strings; a line break would change the text.
+"offline/prompts/writer.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]

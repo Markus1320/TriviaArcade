@@ -4,7 +4,7 @@ import { api, type ClaimResult } from '../api/client';
 import { errorMessage } from '../errors';
 import { useStrings } from '../language/languageState';
 
-// Same rule as the backend (app/leaderboard/handles.py); the server has the final say.
+// Same rule as the backend (normalize_handle in game/rules.py); the server has the final say.
 const HANDLE_PATTERN = /^[A-Z0-9]{3,8}$/;
 
 interface Props {

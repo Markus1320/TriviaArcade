@@ -1,3 +1,6 @@
+// ESLint finds likely mistakes in the code. The recommended rule sets catch real bugs
+// (unused variables, wrong hook use) without asking for extra type annotations;
+// TypeScript's own strict mode (tsconfig.app.json) checks the types.
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -11,18 +14,15 @@ export default tseslint.config(
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
-      ...tseslint.configs.strictTypeChecked,
+      ...tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
       ecmaVersion: 2023,
       globals: globals.browser,
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
     },
   },
+  // Formatting is Prettier's job; this turns off rules that would disagree with it.
   prettier,
 );

@@ -1,6 +1,7 @@
 # Simplification plan
 
-Status: agreed, 2026-11-04. Nothing here is built yet.
+Status: agreed, 2026-11-04. Steps 1 to 6 are done on the branch `simple` (see "Progress"
+at the end).
 
 ## Goal
 
@@ -40,7 +41,8 @@ Neo4j.
 |---|---|---|
 | `game/main.py` | all HTTP routes, start of the app | 200 lines |
 | `game/rules.py` | score, 1UPs, combo, time limit, checking choice answers | 100 |
-| `game/runs.py` | start a run, next question, answer, skip, timeout, claim | 250 |
+| `game/runs.py` | start a run, next question, answer, skip, timeout | 400 |
+| `game/scores.py` | after game over: claim, leaderboard, handles, question log | 140 |
 | `game/pool.py` | read the pool file, pick a question | 100 |
 | `game/matcher.py` | check a typed answer (carried over) | 190 |
 | `game/db.py` | open SQLite, small helper functions for queries | 80 |
@@ -49,7 +51,7 @@ Neo4j.
 
 In total about 1,000 lines instead of about 4,600 in `backend/app`.
 
-**Database: SQLite.** One file, `data/game.db`, mounted into the container. A backup is a
+**Database: SQLite.** One file, `data/game.db` (`DATABASE`), mounted into the container. A backup is a
 copy of that file. Tables:
 
 - `players`: id, handle
@@ -88,9 +90,10 @@ Everything runs in Docker with the profile `offline`, so the game alone starts w
 | File | Job |
 |---|---|
 | `offline/importer/` | Wikidata into Neo4j, as today (config in `config/import.yaml`) |
-| `offline/walk.py` | random walk in Neo4j, gives a few connected facts |
+| `offline/walk.py` | random walk in Neo4j, gives a few connected facts, and those as text |
 | `offline/llm.py` | one function: send a chat to Ollama, get JSON back, with one retry |
 | `offline/prompts/` | writer, critic and solver prompts (carried over, they are tuned) |
+| `offline/questions.py` | what a question is, and the code checks on the writer's reply |
 | `offline/poolgen.py` | the pipeline: write → check → critic → blind solve → append to the pool |
 | `offline/report.py` | summary and review of a pool |
 
@@ -195,3 +198,155 @@ Steps 2 to 6 are each a review point for you.
    `backend/poolgen/` and `backend/importer/`.
 4. **Branch:** the rebuild happens on `simple`, an exception to "commit directly to
    `main`" until the switch.
+
+## Progress
+
+### Step 1 (2026-11-04)
+
+The tag `v0.5.0` points at the commit before this plan. `classic` was created from it
+and pushed; `simple` was created from `main`.
+
+### Step 2 (2026-11-04)
+
+Built as planned, with these differences:
+
+- **`game/scores.py`** is one more file: claiming a run, the leaderboard, the handle list
+  and the question log. `runs.py` is then only about playing a run, and both stay
+  readable top to bottom.
+- **No "recent starts" rule at all.** Every start entity is walked once per pool, so two
+  pool questions never share a start. A run never gets a question twice, and questions
+  nobody has had come first.
+- **Concurrency:** each changing request runs in `BEGIN IMMEDIATE`, which takes SQLite's
+  write lock at once, so a double click cannot create two questions or judge twice.
+- **Errors:** one `GameError` with a code; the table `ERRORS` in `runs.py` holds every
+  code with its HTTP status and message (same codes as before, minus `judge_unavailable`).
+- **The project file** `pyproject.toml` (and `uv.lock`) is at the top of the repository,
+  tests are in `tests/`. The old `backend/` keeps its own until step 4 removes it.
+- **Settings:** `DATABASE` (default `data/game.db`), `POOL_DIR` (default `pool`, the
+  committed snapshots), `ANSWER_TIME_SECONDS`, `LIFE_COMBO`, `MAX_LIVES`, `START_LIVES`.
+- **Clock in tests:** `runs.now()` is replaced by a fake clock, the only fake in the
+  game tests.
+- The backend does not serve the frontend yet; that comes with the Dockerfile in step 3.
+- A question whose pool record disappears from the pool file is left out of the
+  question log; during a run it gives `question_unavailable`.
+
+### Step 3 (2026-11-04)
+
+- **Question screen** split into `QuestionScreen.tsx` (loading, talking to the server,
+  214 lines), `components/Hud.tsx` (number, 1UPs, score), `components/AnswerForm.tsx`
+  (time bar, question, input or options, keyboard, ENTER and SKIP) and
+  `components/Verdict.tsx` (explanation, marked options, NEXT QUESTION). Prefetching and
+  the "judge paused" state are gone; when a request fails after the time is up, the
+  error screen offers TRY AGAIN.
+- **One `Dockerfile`** at the top: Node builds the frontend, the Python image runs
+  uvicorn and serves the API and the built files (`FRONTEND_DIR`). It runs as the system
+  user `app`, uid 999, the owner of `data/` on the server. `Caddyfile`,
+  `compose.debug.yml` and `frontend/Dockerfile` are removed.
+- **`docker-compose.yml`:** the service `game` on `${GAME_PORT:-8080}`, with `pool/`
+  mounted read only (new questions are picked up without a restart, so the pool is not
+  copied into the image) and `data/` mounted for `game.db`. Under the profile `offline`:
+  `neo4j` (Browser on `127.0.0.1:7474`, same volume as before, so the graph is kept) and
+  `importer` (still built from `backend/` until step 4). The old `poolgen` service is
+  left out until step 4, because it needs PostgreSQL for its call log.
+- **`.env.example`** lists only what the game and the offline part read.
+- **For the switch (step 7):** `CADDY_PORT` is now `GAME_PORT`. If the server's `.env`
+  sets `CADDY_PORT`, the owner renames it. The old containers (caddy, backend, postgres)
+  show up as "orphans" of the project until they are removed.
+- ESLint keeps the strict rules until step 5; the new code passes them.
+- Played in the container on `localhost:8080`: order and single choice questions, the
+  keyboard, a reload during a question (same question, clock kept running), a wrong
+  answer saved by a 1UP, a timeout ending the run, claiming a handle, the leaderboard,
+  the question log, and German without questions (message and BACK only).
+
+### Step 4 (2026-11-04)
+
+- **`offline/`** as planned, plus `offline/questions.py` (the question's JSON shape and
+  the checks on the writer's reply: options, giveaways, "all of the above"), taken out
+  of the old generator so `poolgen.py` stays readable. `poolgen.py` is 530 lines: the
+  pool files and index, the three roles (writer, critic, solver), one walk from start to
+  end, and the command line, in that order.
+- **`llm.ask(chat, ..., check=...)`** is the one function. `chat` sends one request body
+  and returns the reply text; in use it is `Ollama(...).chat`, in the tests a function
+  returning canned replies. A retry after a reply that failed its check tells the model
+  why (as the writer did before; the critic and the solver now get the note too).
+- **Pool records** are plain dicts with exactly the old keys, so the existing
+  `pool/en.jsonl` and new lines look the same; `python -m offline.report` reads the
+  whole pool (839 walks, 792 accepted). Pydantic stays only where it checks data from
+  outside: the writer's reply (`questions.Question`) and `config/import.yaml`.
+- **No database:** the call log (`llm_calls`) is gone; the critic rounds are in each
+  record.
+- **The importer** moved unchanged except for its Neo4j settings (plain environment
+  variables instead of pydantic-settings). **Its five test files moved with it**
+  (680 lines): the importer is carried over, not rewritten, and those tests protect it.
+  So the tests are about 1,500 lines instead of the planned 600.
+- **`offline/walk.py` has no unit test**: it is mostly Neo4j queries; it was checked
+  against the real graph (three walks, same facts text as in the pool records).
+- **Commands** (on the host the values of `.env` are passed with `--env-file`):
+
+  ```bash
+  docker compose --profile offline run --rm importer --dry-run --names
+  docker compose --profile offline run --rm poolgen --language en --walks 100
+  uv run python -m offline.report --language en --summary
+  uv run --env-file .env python -m offline.importer.explore Q11424
+  ```
+
+- **Removed with `backend/`:** the old app, Alembic, the judge and live generator,
+  `scripts/sample_questions.py` (live questions), `scripts/reset_leaderboard.py`
+  (becomes one SQL line in `docs/how-to.md`) and `scripts/evaluate_matcher.py` (it
+  compared the matcher with judge verdicts, which no longer exist; its result is kept in
+  CLAUDE.md for `docs/history.md`).
+- **Not yet checked:** a trial with real LLM calls. Ollama runs only in the cloud here,
+  and the account is shared with the pool run on the server until 2026-11-09.
+- CI still pointed at `backend/` until step 5.
+
+### Step 5 (2026-11-04)
+
+- **ESLint** uses `typescript-eslint`'s `recommended` rules instead of
+  `strictTypeChecked`, without type information (no `projectService`), so it is faster
+  and asks for no extra annotations. TypeScript's strict mode stays. The code passed
+  without changes.
+- **CI** (`.github/workflows/ci.yml`) has three jobs: `python` (ruff lint and format,
+  pytest, at the top of the repository; no mypy), `frontend` (ESLint, Prettier, type
+  check and build) and `docker` (the compose file with the `offline` profile, and a
+  build of the image). All checks were run locally; CI on GitHub runs on the first push
+  of `simple`.
+- **The LLM trial of step 4 is still open**: the Ollama usage limit is reached until
+  about 2026-11-06. It is now part of step 7.
+
+### Step 6 (2026-11-04)
+
+- `docs/how-it-works.md` follows one question through the game and then the offline
+  path, and names every file (checked with a script against `git ls-files`).
+- `docs/how-to.md`: playing, working without Docker, checks, rules, UI texts, topics,
+  making questions, the database, backup, leaderboard reset (one SQL line instead of the
+  old script), table changes, dependencies, deploy.
+- `docs/history.md`: the sections of the old CLAUDE.md about rules, the knowledge graph,
+  the LLM, the pool, the matcher, the game loop and the frontend, copied unchanged, with
+  a table of where those files live now.
+- `docs/react-for-angular-devs.md`, from the "Frontend" section of this plan.
+- `CLAUDE.md` is short now (the rules for working on the project), `README.md` says what
+  the game is and how to start it.
+- The deploy recipe describes the new deploy (no importer, no Neo4j on the server); the
+  script itself is simplified in step 7.
+
+### Step 7 (started 2026-11-07)
+
+- **No free Ollama usage any more:** since 2026-11-04 17:10 UTC Ollama answered with
+  HTTP 402 ("Add usage credits or subscribe"). The last accepted question was written on
+  2026-11-03. `poolgen-en` was stopped on 2026-11-07.
+- **The LLM trial is skipped before the switch.** It is the first job on the GPU PC with
+  a local Ollama: 3 walks into `--dir data/pool-trial`, then `offline.report`. The
+  prompts were tuned on `gemma4:31b-cloud` (writer) and `gpt-oss:120b` (critic, solver);
+  a smaller local model needs a look at question quality, not only at whether the code
+  runs.
+- **Last snapshot:** `pool/en.jsonl` on the server is identical to the committed one
+  (792 questions). `pool/en.rejected.jsonl` gained 5 lines, all technical failures
+  (HTTP 402), so their start entities stay free for later walks.
+- **`scripts/deploy.sh`** is simpler: push `main`, wait for green CI, `git pull`,
+  `docker compose up -d --build --wait --remove-orphans`, health check on the game's
+  port. No importer and no "last deployed commit" marker any more. `--remove-orphans`
+  removes the classic caddy, backend and postgres containers (tested: the old container
+  is removed before the new one takes port 8080); a second line removes the offline
+  containers, so the classic Neo4j stops running on the server. All volumes stay.
+  `poolgen-en` (a stopped `docker compose run` container) is left for the owner to
+  remove with `docker rm poolgen-en`.
