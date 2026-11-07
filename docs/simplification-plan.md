@@ -342,3 +342,11 @@ Built as planned, with these differences:
 - **Last snapshot:** `pool/en.jsonl` on the server is identical to the committed one
   (792 questions). `pool/en.rejected.jsonl` gained 5 lines, all technical failures
   (HTTP 402), so their start entities stay free for later walks.
+- **`scripts/deploy.sh`** is simpler: push `main`, wait for green CI, `git pull`,
+  `docker compose up -d --build --wait --remove-orphans`, health check on the game's
+  port. No importer and no "last deployed commit" marker any more. `--remove-orphans`
+  removes the classic caddy, backend and postgres containers (tested: the old container
+  is removed before the new one takes port 8080); a second line removes the offline
+  containers, so the classic Neo4j stops running on the server. All volumes stay.
+  `poolgen-en` (a stopped `docker compose run` container) is left for the owner to
+  remove with `docker rm poolgen-en`.
